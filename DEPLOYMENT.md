@@ -36,14 +36,24 @@ Components or Route Handlers).
    committed).
 4. **Deploy**: `vercel --prod` from the repo root (or push to the branch Vercel is tracking
    — either triggers a build). Vercel runs `next build` using the env vars from step 3.
-5. **If the build fails with `Missing Firebase Admin credentials`**: one or more of
+5. **Build uses `next build --webpack`, not Turbopack (the Next.js 16 default).**
+   `firebase-admin`'s dependency tree pulls in `jwks-rsa` → `jose`, and Turbopack's
+   production bundler fails to load that chain at runtime in Vercel's serverless
+   environment (`ERR_REQUIRE_ESM` inside `firebase-admin/auth`, even though
+   `firebase-admin` is in Next.js's own built-in external-packages list). The build
+   itself succeeds either way — this only surfaces when a Route Handler that imports
+   `lib/firebase/admin.ts` actually runs. `next build --webpack` (Next.js's documented
+   opt-out, see `serverExternalPackages`/Turbopack docs) avoids it entirely; verified by
+   running the built output locally with `next start` and a real login before pushing.
+   `next dev` is unaffected (different code path) and stays on Turbopack.
+6. **If the build fails with `Missing Firebase Admin credentials`**: one or more of
    `FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY`
    wasn't visible to the build. In the Vercel dashboard, each environment variable has a
    checkbox for which environments it applies to (Production / Preview / Development) —
    confirm all ten variables are checked for **Production** specifically, not just
    Preview/Development, then redeploy. (Hit this exact error on first deploy — see
    PROGRESS.md.)
-6. **Post-deploy, once**: run `npm run seed` and `npm run seed:demo` locally against the
+7. **Post-deploy, once**: run `npm run seed` and `npm run seed:demo` locally against the
    *same* Firebase project the deployment uses (they write directly to Firestore/Auth via
    the Admin SDK — there's no "seed via the deployed site" step, these are local scripts
    that happen to affect the shared backend).
