@@ -36,7 +36,14 @@ Components or Route Handlers).
    committed).
 4. **Deploy**: `vercel --prod` from the repo root (or push to the branch Vercel is tracking
    — either triggers a build). Vercel runs `next build` using the env vars from step 3.
-5. **Post-deploy, once**: run `npm run seed` and `npm run seed:demo` locally against the
+5. **If the build fails with `Missing Firebase Admin credentials`**: one or more of
+   `FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY`
+   wasn't visible to the build. In the Vercel dashboard, each environment variable has a
+   checkbox for which environments it applies to (Production / Preview / Development) —
+   confirm all ten variables are checked for **Production** specifically, not just
+   Preview/Development, then redeploy. (Hit this exact error on first deploy — see
+   PROGRESS.md.)
+6. **Post-deploy, once**: run `npm run seed` and `npm run seed:demo` locally against the
    *same* Firebase project the deployment uses (they write directly to Firestore/Auth via
    the Admin SDK — there's no "seed via the deployed site" step, these are local scripts
    that happen to affect the shared backend).
