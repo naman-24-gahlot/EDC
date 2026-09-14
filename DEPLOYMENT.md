@@ -36,16 +36,19 @@ Components or Route Handlers).
    committed).
 4. **Deploy**: `vercel --prod` from the repo root (or push to the branch Vercel is tracking
    — either triggers a build). Vercel runs `next build` using the env vars from step 3.
-5. **Build uses `next build --webpack`, not Turbopack (the Next.js 16 default).**
-   `firebase-admin`'s dependency tree pulls in `jwks-rsa` → `jose`, and Turbopack's
-   production bundler fails to load that chain at runtime in Vercel's serverless
-   environment (`ERR_REQUIRE_ESM` inside `firebase-admin/auth`, even though
-   `firebase-admin` is in Next.js's own built-in external-packages list). The build
-   itself succeeds either way — this only surfaces when a Route Handler that imports
-   `lib/firebase/admin.ts` actually runs. `next build --webpack` (Next.js's documented
-   opt-out, see `serverExternalPackages`/Turbopack docs) avoids it entirely; verified by
-   running the built output locally with `next start` and a real login before pushing.
-   `next dev` is unaffected (different code path) and stays on Turbopack.
+5. **`package.json` pins `jose` to `^5.10.0` via `overrides`.** `firebase-admin`'s
+   dependency tree pulls in `jwks-rsa` → `jose`; the `jose` version that resolves by
+   default (6.x) ships ESM-only (no `require` export condition at all), and Vercel's
+   Lambda runtime crashes trying to `require()` it (`ERR_REQUIRE_ESM`, surfaced from
+   inside Vercel's own function bootstrap, not from Next.js's bundler — confirmed by the
+   stack trace and by the fact that switching Turbopack↔webpack made no difference; only
+   pinning `jose` to a version with a real CJS build fixed it). We never call anything in
+   `jwks-rsa` ourselves — `verifyIdToken`/`verifySessionCookie`/`createSessionCookie` all
+   use Firebase's own cert-fetching path — so downgrading the module we never invoke is
+   safe; it only needs to *load* without crashing. Verified against the live deployment
+   (not just a local build) before considering this fixed — local `next start` did not
+   reproduce the crash even when it was present, since it doesn't replicate Vercel's
+   function packaging.
 6. **If the build fails with `Missing Firebase Admin credentials`**: one or more of
    `FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY`
    wasn't visible to the build. In the Vercel dashboard, each environment variable has a
