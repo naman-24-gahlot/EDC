@@ -1,16 +1,16 @@
-// SERVER-ONLY. Reads/writes the session cookie and resolves the current user's role
-// from Firebase custom claims — never from anything client-supplied.
+// SERVER-ONLY. Reads/writes the session cookie and resolves the current user's
+// systemRole from Firebase custom claims — never from anything client-supplied.
 import { cookies } from 'next/headers';
 import { adminAuth } from '@/lib/firebase/admin';
-import { isRole, type Role } from '@/lib/roles';
+import { isSystemRole, type SystemRole } from '@/lib/roles';
 
 export const SESSION_COOKIE_NAME = 'session';
 export const SESSION_EXPIRES_IN_MS = 5 * 24 * 60 * 60 * 1000; // 5 days
 
 export interface SessionUser {
-  uid: string;
+  personId: string;
   email: string | null;
-  role: Role;
+  systemRole: SystemRole;
 }
 
 export async function createSessionCookie(idToken: string): Promise<string> {
@@ -24,11 +24,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (!sessionCookie) return null;
 
   try {
-    // `true` = check the session cookie hasn't been revoked (e.g. an admin
-    // deactivating the account mid-session).
+    // `true` = check the session cookie hasn't been revoked (e.g. Master deactivating
+    // the account, or demoting/promoting, mid-session).
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    if (!isRole(decoded.role)) return null;
-    return { uid: decoded.uid, email: decoded.email ?? null, role: decoded.role };
+    if (!isSystemRole(decoded.systemRole)) return null;
+    return { personId: decoded.uid, email: decoded.email ?? null, systemRole: decoded.systemRole };
   } catch {
     return null;
   }

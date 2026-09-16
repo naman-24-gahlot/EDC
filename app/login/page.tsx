@@ -2,13 +2,11 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
-import { ROLE_HOME_PATH, isRole } from '@/lib/roles';
+import { ROLE_HOME_PATH, isSystemRole } from '@/lib/roles';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,13 +17,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const credential = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await credential.user.getIdToken();
-
       const response = await fetch('/api/auth/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
+        body: JSON.stringify({ identifier, password }),
       });
 
       const data = await response.json();
@@ -33,8 +28,8 @@ export default function LoginPage() {
         throw new Error(data.error ?? 'Sign-in failed');
       }
 
-      const role = data.role;
-      router.push(isRole(role) ? ROLE_HOME_PATH[role] : '/login');
+      const systemRole = data.systemRole;
+      router.push(isSystemRole(systemRole) ? ROLE_HOME_PATH[systemRole] : '/login');
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign-in failed');
@@ -54,16 +49,16 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
+          <label htmlFor="identifier" className="text-sm font-medium">
+            Username / EDC Email / Email
           </label>
           <input
-            id="email"
-            type="email"
+            id="identifier"
+            type="text"
             required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
