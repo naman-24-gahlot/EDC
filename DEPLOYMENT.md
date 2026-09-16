@@ -19,6 +19,11 @@ Project settings → Service accounts → Generate new private key for the Admin
 | `FIREBASE_ADMIN_CLIENT_EMAIL` | Server-only — Admin SDK |
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Server-only — Admin SDK. Paste with real newlines or `\n` escapes; `lib/firebase/admin.ts` converts `\n` → real newlines either way |
 | `QR_TOKEN_SECRET` | Server-only — QR pass HMAC signing (`lib/qr-token.ts`). A long random string; treat exactly like a password |
+| `EDC_EMAIL_DOMAIN` | Server-only, **optional, not a secret** — institutional email domain for the EDC login identifier. Empty/unset = that identifier isn't assigned; username and communication-email login still work. Set it in Vercel only if you set it locally. |
+
+The login route also calls Firebase Auth's REST `signInWithPassword` server-side using
+`NEXT_PUBLIC_FIREBASE_API_KEY` — that key is public by design and no additional secret is
+needed for it.
 
 None of the `FIREBASE_ADMIN_*` or `QR_TOKEN_SECRET` values are ever read by client code —
 verified in the Session 8 security audit (grepped every importer; all are Server
