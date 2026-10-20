@@ -428,6 +428,7 @@ Finish: PROGRESS.md row "Expansion P12" with the acceptance results.
 | Any time (optional) | Set a real `EDC_EMAIL_DOMAIN` in `.env.local` | Only you know the institutional domain; I won't invent one | Leave empty — EDC email identifiers just aren't assigned; nothing blocks |
 | P6 / P9 (only if it fails) | `firebase login` | The session will try `firebase deploy --only firestore:rules` / `:indexes` itself using the CLI's existing login | Confirmed logged in as of P4 (rules deployed from the session) — nothing to do unless it expires |
 | P12 (only if you set a domain) | Add `EDC_EMAIL_DOMAIN` to Vercel → Production env vars | Env values are never handled by the session | If empty locally, skip |
+| Any time (optional, from P11) | Firebase console → Authentication → Settings → User actions → untick "Enable create (sign-up)" | Stops bare Auth accounts being created via the public REST API at the source | Not required — the app already neutralises them (SECURITY_MODEL.md "Email squatting") |
 | P12 | One QR scan from a real phone camera | No camera exists in the session's browser | Everything else is verified against the deployed URL |
 
 Removed from the previous plan: the data-reset approval (pre-approved above), new Firebase

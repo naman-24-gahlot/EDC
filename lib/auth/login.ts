@@ -14,7 +14,8 @@ export class LoginError extends Error {}
 
 async function resolvePersonId(identifier: string): Promise<string | null> {
   const key = identifier.trim().toLowerCase();
-  if (!key) return null;
+  // No identifier can contain '/' (see lib/people/create.ts); never let one become a path.
+  if (!key || key.includes('/') || key.length > 254) return null;
   const snap = await adminDb.collection('identifiers').doc(key).get();
   const personId = snap.data()?.personId;
   return typeof personId === 'string' ? personId : null;

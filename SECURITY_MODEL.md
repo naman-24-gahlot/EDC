@@ -198,11 +198,41 @@ approve route recomputes expiry inside its transaction before acting.
 - **Direct Route Handler calls** — every handler re-derives the actor from the session cookie
   and re-checks authority; the UI hides nothing that the server doesn't also refuse.
 - **Direct Firestore access with the public config** — rules deny all client reads/writes;
-  verified live with the client SDK in the Session 8 audit and to be re-verified in P11.
+  re-verified in P11 with real ID tokens (unauthenticated, member, guard, Master) against the
+  Firestore REST API: every list, read, write and create → `PERMISSION_DENIED`.
+- **Email squatting via the public Firebase Auth REST API** (P11) — the web API key is public
+  by design, so anyone can call `accounts:signUp` directly and create a bare Auth account
+  holding someone else's email. `createPerson` now reserves every identifier first (atomic
+  `create()` under a fresh personId), then creates the Auth user with that uid; an existing
+  Auth account for the email that has **no profile** was therefore created outside the app and
+  is deleted (audited `ORPHAN_AUTH_ACCOUNT_REMOVED`). An account *with* a profile is never
+  touched (409). Changing one's own Auth email via `accounts:update` is refused by Firebase
+  until the new address is verified, so it can't be used to squat.
+- **CSRF / login CSRF** (P11) — the session cookie is `SameSite=Lax` (cross-site POSTs don't
+  carry it); additionally `proxy.ts` refuses any non-GET `/api/*` request whose `Origin` host
+  differs from `Host` or whose `Sec-Fetch-Site` is `cross-site`/`same-site`. This also stops a
+  foreign page from silently signing a browser into an attacker's account.
+- **Clickjacking / sniffing** (P11) — every response carries `X-Frame-Options: DENY`,
+  `frame-ancestors 'none'`, `nosniff`, `strict-origin-when-cross-origin` and a
+  Permissions-Policy allowing only the camera (for the guard scanner).
+- **Path injection through identifiers** (P11) — emails must match a strict pattern (no `/`,
+  no whitespace) because they become `identifiers/{email}` document ids; login rejects any
+  identifier containing `/` before it reaches Firestore.
 - **Secrets in the repo** — `.env.local`, credentials files gitignored; `.env.example` is
   names only; no secret is ever printed by a script or logged by a route.
 - **Username / email enumeration via login** — server-side verification returns the same
   generic failure for unknown identifier and wrong password.
+
+## Accepted risks (reviewed in P11, deliberately not changed)
+- **Registration reveals whether a username or email is taken** — a public sign-up form has to
+  say so; login itself stays non-enumerating.
+- **No app-level rate limiting** — login relies on Firebase Auth's throttling; the gate is
+  guard-only and every attempt is logged; public registration only creates `PENDING` people.
+  Adding a limiter would need a new service (out of scope on the free tiers).
+- **Bare Auth accounts can still be created via the REST API** — they can't sign in to the app
+  (no identifier, no claim, Firestore denies them) and are removed if they ever block a real
+  registration. Optionally disable sign-up at the source: Firebase console → Authentication →
+  Settings → User actions → untick "Enable create (sign-up)" (the Admin SDK is unaffected).
 
 ## Intentionally out of scope for this release
 Government-ID / Aadhaar verification, biometrics, external identity providers, rate limiting

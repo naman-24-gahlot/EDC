@@ -76,8 +76,11 @@ identifier per person (up to three: username, commEmail, edcEmail).
 ```
 { personId: string, kind: 'username' | 'commEmail' | 'edcEmail', createdAt: Timestamp }
 ```
-Written in the same batch as the person doc with `create()`, so a taken username/email fails
-the whole registration atomically. If `edcEmail` lowercases to the same string as `commEmail`,
+Reserved **first**, in one `create()` batch under a freshly generated personId, before the
+Auth account (created with that same uid) and the person doc; any later failure deletes the
+reservations, so a taken username/email fails the whole registration atomically and leaves
+nothing behind (since P11 — see SECURITY_MODEL.md "Email squatting"). Emails must match a
+strict pattern (no `/` or whitespace) because the key is a document id. If `edcEmail` lowercases to the same string as `commEmail`,
 only one doc is written. Usernames can't collide with emails (no `@` allowed).
 
 ### `accessNumbers/{fiveDigits}`
@@ -177,7 +180,8 @@ Append-only. No role may update or delete.
 PROFILE_TYPE_CHANGED | HIERARCHY_CHANGED | MASTER_PROMOTED | MASTER_DEMOTED | GUARD_CREATED |
 ACCESS_REQUEST_CREATED | ACCESS_REQUEST_APPROVED | ACCESS_REQUEST_REJECTED | ACCESS_REQUEST_EXPIRED |
 ENTITLEMENT_CREATED | ENTITLEMENT_CHANGED | ENTITLEMENT_REVOKED | ENTITLEMENT_SUPERSEDED |
-CREDENTIAL_REISSUED | ENTRY_APPROVED | ENTRY_DENIED | PERSON_DEACTIVATED | PERSON_REACTIVATED`
+CREDENTIAL_REISSUED | ENTRY_APPROVED | ENTRY_DENIED | PERSON_DEACTIVATED | PERSON_REACTIVATED |
+ORPHAN_AUTH_ACCOUNT_REMOVED`
 
 ## State machines
 

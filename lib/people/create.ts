@@ -14,6 +14,9 @@ import { HttpError, computeAncestorIds, loadPerson } from '@/lib/hierarchy/autho
 export const PersonCreateError = HttpError;
 
 const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
+// Deliberately narrower than RFC 5322: the address becomes a Firestore document id
+// (identifiers/{email}), so '/' and whitespace must never get through.
+const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 const MAX_PHOTO_BYTES = 150 * 1024;
 const PHOTO_DATA_URL_RE = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+=*)$/;
 
@@ -23,6 +26,10 @@ function isAlreadyExistsError(err: unknown): boolean {
   if (code === 6) return true;
   const message = (err as { message?: unknown }).message;
   return typeof message === 'string' && message.includes('ALREADY_EXISTS');
+}
+
+function authCode(err: unknown): unknown {
+  return err && typeof err === 'object' ? (err as { code?: unknown }).code : undefined;
 }
 
 function validatePhoto(photoDataUrl: string | null): string | null {
@@ -45,7 +52,7 @@ export interface CreatePersonInput {
   commEmail: string; // raw; lowercased only for the identifiers key
   mobile: string;
   purpose: string;
-  profileType: ProfileType | null; // null only for guards (created in a later phase)
+  profileType: ProfileType | null; // null only for guards
   password: string;
   photoDataUrl: string | null;
 }
@@ -66,11 +73,40 @@ export interface CreatedPerson {
 }
 
 /**
- * Creates the Firebase Auth account, then the people/identifiers(+accessNumbers)
- * Firestore docs. If the Firestore side fails after the Auth account was created
- * (most likely: a rare race on username/email past the pre-check below), the Auth
- * account is deleted so the email isn't left permanently locked to an orphaned
- * account with no profile.
+ * Creates the Auth account for a person whose identifiers we already hold. An existing
+ * Auth account with this email can't be one of ours mid-creation (we hold the identifier
+ * reservation), so if it has no profile it was created outside the app — e.g. directly
+ * against the public Firebase REST API to squat the address — and is removed.
+ */
+async function createAuthUser(uid: string, email: string, password: string, displayName: string) {
+  try {
+    await adminAuth.createUser({ uid, email, password, displayName, emailVerified: false });
+    return;
+  } catch (err) {
+    if (authCode(err) !== 'auth/email-already-exists') throw err;
+  }
+  const existing = await adminAuth.getUserByEmail(email);
+  if ((await adminDb.collection('people').doc(existing.uid).get()).exists) {
+    throw new PersonCreateError(409, 'That email is already registered.');
+  }
+  await adminAuth.deleteUser(existing.uid);
+  await adminDb.collection('auditLogs').add({
+    action: 'ORPHAN_AUTH_ACCOUNT_REMOVED',
+    actorId: 'system',
+    actorRole: 'system',
+    targetPersonId: null,
+    subjectId: existing.uid,
+    timestamp: Timestamp.now(),
+    details: 'Auth account with no profile held an email being registered',
+  });
+  await adminAuth.createUser({ uid, email, password, displayName, emailVerified: false });
+}
+
+/**
+ * Order matters: (1) reserve every identifier atomically with create() under a fresh
+ * personId, (2) create the Auth user with that same uid, (3) write the person. Any failure
+ * after (1) is compensated, so a taken username/email never leaves partial state and an
+ * address can't be held hostage by an orphaned Auth account.
  */
 export async function createPerson(
   input: CreatePersonInput,
@@ -85,22 +121,13 @@ export async function createPerson(
   }
   const commEmailRaw = input.commEmail.trim();
   const commEmailKey = commEmailRaw.toLowerCase();
-  if (!commEmailKey.includes('@')) {
+  if (!EMAIL_RE.test(commEmailRaw) || commEmailRaw.length > 254) {
     throw new PersonCreateError(400, 'A valid communication email is required.');
   }
   if (!input.password || input.password.length < 8) {
     throw new PersonCreateError(400, 'Password must be at least 8 characters.');
   }
   const photoDataUrl = validatePhoto(input.photoDataUrl);
-
-  // Pre-check — not the source of truth (the batch's create() below is), but avoids
-  // creating-then-deleting an Auth account in the common non-racing case.
-  const [usernameSnap, emailSnap] = await Promise.all([
-    adminDb.collection('identifiers').doc(username).get(),
-    adminDb.collection('identifiers').doc(commEmailKey).get(),
-  ]);
-  if (usernameSnap.exists) throw new PersonCreateError(409, 'That username is already taken.');
-  if (emailSnap.exists) throw new PersonCreateError(409, 'That email is already registered.');
 
   let ancestorIds: string[] = [];
   if (options.parentId) {
@@ -109,41 +136,42 @@ export async function createPerson(
     ancestorIds = computeAncestorIds(parent);
   }
 
-  const displayName = `${input.firstName} ${input.lastName}`.trim();
-  let personId: string;
+  const edcDomain = process.env.EDC_EMAIL_DOMAIN?.trim();
+  const edcEmail = edcDomain ? `${username}@${edcDomain}`.toLowerCase() : null;
+  const identifierKeys = new Map<string, 'username' | 'commEmail' | 'edcEmail'>([
+    [username, 'username'],
+    [commEmailKey, 'commEmail'],
+  ]);
+  if (edcEmail && !identifierKeys.has(edcEmail)) identifierKeys.set(edcEmail, 'edcEmail');
+
+  // (1) Reserve.
+  const personId = adminDb.collection('people').doc().id;
+  const now = Timestamp.now();
+  const reserve = adminDb.batch();
+  for (const [key, kind] of identifierKeys) {
+    reserve.create(adminDb.collection('identifiers').doc(key), { personId, kind, createdAt: now });
+  }
   try {
-    const created = await adminAuth.createUser({
-      email: commEmailRaw,
-      password: input.password,
-      displayName,
-      emailVerified: false,
-    });
-    personId = created.uid;
+    await reserve.commit();
   } catch (err) {
-    const code = err && typeof err === 'object' ? (err as { code?: unknown }).code : undefined;
-    if (code === 'auth/email-already-exists') {
-      throw new PersonCreateError(409, 'That email is already registered.');
-    }
-    throw err;
+    if (!isAlreadyExistsError(err)) throw err;
+    const taken = await adminDb.collection('identifiers').doc(username).get();
+    throw new PersonCreateError(409, taken.exists ? 'That username is already taken.' : 'That email is already registered.');
   }
 
+  let authCreated = false;
   let accessNumber: string | null = null;
   try {
+    // (2) Auth account, same uid.
+    await createAuthUser(personId, commEmailRaw, input.password, `${input.firstName} ${input.lastName}`.trim());
+    authCreated = true;
     const systemRole: SystemRole = options.systemRole ?? 'member';
     await adminAuth.setCustomUserClaims(personId, { systemRole });
 
-    const now = Timestamp.now();
+    // (3) The person.
     const isApproved = options.registrationStatus === 'APPROVED';
-
-    if (isApproved && input.profileType) {
-      accessNumber = await issueAccessNumber(personId);
-    }
-
-    const edcDomain = process.env.EDC_EMAIL_DOMAIN?.trim();
-    const edcEmail = edcDomain ? `${username}@${edcDomain}`.toLowerCase() : null;
-
-    const batch = adminDb.batch();
-    batch.create(adminDb.collection('people').doc(personId), {
+    if (isApproved && input.profileType) accessNumber = await issueAccessNumber(personId);
+    await adminDb.collection('people').doc(personId).create({
       personId,
       firstName: input.firstName.trim(),
       lastName: input.lastName.trim(),
@@ -165,42 +193,13 @@ export async function createPerson(
       createdAt: now,
       createdBy: options.createdBy,
     });
-    batch.create(adminDb.collection('identifiers').doc(username), {
-      personId,
-      kind: 'username',
-      createdAt: now,
-    });
-    batch.create(adminDb.collection('identifiers').doc(commEmailKey), {
-      personId,
-      kind: 'commEmail',
-      createdAt: now,
-    });
-    if (edcEmail && edcEmail !== commEmailKey) {
-      batch.create(adminDb.collection('identifiers').doc(edcEmail), {
-        personId,
-        kind: 'edcEmail',
-        createdAt: now,
-      });
-    }
 
-    await batch.commit();
-
-    return {
-      personId,
-      username,
-      commEmail: commEmailRaw,
-      accessNumber,
-      accessCode: accessCodeFor(input.profileType, accessNumber),
-    };
+    return { personId, username, commEmail: commEmailRaw, accessNumber, accessCode: accessCodeFor(input.profileType, accessNumber) };
   } catch (err) {
-    // Compensate: don't leave an orphaned Auth account holding this email hostage.
-    await adminAuth.deleteUser(personId).catch(() => {});
-    if (accessNumber) {
-      await adminDb.collection('accessNumbers').doc(accessNumber).delete().catch(() => {});
-    }
-    if (isAlreadyExistsError(err)) {
-      throw new PersonCreateError(409, 'That username or email was just taken — please try again.');
-    }
+    // Compensate everything (1)–(3) may have left behind.
+    if (authCreated) await adminAuth.deleteUser(personId).catch(() => {});
+    if (accessNumber) await adminDb.collection('accessNumbers').doc(accessNumber).delete().catch(() => {});
+    await Promise.all([...identifierKeys.keys()].map((k) => adminDb.collection('identifiers').doc(k).delete().catch(() => {})));
     throw err;
   }
 }
