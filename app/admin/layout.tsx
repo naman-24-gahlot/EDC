@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/session';
 import { RoleHeader } from '@/components/RoleHeader';
@@ -12,8 +13,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   if (user.systemRole !== 'master') redirect('/login');
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8">
       <RoleHeader role="master" subtitle={user.email ?? undefined} />
+      <p className="-mt-4 mb-4 text-right text-xs"><Link href="/me" className="text-gray-500 underline">My own account →</Link></p>
       <AdminNav />
       <div className="pt-6">{children}</div>
     </div>

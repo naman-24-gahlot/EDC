@@ -8,10 +8,10 @@ import { accessCodeFor } from '@/lib/access/codes';
 import { effectiveStatus, getCurrentEntitlement, type Entitlement } from '@/lib/access/entitlements';
 import { listApprovalQueue, listRequestsFor, type AccessRequest } from '@/lib/access/requests';
 import { RoleHeader } from '@/components/RoleHeader';
-import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate, formatDateTime } from './labels';
+import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate, formatDateTime } from '@/lib/display';
 import { ReissueButton } from './ReissueButton';
 import { RequestForm } from './RequestForm';
-import { DecisionButtons } from './DecisionButtons';
+import { DecisionButtons } from '@/components/DecisionButtons';
 import { CreatePersonForm } from './CreatePersonForm';
 import { GrantButton } from './GrantButton';
 

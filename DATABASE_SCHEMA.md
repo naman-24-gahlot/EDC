@@ -63,9 +63,10 @@ Append-only. One entry per profile-type change.
 {
   fromProfileType, toProfileType,
   changedBy: string, changedAt: Timestamp, reason: string | null,
-  retiredAccessCode: string,        // the old full code string, now rejected at the gate
-  newAccessCode: string,
+  retiredAccessCode: string | null, // the old full code string, now rejected at the gate
+  newAccessCode: string | null,     // null only if the person had no access number yet
   credentialVersionAfter: number,
+  supersededEntitlementIds: string[],
 }
 ```
 
@@ -232,7 +233,9 @@ being scanned — the same pass keeps working for entry 1…n while the entitlem
    the new type's template. (Silently auto-granting access on a type change is the wrong
    default for an access-control system; it's a one-line change if the college wants it.)
 5. Validation: an Employee with live subordinates cannot become a non-parent type until they
-   are rehomed; a subordinate type becoming Employee/Incubee is moved to top-level.
+   are rehomed; a subordinate type becoming Employee/Incubee is moved to top-level; a
+   top-level person can't become a subordinate type until rehomed under an employee. Masters
+   and guards keep their type (demote a Master first). One transaction (`lib/people/profileType.ts`).
 
 ## Hierarchy rules
 - Top-level (`parentId: null`) may only be: `employee`, `incubee`, guards, Master.

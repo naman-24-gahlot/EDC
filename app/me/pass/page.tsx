@@ -9,7 +9,7 @@ import { effectiveStatus, getCurrentEntitlement } from '@/lib/access/entitlement
 import { decideAccess } from '@/lib/access/evaluate';
 import { passTokenFor } from '@/lib/access/credential';
 import { LogoutButton } from '@/components/LogoutButton';
-import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate } from '../labels';
+import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate } from '@/lib/display';
 
 export const dynamic = 'force-dynamic';
 

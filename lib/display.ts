@@ -1,4 +1,4 @@
-// Display helpers shared by the /me pages. Presentation only — no access rules here.
+// Display helpers shared by /me and /admin. Presentation only — no access rules here.
 import type { ProfileType } from '@/lib/access/codes';
 import type { EffectiveStatus } from '@/lib/access/entitlements';
 
@@ -53,4 +53,10 @@ export const STATUS_STYLE: Record<string, string> = {
   REVOKED: 'bg-red-100 text-red-800 ring-red-300',
   REJECTED: 'bg-red-100 text-red-800 ring-red-300',
   'NOT YET ACTIVE': 'bg-sky-100 text-sky-800 ring-sky-300',
+  SCHEDULED: 'bg-sky-100 text-sky-800 ring-sky-300',
+  SUPERSEDED: 'bg-gray-100 text-gray-500 ring-gray-200',
+  DENIED: 'bg-red-100 text-red-800 ring-red-300',
+  DEACTIVATED: 'bg-red-100 text-red-800 ring-red-300',
+  GUARD: 'bg-amber-50 text-amber-800 ring-amber-200',
+  MASTER: 'bg-purple-100 text-purple-800 ring-purple-300',
 };
