@@ -46,6 +46,8 @@ The person: identity, current profile, hierarchy position, credential state.
   credentialVersion: number,        // starts at 1; bump invalidates every previously issued QR
 
   active: boolean,                  // deactivation (disables Auth account + revokes sessions, as today)
+  lastRequestAt?: Timestamp,        // written with every new access request; makes concurrent
+                                    // creates for one person conflict, enforcing one PENDING
   createdAt: Timestamp,
   createdBy: string,                // personId of creator, or 'self' for public registration
 }
@@ -199,6 +201,13 @@ Approval never grants an entitlement; that is a separate access request.
 | `PENDING` | `EXPIRED` | system, computed when `now > actionableUntil`, lazily persisted | leaves queues, kept in history |
 
 Terminal: `APPROVED`, `REJECTED`, `EXPIRED`. Never deleted.
+
+Nobody decides a request for their **own** access — Master included. Approval runs in one
+transaction: re-check `PENDING` and the deadline (if past it, `EXPIRED` is committed and the
+call returns 409), grant the entitlement with `sourceRequestId` (the request's dates, then the
+approver's overrides, over the profile template), set `APPROVED` + `resultingEntitlementId`.
+Lazy expiry runs one small transaction per stale request, so concurrent readers expire and
+audit it exactly once.
 
 ### Entitlement (`entitlements.state` + computed)
 | From | To | Who | Effect |
