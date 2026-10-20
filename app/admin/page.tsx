@@ -4,11 +4,12 @@ import { expireStaleRequests, type AccessRequest } from '@/lib/access/requests';
 import { PROFILE_LABEL, formatDate, formatDateTime } from '@/lib/display';
 import { DecisionButtons } from '@/components/DecisionButtons';
 import { StatusPill } from '@/components/StatusPill';
-import { allPeople, nameMap } from './data';
+import { allPeople, nameMap, requireMasterPage } from './data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminRequestsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  await requireMasterPage();
   const { status: filter } = await searchParams;
   const [snap, people] = await Promise.all([adminDb.collection('accessRequests').get(), allPeople()]);
   const raw = snap.docs.map((d) => ({ ...(d.data() as Omit<AccessRequest, 'id'>), id: d.id }));

@@ -1,6 +1,7 @@
 // SERVER-ONLY. Reads/writes the session cookie and resolves the current user's
 // systemRole from Firebase custom claims — never from anything client-supplied.
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { adminAuth } from '@/lib/firebase/admin';
 import { isSystemRole, type SystemRole } from '@/lib/roles';
 
@@ -15,6 +16,16 @@ export interface SessionUser {
 
 export async function createSessionCookie(idToken: string): Promise<string> {
   return adminAuth.createSessionCookie(idToken, { expiresIn: SESSION_EXPIRES_IN_MS });
+}
+
+/**
+ * For PAGES: verify the session and role inside the page itself — never rely on a layout,
+ * which Next skips on client-side navigation. Redirects to /login otherwise.
+ */
+export async function requirePageRole(...roles: SystemRole[]): Promise<SessionUser> {
+  const user = await getSessionUser();
+  if (!user || !roles.includes(user.systemRole)) redirect('/login');
+  return user;
 }
 
 /** Reads and verifies the session cookie for the current request. Null if absent/invalid. */

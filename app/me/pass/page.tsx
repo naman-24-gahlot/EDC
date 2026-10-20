@@ -1,7 +1,7 @@
 import QRCode from 'qrcode';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getSessionUser } from '@/lib/session';
+import { requirePageRole } from '@/lib/session';
 import { nowInIST } from '@/lib/date';
 import { loadPerson } from '@/lib/hierarchy/authorize';
 import { accessCodeFor } from '@/lib/access/codes';
@@ -14,8 +14,7 @@ import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate } from
 export const dynamic = 'force-dynamic';
 
 export default async function PassPage() {
-  const user = await getSessionUser();
-  if (!user) redirect('/login');
+  const user = await requirePageRole('member', 'master');
   const person = await loadPerson(user.personId);
   if (!person) redirect('/login');
 

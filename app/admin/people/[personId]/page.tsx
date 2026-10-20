@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { adminDb } from '@/lib/firebase/admin';
-import { getSessionUser } from '@/lib/session';
 import { todayDateString } from '@/lib/date';
 import { loadPerson } from '@/lib/hierarchy/authorize';
 import { accessCodeFor } from '@/lib/access/codes';
@@ -9,7 +8,7 @@ import { effectiveStatus, listEntitlements, templateWindow } from '@/lib/access/
 import { listRequestsFor } from '@/lib/access/requests';
 import { PROFILE_LABEL, accessStatus, daysLabel, formatDate, formatDateTime } from '@/lib/display';
 import { StatusPill } from '@/components/StatusPill';
-import { allPeople, nameMap } from '../../data';
+import { allPeople, nameMap, requireMasterPage } from '../../data';
 import { PersonActions } from './PersonActions';
 
 export const dynamic = 'force-dynamic';
@@ -26,8 +25,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default async function AdminPersonPage({ params }: { params: Promise<{ personId: string }> }) {
+  const user = await requireMasterPage();
   const { personId } = await params;
-  const user = (await getSessionUser())!; // layout guarantees Master
   const person = await loadPerson(personId);
   if (!person) notFound();
 

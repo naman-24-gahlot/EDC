@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { accessCodeFor } from '@/lib/access/codes';
 import { PROFILE_LABEL } from '@/lib/display';
 import type { PersonRecord } from '@/lib/hierarchy/authorize';
-import { allPeople } from '../data';
+import { allPeople, requireMasterPage } from '../data';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +30,7 @@ function Node({ person, kidsMap }: { person: PersonRecord; kidsMap: Map<string, 
 }
 
 export default async function AdminHierarchyPage() {
+  await requireMasterPage();
   const people = (await allPeople()).sort((a, b) => a.firstName.localeCompare(b.firstName));
   const kidsMap = new Map<string, PersonRecord[]>();
   for (const p of people) {

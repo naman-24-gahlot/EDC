@@ -2,11 +2,12 @@ import Link from 'next/link';
 import { PROFILE_LABEL, formatDateTime } from '@/lib/display';
 import { StatusPill } from '@/components/StatusPill';
 import { RegistrationActions } from './RegistrationActions';
-import { allPeople, nameMap } from '../data';
+import { allPeople, nameMap, requireMasterPage } from '../data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminRegistrationsPage() {
+  await requireMasterPage();
   const people = await allPeople();
   const names = nameMap(people);
   const open = people

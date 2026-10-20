@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { StatusPill } from '@/components/StatusPill';
-import { allPeople } from '../data';
+import { allPeople, requireMasterPage } from '../data';
 import { CreateGuardForm } from './CreateGuardForm';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminGuardsPage() {
+  await requireMasterPage();
   const guards = (await allPeople()).filter((p) => p.systemRole === 'guard').sort((a, b) => a.firstName.localeCompare(b.firstName));
 
   return (

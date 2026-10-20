@@ -4,11 +4,12 @@ import { accessCodeFor } from '@/lib/access/codes';
 import { effectiveStatus } from '@/lib/access/entitlements';
 import { PROFILE_LABEL, accessStatus } from '@/lib/display';
 import { StatusPill } from '@/components/StatusPill';
-import { allPeople, currentEntitlementByPerson, nameMap } from '../data';
+import { allPeople, currentEntitlementByPerson, nameMap, requireMasterPage } from '../data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPeoplePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  await requireMasterPage();
   const q = ((await searchParams).q ?? '').trim().toLowerCase();
   const [people, ents] = await Promise.all([allPeople(), currentEntitlementByPerson()]);
   const names = nameMap(people);

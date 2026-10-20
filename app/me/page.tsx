@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { adminDb } from '@/lib/firebase/admin';
-import { getSessionUser } from '@/lib/session';
+import { requirePageRole } from '@/lib/session';
 import { todayDateString } from '@/lib/date';
 import { listDescendants, loadPerson, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { accessCodeFor } from '@/lib/access/codes';
@@ -58,8 +58,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default async function MePage() {
-  const user = await getSessionUser();
-  if (!user) redirect('/login');
+  const user = await requirePageRole('member', 'master');
   const me = await loadPerson(user.personId);
   if (!me) redirect('/login');
 

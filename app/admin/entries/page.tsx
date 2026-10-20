@@ -2,13 +2,14 @@ import Link from 'next/link';
 import { adminDb } from '@/lib/firebase/admin';
 import { formatDateTime } from '@/lib/display';
 import { StatusPill } from '@/components/StatusPill';
-import { allPeople, nameMap } from '../data';
+import { allPeople, nameMap, requireMasterPage } from '../data';
 
 export const dynamic = 'force-dynamic';
 
 const LIMIT = 300;
 
 export default async function AdminEntriesPage() {
+  await requireMasterPage();
   const [snap, people] = await Promise.all([
     adminDb.collection('entryEvents').orderBy('timestamp', 'desc').limit(LIMIT).get(),
     allPeople(),

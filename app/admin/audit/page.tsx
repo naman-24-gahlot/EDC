@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { adminDb } from '@/lib/firebase/admin';
 import { formatDateTime } from '@/lib/display';
-import { allPeople, nameMap } from '../data';
+import { allPeople, nameMap, requireMasterPage } from '../data';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +15,7 @@ function actionStyle(action: string): string {
 }
 
 export default async function AdminAuditPage({ searchParams }: { searchParams: Promise<{ action?: string }> }) {
+  await requireMasterPage();
   const { action } = await searchParams;
   const [snap, people] = await Promise.all([
     adminDb.collection('auditLogs').orderBy('timestamp', 'desc').limit(LIMIT).get(),
