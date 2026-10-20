@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import { getSessionUser } from '@/lib/session';
+import { assertCanActOn, errorResponse, type PersonRecord } from '@/lib/hierarchy/authorize';
 
-// Same temporary authority check as approve/ — P4 replaces it with assertCanActOn.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ personId: string }> }
@@ -12,21 +12,14 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
 
   const { personId } = await params;
+  let person: PersonRecord;
+  try {
+    person = await assertCanActOn(user, personId);
+  } catch (err) {
+    return errorResponse(err);
+  }
   const personRef = adminDb.collection('people').doc(personId);
-  const snap = await personRef.get();
-  if (!snap.exists) {
-    return NextResponse.json({ error: 'Person not found.' }, { status: 404 });
-  }
-  const person = snap.data()!;
 
-  const isMaster = user.systemRole === 'master';
-  const isNamedParent = person.parentId === user.personId;
-  if (!isMaster && !isNamedParent) {
-    return NextResponse.json(
-      { error: 'Not authorized to reject this registration.' },
-      { status: 403 }
-    );
-  }
   if (person.registrationStatus !== 'PENDING') {
     return NextResponse.json(
       { error: `Cannot reject a ${person.registrationStatus} registration.` },

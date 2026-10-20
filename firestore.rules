@@ -1,37 +1,12 @@
 rules_version = '2';
 
-// Rules scope client-side READS only. All writes are denied here by design —
-// every mutation happens server-side in a Route Handler via the Admin SDK, which
-// verifies the caller's ID token and role before writing. See SECURITY_MODEL.md.
+// Deny ALL client access to every collection. The app never uses the client Firestore
+// SDK: every read and write happens server-side in a Route Handler via the Admin SDK
+// (which bypasses rules). These rules are defence in depth only — see SECURITY_MODEL.md.
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function role() {
-      return request.auth.token.role;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && role() == 'admin';
-    }
-
-    match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if false;
-    }
-
-    match /requests/{requestId} {
-      allow read: if isSignedIn() &&
-        (resource.data.employeeId == request.auth.uid || isAdmin());
-      allow write: if false;
-    }
-
-    match /auditLogs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false;
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -82,6 +82,20 @@ Nothing else grants authority. Specifically:
 - Guards are created by Master only. Master is granted only by promotion by an existing
   Master; the very first Master is created by the seed script, out of band.
 
+## Implementation notes (`lib/hierarchy/`)
+- `assertCanActOn` additionally requires a non-Master actor's own profile to be `APPROVED`
+  and `active` (pending people can sign in, but have no authority). This only narrows the rule.
+- For non-Masters a nonexistent target returns 403, not 404, so ids can't be probed.
+- Masters and guards are always top-level and can't be rehomed; a person can only be promoted
+  if they are a top-level, approved, active `employee` — so no one is ever above a Master.
+- Promotion/demotion and deactivation call `revokeRefreshTokens`, so the change takes effect
+  on already-open sessions (they're bounced to sign in again and get the new claim).
+- Rehoming and demotion run in Firestore transactions: concurrent rehomes can't corrupt a
+  subtree's `ancestorIds`, and two Masters demoting each other at once leaves exactly one
+  (verified live).
+- Reactivation requires `APPROVED`, since `PENDING`/`REJECTED` people are also `active: false`
+  and reactivating them would bypass approval.
+
 ## Access credential (QR + human-readable code)
 
 ### Design
@@ -176,6 +190,7 @@ verification. The identity model keeps `people` and the future verification conc
 separate so an external verification module can attach to a person later without redesign.
 
 ## Firestore rules — deployment
-Rules are in `firestore.rules`; deploy with `firebase deploy --only firestore:rules`
-(the CLI is already authenticated on this machine from earlier sessions; a phase that needs
-this will attempt it and report if it can't).
+Rules are in `firestore.rules`; deploy with `firebase deploy --only firestore:rules`.
+**The deny-all rules are deployed** (Expansion P4, 2026-10-21) and verified: unauthenticated,
+member, guard and even Master ID tokens all get `PERMISSION_DENIED` on every read and write
+via the Firestore REST API.

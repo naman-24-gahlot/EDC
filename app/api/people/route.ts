@@ -4,20 +4,47 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import { getSessionUser } from '@/lib/session';
 import { createPerson, PersonCreateError } from '@/lib/people/create';
-import { isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
+import { accessCodeFor, isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
+import { listDescendants, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 
 function generatePassword(): string {
   return randomBytes(9).toString('base64url');
 }
 
+// Master sees everyone; anyone else sees only their own descendants — an ancestorIds
+// query, never a filtered broader list.
+export async function GET() {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+
+  const people: PersonRecord[] =
+    user.systemRole === 'master'
+      ? (await adminDb.collection('people').get()).docs.map((doc) => toPerson(doc)!)
+      : await listDescendants(user.personId);
+
+  return NextResponse.json({
+    people: people
+      .map((p) => ({
+        personId: p.personId,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        username: p.username,
+        profileType: p.profileType,
+        systemRole: p.systemRole,
+        parentId: p.parentId,
+        depth: p.ancestorIds.length,
+        registrationStatus: p.registrationStatus,
+        active: p.active,
+        accessCode: accessCodeFor(p.profileType, p.accessNumber),
+      }))
+      .sort((a, b) => a.depth - b.depth || a.firstName.localeCompare(b.firstName)),
+  });
+}
+
 // An approved, active employee (or Master) creates a subordinate directly — the
 // creator IS that subordinate's authorized approver, so it's written APPROVED
-// immediately. See DATABASE_SCHEMA.md's Registration state machine.
-//
-// Temporary authority check: P4 replaces this "is the actor literally an employee"
-// test with assertCanActOn built on ancestorIds; for creating a brand-new person
-// there's no existing target to check ancestry against, so this stays simple even
-// after P4 — it's not standing in for anything more sophisticated.
+// immediately. There's no existing target to run assertCanActOn against: the new
+// person's ancestorIds are derived server-side from the creator, never from the body.
 export async function POST(request: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });

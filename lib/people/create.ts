@@ -9,14 +9,9 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { SystemRole } from '@/lib/roles';
 import { type ProfileType, accessCodeFor, issueAccessNumber } from '@/lib/access/codes';
+import { HttpError, computeAncestorIds, loadPerson } from '@/lib/hierarchy/authorize';
 
-export class PersonCreateError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
+export const PersonCreateError = HttpError;
 
 const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
 const MAX_PHOTO_BYTES = 150 * 1024;
@@ -41,13 +36,6 @@ function validatePhoto(photoDataUrl: string | null): string | null {
     throw new PersonCreateError(400, 'Photo is too large — it should be downscaled to under 150KB.');
   }
   return photoDataUrl;
-}
-
-async function computeAncestorIds(parentId: string | null): Promise<string[]> {
-  if (!parentId) return [];
-  const parentSnap = await adminDb.collection('people').doc(parentId).get();
-  const parentAncestors = (parentSnap.data()?.ancestorIds as string[] | undefined) ?? [];
-  return [...parentAncestors, parentId];
 }
 
 export interface CreatePersonInput {
@@ -114,6 +102,13 @@ export async function createPerson(
   if (usernameSnap.exists) throw new PersonCreateError(409, 'That username is already taken.');
   if (emailSnap.exists) throw new PersonCreateError(409, 'That email is already registered.');
 
+  let ancestorIds: string[] = [];
+  if (options.parentId) {
+    const parent = await loadPerson(options.parentId);
+    if (!parent) throw new PersonCreateError(400, 'Parent not found.');
+    ancestorIds = computeAncestorIds(parent);
+  }
+
   const displayName = `${input.firstName} ${input.lastName}`.trim();
   let personId: string;
   try {
@@ -132,15 +127,14 @@ export async function createPerson(
     throw err;
   }
 
+  let accessNumber: string | null = null;
   try {
     const systemRole: SystemRole = options.systemRole ?? 'member';
     await adminAuth.setCustomUserClaims(personId, { systemRole });
 
-    const ancestorIds = await computeAncestorIds(options.parentId);
     const now = Timestamp.now();
     const isApproved = options.registrationStatus === 'APPROVED';
 
-    let accessNumber: string | null = null;
     if (isApproved && input.profileType) {
       accessNumber = await issueAccessNumber(personId);
     }
@@ -201,6 +195,9 @@ export async function createPerson(
   } catch (err) {
     // Compensate: don't leave an orphaned Auth account holding this email hostage.
     await adminAuth.deleteUser(personId).catch(() => {});
+    if (accessNumber) {
+      await adminDb.collection('accessNumbers').doc(accessNumber).delete().catch(() => {});
+    }
     if (isAlreadyExistsError(err)) {
       throw new PersonCreateError(409, 'That username or email was just taken — please try again.');
     }

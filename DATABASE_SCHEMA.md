@@ -229,6 +229,8 @@ being scanned — the same pass keeps working for entry 1…n while the entitlem
   is capped at 5.
 - Rehoming (changing `parentId`) is Master-only, rejects cycles (new parent may not be the
   person or any descendant), and rewrites `ancestorIds` for the entire subtree.
-- Master promotion/demotion is Master-only and never self-applied.
+- Master promotion/demotion is Master-only and never self-applied. Only a top-level,
+  approved, active `employee` can be promoted; the last active Master can't be demoted.
+- Masters and guards are always top-level and are never rehomed.
 
 The authorization primitive built on this is documented in SECURITY_MODEL.md.

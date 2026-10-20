@@ -406,7 +406,7 @@ Finish: PROGRESS.md row "Expansion P12" with the acceptance results.
 | When | What you do | Why | Otherwise |
 |---|---|---|---|
 | Any time (optional) | Set a real `EDC_EMAIL_DOMAIN` in `.env.local` | Only you know the institutional domain; I won't invent one | Leave empty — EDC email identifiers just aren't assigned; nothing blocks |
-| P4 / P6 / P9 (only if it fails) | `firebase login` | The session will try `firebase deploy --only firestore:rules` / `:indexes` itself using the CLI's existing login | If the CLI is still logged in from earlier sessions, nothing to do |
+| P6 / P9 (only if it fails) | `firebase login` | The session will try `firebase deploy --only firestore:rules` / `:indexes` itself using the CLI's existing login | Confirmed logged in as of P4 (rules deployed from the session) — nothing to do unless it expires |
 | P12 (only if you set a domain) | Add `EDC_EMAIL_DOMAIN` to Vercel → Production env vars | Env values are never handled by the session | If empty locally, skip |
 | P12 | One QR scan from a real phone camera | No camera exists in the session's browser | Everything else is verified against the deployed URL |
 

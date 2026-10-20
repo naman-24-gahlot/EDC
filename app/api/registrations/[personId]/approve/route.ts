@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import { getSessionUser } from '@/lib/session';
-import { accessCodeFor, issueAccessNumber, type ProfileType } from '@/lib/access/codes';
+import { accessCodeFor, issueAccessNumber } from '@/lib/access/codes';
+import { assertCanActOn, errorResponse, type PersonRecord } from '@/lib/hierarchy/authorize';
 
-// Temporary authority check — P4 replaces this with assertCanActOn(actor, target)
-// built on ancestorIds. For now: Master anywhere, or the person's exact named parent.
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ personId: string }> }
@@ -14,21 +13,15 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
 
   const { personId } = await params;
+  let person: PersonRecord;
+  try {
+    person = await assertCanActOn(user, personId);
+  } catch (err) {
+    return errorResponse(err);
+  }
   const personRef = adminDb.collection('people').doc(personId);
-  const snap = await personRef.get();
-  if (!snap.exists) {
-    return NextResponse.json({ error: 'Person not found.' }, { status: 404 });
-  }
-  const person = snap.data()!;
-
   const isMaster = user.systemRole === 'master';
-  const isNamedParent = person.parentId === user.personId;
-  if (!isMaster && !isNamedParent) {
-    return NextResponse.json(
-      { error: 'Not authorized to approve this registration.' },
-      { status: 403 }
-    );
-  }
+
   if (person.registrationStatus === 'APPROVED') {
     return NextResponse.json({ error: 'Already approved.' }, { status: 409 });
   }
@@ -39,11 +32,11 @@ export async function POST(
     );
   }
 
-  let accessNumber = (person.accessNumber as string | null) ?? null;
+  let accessNumber = person.accessNumber ?? null;
   if (!accessNumber && person.profileType) {
     accessNumber = await issueAccessNumber(personId);
   }
-  const accessCode = accessCodeFor(person.profileType as ProfileType | null, accessNumber);
+  const accessCode = accessCodeFor(person.profileType, accessNumber);
 
   const now = Timestamp.now();
   const batch = adminDb.batch();
