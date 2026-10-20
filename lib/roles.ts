@@ -13,5 +13,5 @@ export function isSystemRole(value: unknown): value is SystemRole {
 export const ROLE_HOME_PATH: Record<SystemRole, string> = {
   master: '/admin',
   guard: '/guard',
-  member: '/employee', // moved to /me in P9
+  member: '/me',
 };

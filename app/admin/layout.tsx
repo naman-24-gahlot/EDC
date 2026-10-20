@@ -13,7 +13,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <RoleHeader role="admin" subtitle={user.email ?? undefined} />
+      <RoleHeader role="master" subtitle={user.email ?? undefined} />
       <AdminNav />
       <div className="pt-6">{children}</div>
     </div>

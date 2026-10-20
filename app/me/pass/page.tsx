@@ -1,48 +1,17 @@
 import QRCode from 'qrcode';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/session';
 import { nowInIST } from '@/lib/date';
 import { loadPerson } from '@/lib/hierarchy/authorize';
-import { accessCodeFor, type ProfileType } from '@/lib/access/codes';
+import { accessCodeFor } from '@/lib/access/codes';
 import { effectiveStatus, getCurrentEntitlement } from '@/lib/access/entitlements';
 import { decideAccess } from '@/lib/access/evaluate';
 import { passTokenFor } from '@/lib/access/credential';
 import { LogoutButton } from '@/components/LogoutButton';
+import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate } from '../labels';
 
 export const dynamic = 'force-dynamic';
-
-const PROFILE_LABEL: Record<ProfileType, string> = {
-  employee: 'Employee',
-  incubee: 'Incubee',
-  event_guest: 'Event Guest',
-  driver: 'Driver',
-  relative: 'Relative',
-  bodyguard: 'Bodyguard',
-};
-const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function daysLabel(weekdays: number[]): string {
-  const key = [...weekdays].sort((a, b) => a - b).join('');
-  if (key === '0123456') return 'Every day';
-  if (key === '12345') return 'Mon–Fri';
-  if (key === '123456') return 'Mon–Sat';
-  return [...weekdays].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map((d) => DAY[d]).join(', ');
-}
-
-function formatDate(date: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-}
-
-type PassStatus = 'ACTIVE' | 'NONE' | 'EXPIRED' | 'REVOKED' | 'NOT YET ACTIVE' | 'PENDING APPROVAL';
-
-const STATUS_STYLE: Record<PassStatus, string> = {
-  ACTIVE: 'bg-emerald-100 text-emerald-800 ring-emerald-300',
-  NONE: 'bg-gray-100 text-gray-700 ring-gray-300',
-  EXPIRED: 'bg-amber-100 text-amber-800 ring-amber-300',
-  REVOKED: 'bg-red-100 text-red-800 ring-red-300',
-  'NOT YET ACTIVE': 'bg-sky-100 text-sky-800 ring-sky-300',
-  'PENDING APPROVAL': 'bg-amber-100 text-amber-800 ring-amber-300',
-};
 
 export default async function PassPage() {
   const user = await getSessionUser();
@@ -54,12 +23,7 @@ export default async function PassPage() {
   const entitlement = await getCurrentEntitlement(person.personId);
   const effective = entitlement ? effectiveStatus(entitlement, now.date) : null;
 
-  let status: PassStatus;
-  if (person.registrationStatus !== 'APPROVED') status = 'PENDING APPROVAL';
-  else if (!person.active) status = 'REVOKED';
-  else if (!effective || effective === 'SUPERSEDED') status = 'NONE';
-  else if (effective === 'SCHEDULED') status = 'NOT YET ACTIVE';
-  else status = effective;
+  const status = accessStatus(person, effective);
 
   // The pass describes the entitlement; this line is the live time-of-day verdict from the
   // single evaluator, so the person sees exactly what the gate would say right now.
@@ -76,7 +40,7 @@ export default async function PassPage() {
   return (
     <main className="mx-auto max-w-md px-4 py-6 font-sans text-[#1B2A38]">
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-semibold">EDC Access</span>
+        <Link href="/me" className="text-sm font-semibold text-[#0D5B7A]">← My account</Link>
         <LogoutButton />
       </div>
 

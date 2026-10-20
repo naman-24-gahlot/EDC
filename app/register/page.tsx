@@ -2,6 +2,7 @@
 
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { downscalePhoto } from '@/lib/photo';
 
 const PROFILE_OPTIONS = [
   { value: 'employee', label: 'Employee' },
@@ -13,21 +14,6 @@ const PROFILE_OPTIONS = [
 ] as const;
 
 const SUBORDINATE_TYPES = new Set(['driver', 'relative', 'bodyguard', 'event_guest']);
-const MAX_PHOTO_DIMENSION = 256;
-
-async function downscalePhoto(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_PHOTO_DIMENSION / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas not supported');
-  ctx.drawImage(bitmap, 0, 0, width, height);
-  return canvas.toDataURL('image/jpeg', 0.8);
-}
 
 function Field({
   label,
