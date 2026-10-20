@@ -12,11 +12,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Light only: dark mode is out of scope, and every page's colours assume a light background
+   (a dark-scheme override here made text unreadable on phones set to dark mode). */
+:root {
+  color-scheme: light;
 }
 
 body {

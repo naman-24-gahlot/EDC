@@ -144,6 +144,20 @@ failure wins, every outcome appends an `entryEvent` and an audit entry:
 Steps 2–8 are one function, `evaluateAccess(person, now)`, in `lib/access/`. The gate route
 and the person's own pass screen both use it; there is no second implementation.
 
+Implementation notes (`app/api/guard/verify`, Expansion P8):
+- **Record, then respond.** The `entryEvent` and audit entry are committed in one batch
+  *before* the verdict is returned; if that write fails the response is 503, so an approval is
+  never given that isn't on record.
+- **Attribution.** A token whose signature fails is logged with `personId: null` (the claimed
+  id is unauthenticated). A genuine but outdated token (version bumped) is logged against its
+  person, still denied "Invalid QR". "Code superseded" is attributed too.
+- Codes are trimmed and upper-cased; an unknown prefix is "Invalid access code", a known
+  prefix that isn't the person's current one is "Code superseded".
+- The scanner pauses ~3s after each scan and ignores the same QR for 8s: a reusable pass held
+  in front of the camera would otherwise be verified (and logged) many times a second.
+- Any non-2xx, malformed body, network failure or 8s timeout → "VERIFICATION UNAVAILABLE",
+  grey, with "Do not admit on this result" (verified live by stopping the server).
+
 ### What the Guard is shown
 Name, photo thumbnail, profile type, verdict, and the denial reason. **Never**: contact
 details, hierarchy, entitlement dates/hours, access code (when scanning a QR), or anything
