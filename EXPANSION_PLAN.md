@@ -370,9 +370,14 @@ Finish: lint, typecheck, build — paste results. PROGRESS.md row "Expansion P10
 ```
 Read CLAUDE.md, SECURITY_MODEL.md and the codebase.
 
+First run `npm run reset:seed -- --yes-i-mean-it` (pre-approved; earlier phases' tests changed
+people's types and added guards). For tests 8–10 create the conditions deliberately (edit the
+window, set an endDate in the past, revoke) rather than depending on the clock.
+
 Run the 14 tests from the expansion brief adversarially against a running instance with the
 seeded accounts — direct fetch calls to Route Handlers, not the UI — plus a temporary
-client-SDK probe (deleted after) for direct Firestore access:
+Firestore REST probe with real ID tokens (deleted after; the client SDK was removed in P2 —
+same pattern as P4's probe) for direct Firestore access:
 1 Employee 1 reads Employee 2's subordinate · 2 Employee 1 approves Employee 2's request ·
 3 employee promotes self to Master · 4 guard approves a request · 5 guard modifies an
 entitlement · 6 forged QR · 7 forged / guessed access code · 8 use outside allowed hours ·
