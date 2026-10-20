@@ -125,8 +125,9 @@ failure wins, every outcome appends an `entryEvent` and an audit entry:
      `person.credentialVersion` → else **"Invalid QR"**.
    - Code: 3 letters + 5 digits; `accessNumbers/{digits}` → person; if
      `PREFIX[person.profileType] !== prefix` → **"Code superseded"**; unknown → **"Invalid access code"**.
-2. `!person.active` → **"Access revoked"**.
-3. `registrationStatus !== 'APPROVED'` → **"Registration not approved"**.
+2. `registrationStatus !== 'APPROVED'` → **"Registration not approved"**.
+3. `!person.active` → **"Access revoked"**. (Registration is checked first because `PENDING`
+   people are also `active: false`; the order changes only the reason, never the verdict.)
 4. No `ACTIVE` entitlement → **"No active access"**.
 5. Effective status `REVOKED` → **"Access revoked"**; `EXPIRED` → **"Access expired"**;
    `SCHEDULED` → **"Access not yet active"**.

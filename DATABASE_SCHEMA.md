@@ -107,6 +107,10 @@ A granted access period. **At most one `ACTIVE` per person at a time.**
 **Computed effective status** (never stored): if `state !== 'ACTIVE'` → that state; else if
 `today > endDate` → `EXPIRED`; else if `today < startDate` → `SCHEDULED`; else `ACTIVE`.
 
+Durations are **inclusive day counts** (30 days from the 1st ends on the 30th). Time windows
+must satisfy `startTime < endTime` — overnight windows aren't supported. Every entitlement is
+evaluated by `lib/access/evaluate.ts` only.
+
 Default templates, applied at approval and editable by the approver:
 
 | Profile | Weekdays | Hours | Duration |

@@ -292,7 +292,7 @@ async function main() {
         ? overrides.endDate
         : t.durationDays === null
           ? null
-          : istDate(t.durationDays);
+          : istDate(t.durationDays - 1); // inclusive day count, as lib/access/entitlements.ts
     const ref = db.collection('entitlements').doc();
     await ref.set({
       personId: person.personId,

@@ -193,6 +193,11 @@ Finish: lint, typecheck, build — paste results. PROGRESS.md row "Expansion P5"
 Read CLAUDE.md, DATABASE_SCHEMA.md (accessRequests, Access request state machine) and
 SECURITY_MODEL.md ("Time-based state without a cron").
 
+0. First run `npm run reset:seed -- --yes-i-mean-it` (pre-approved, synthetic data only). The
+   seed's request ages (1 day / 4 days) and short grants are relative to when it ran, and the
+   P2 seed is weeks old by now, so the fixtures below only exist right after a fresh seed.
+   Passwords change: read them from `.demo-credentials.local.txt` again.
+
 1. lib/access/requests.ts: createRequest({ personId, requestedBy, purpose, period }) —
    requester must be the person (APPROVED + active) or an ancestor/Master; at most one PENDING
    per person (409); actionableUntil = now + 3 days. expireStaleRequests(filter) — for any
