@@ -32,7 +32,7 @@ function authCode(err: unknown): unknown {
   return err && typeof err === 'object' ? (err as { code?: unknown }).code : undefined;
 }
 
-function validatePhoto(photoDataUrl: string | null): string | null {
+export function validatePhoto(photoDataUrl: string | null): string | null {
   if (photoDataUrl === null) return null;
   const match = photoDataUrl.match(PHOTO_DATA_URL_RE);
   if (!match) {

@@ -31,6 +31,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-medium text-gray-500">Audit log — most recent {logs.length}</h2>
+        <a href="/api/admin/export/audit" download className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium">Download CSV</a>
         <form className="ml-auto">
           <select name="action" defaultValue={action ?? ''} aria-label="Filter by action" className="rounded border border-gray-300 px-2 py-1 text-xs">
             <option value="">All actions</option>

@@ -16,8 +16,40 @@ interface Props {
     hasDescendants: boolean;
   };
   eligibleParents: { id: string; name: string }[];
-  template: { startDate: string; endDate: string | null; weekdays: number[]; startTime: string; endTime: string } | null;
+  template: Window | null;
   activeEntitlementId: string | null;
+  activeWindow: Window | null;
+  details: { firstName: string; lastName: string; mobile: string; purpose: string };
+}
+
+interface Window { startDate: string; endDate: string | null; weekdays: number[]; startTime: string; endTime: string }
+
+function WindowFields({ value, onChange, idPrefix }: { value: Window; onChange: (w: Window) => void; idPrefix: string }) {
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <input type="date" aria-label="Start date" id={`${idPrefix}-start`} value={value.startDate} onChange={(e) => onChange({ ...value, startDate: e.target.value })} className="rounded border border-gray-300 px-2 py-1" required />
+        <span>→</span>
+        <input type="date" aria-label="End date" id={`${idPrefix}-end`} value={value.endDate ?? ''} onChange={(e) => onChange({ ...value, endDate: e.target.value || null })} className="rounded border border-gray-300 px-2 py-1" />
+        <span className="text-xs text-gray-500">{value.endDate ? '' : 'open-ended'}</span>
+        <input type="time" aria-label="Start time" id={`${idPrefix}-from`} value={value.startTime} onChange={(e) => onChange({ ...value, startTime: e.target.value })} className="rounded border border-gray-300 px-2 py-1" required />
+        <span>–</span>
+        <input type="time" aria-label="End time" id={`${idPrefix}-to`} value={value.endTime} onChange={(e) => onChange({ ...value, endTime: e.target.value })} className="rounded border border-gray-300 px-2 py-1" required />
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {DAYS.map((d, i) => {
+          const on = value.weekdays.includes(i);
+          return (
+            <button type="button" key={d} aria-pressed={on}
+              onClick={() => onChange({ ...value, weekdays: on ? value.weekdays.filter((x) => x !== i) : [...value.weekdays, i].sort() })}
+              className={`rounded px-2 py-1 text-xs font-semibold ${on ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-300'}`}>
+              {d}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
 }
 
 const TYPES = [
@@ -29,30 +61,60 @@ const TOP_LEVEL = '__top__';
 
 // Every action here is Master-only on the server; this component only sends the request
 // and shows the outcome. Nothing it hides or shows is an authorization decision.
-export function PersonActions({ person, eligibleParents, template, activeEntitlementId }: Props) {
+export function PersonActions({ person, eligibleParents, template, activeEntitlementId, activeWindow, details }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [newType, setNewType] = useState(person.profileType ?? 'employee');
   const [newParent, setNewParent] = useState(person.parentId ?? TOP_LEVEL);
   const [grant, setGrant] = useState(template);
+  const [edit, setEdit] = useState(activeWindow);
+  const [editFor, setEditFor] = useState(activeEntitlementId);
+  if (editFor !== activeEntitlementId) {
+    // A grant or revoke replaced the current period: reset the edit form to the new one.
+    setEditFor(activeEntitlementId);
+    setEdit(activeWindow);
+  }
+  const [editing, setEditing] = useState<'access' | 'details' | null>(null);
+  const [info, setInfo] = useState(details);
   const [revokeReason, setRevokeReason] = useState('');
+  const [oneTimePassword, setOneTimePassword] = useState<string | null>(null);
 
-  async function call(key: string, url: string, body: unknown, confirmText?: string, done?: string) {
-    if (confirmText && !window.confirm(confirmText)) return;
+  async function call(key: string, url: string, body: unknown, confirmText?: string, done?: string, method = 'POST') {
+    if (confirmText && !window.confirm(confirmText)) return null;
     setBusy(key);
     setMessage(null);
     try {
-      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? 'Action failed');
       setMessage({ ok: true, text: done ?? 'Done.' });
       router.refresh();
+      return data;
     } catch (err) {
       setMessage({ ok: false, text: err instanceof Error ? err.message : 'Action failed' });
+      return null;
     } finally {
       setBusy(null);
     }
+  }
+
+  async function resetPassword() {
+    const data = await call('reset', `${base}/reset-password`, {}, `Reset ${person.name}'s password? They are signed out everywhere and get a one-time password.`, 'Password reset.');
+    if (data?.password) setOneTimePassword(data.password);
+  }
+
+  function submitEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!edit || !activeEntitlementId) return;
+    call('edit', `/api/entitlements/${activeEntitlementId}`, edit, undefined, 'Access updated — takes effect at the gate immediately.', 'PATCH').then((d) => d && setEditing(null));
+  }
+
+  function submitDetails(e: FormEvent) {
+    e.preventDefault();
+    const patch = Object.fromEntries(Object.entries(info).filter(([k, v]) => v !== details[k as keyof typeof details]));
+    if (Object.keys(patch).length === 0) return setMessage({ ok: false, text: 'Nothing changed.' });
+    call('details', base, patch, undefined, 'Details saved.', 'PATCH').then((d) => d && setEditing(null));
   }
 
   const base = `/api/people/${person.personId}`;
@@ -105,7 +167,29 @@ export function PersonActions({ person, eligibleParents, template, activeEntitle
             Reissue credential
           </button>
         )}
+        <button className={`${btn} border-gray-400`} disabled={!!busy} onClick={resetPassword}>Reset password</button>
+        <button className={`${btn} border-gray-400`} disabled={!!busy} aria-expanded={editing === 'details'} onClick={() => setEditing(editing === 'details' ? null : 'details')}>Edit details</button>
       </div>
+
+      {oneTimePassword && (
+        <div role="status" className="rounded border border-emerald-300 bg-emerald-50 p-3 text-sm">
+          One-time password for {person.name}: <span className="font-mono font-semibold">{oneTimePassword}</span>
+          <span className="block text-xs text-gray-600">Shown once — hand it over now. They can change it from their account page.</span>
+          <button type="button" className="mt-1 text-xs underline" onClick={() => setOneTimePassword(null)}>Hide</button>
+        </div>
+      )}
+
+      {editing === 'details' && (
+        <form onSubmit={submitDetails} className="grid gap-2 sm:grid-cols-2" aria-label="Edit details">
+          {(['firstName', 'lastName', 'mobile', 'purpose'] as const).map((k) => (
+            <div key={k} className="space-y-1">
+              <label htmlFor={`pa-${k}`} className="text-xs font-semibold uppercase text-gray-500">{{ firstName: 'First name', lastName: 'Last name', mobile: 'Mobile', purpose: 'Profile / purpose' }[k]}</label>
+              <input id={`pa-${k}`} value={info[k]} onChange={(e) => setInfo({ ...info, [k]: e.target.value })} required className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm" />
+            </div>
+          ))}
+          <div className="sm:col-span-2"><button type="submit" disabled={!!busy} className={`${btn} border-gray-900 bg-gray-900 text-white`}>{busy === 'details' ? 'Saving…' : 'Save details'}</button></div>
+        </form>
+      )}
 
       {isMember && person.profileType && (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -148,33 +232,28 @@ export function PersonActions({ person, eligibleParents, template, activeEntitle
             onClick={() => call('revoke', `/api/entitlements/${activeEntitlementId}/revoke`, { reason: revokeReason }, `Revoke ${person.name}'s access now? Their QR stops working too.`, 'Access revoked.')}>
             Revoke
           </button>
+          {edit && (
+            <button className={`${btn} border-gray-400`} disabled={!!busy} aria-expanded={editing === 'access'} onClick={() => setEditing(editing === 'access' ? null : 'access')}>
+              Edit current access
+            </button>
+          )}
         </div>
+      )}
+
+      {editing === 'access' && edit && (
+        <form onSubmit={submitEdit} className="space-y-2" aria-label="Edit current access">
+          <p className="text-xs font-semibold uppercase text-gray-500">Edit current access <span className="font-normal normal-case">(same pass, rules apply at the gate immediately)</span></p>
+          <WindowFields value={edit} onChange={setEdit} idPrefix="pa-edit" />
+          <button type="submit" className={`${btn} border-gray-900 bg-gray-900 text-white`} disabled={!!busy || edit.weekdays.length === 0}>
+            {busy === 'edit' ? 'Saving…' : 'Save changes'}
+          </button>
+        </form>
       )}
 
       {grant && (
         <form onSubmit={submitGrant} className="space-y-2" aria-label="Grant access">
           <p className="text-xs font-semibold uppercase text-gray-500">Grant access {activeEntitlementId && <span className="font-normal normal-case">(replaces the current one)</span>}</p>
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <input type="date" aria-label="Start date" value={grant.startDate} onChange={(e) => setGrant({ ...grant, startDate: e.target.value })} className="rounded border border-gray-300 px-2 py-1" required />
-            <span>→</span>
-            <input type="date" aria-label="End date" value={grant.endDate ?? ''} onChange={(e) => setGrant({ ...grant, endDate: e.target.value || null })} className="rounded border border-gray-300 px-2 py-1" />
-            <span className="text-xs text-gray-500">{grant.endDate ? '' : 'open-ended'}</span>
-            <input type="time" aria-label="Start time" value={grant.startTime} onChange={(e) => setGrant({ ...grant, startTime: e.target.value })} className="rounded border border-gray-300 px-2 py-1" required />
-            <span>–</span>
-            <input type="time" aria-label="End time" value={grant.endTime} onChange={(e) => setGrant({ ...grant, endTime: e.target.value })} className="rounded border border-gray-300 px-2 py-1" required />
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {DAYS.map((d, i) => {
-              const on = grant.weekdays.includes(i);
-              return (
-                <button type="button" key={d} aria-pressed={on}
-                  onClick={() => setGrant({ ...grant, weekdays: on ? grant.weekdays.filter((x) => x !== i) : [...grant.weekdays, i].sort() })}
-                  className={`rounded px-2 py-1 text-xs font-semibold ${on ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-300'}`}>
-                  {d}
-                </button>
-              );
-            })}
-          </div>
+          <WindowFields value={grant} onChange={setGrant} idPrefix="pa-grant" />
           <button type="submit" className={`${btn} border-emerald-600 bg-emerald-700 text-white`} disabled={!!busy || grant.weekdays.length === 0}>
             {busy === 'grant' ? 'Granting…' : 'Grant'}
           </button>

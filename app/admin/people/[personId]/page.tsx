@@ -27,11 +27,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default async function AdminPersonPage({ params }: { params: Promise<{ personId: string }> }) {
   const user = await requireMasterPage();
   const { personId } = await params;
-  const person = await loadPerson(personId);
-  if (!person) notFound();
+  if (!/^[A-Za-z0-9]{1,128}$/.test(personId)) notFound();
 
   const today = todayDateString();
-  const [people, entitlements, requests, eventsSnap, auditSnap, historySnap] = await Promise.all([
+  const [person, people, entitlements, requests, eventsSnap, auditSnap, historySnap] = await Promise.all([
+    loadPerson(personId),
     allPeople(),
     listEntitlements(personId),
     listRequestsFor(personId),
@@ -39,6 +39,7 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
     adminDb.collection('auditLogs').where('targetPersonId', '==', personId).get(),
     adminDb.collection('people').doc(personId).collection('profileHistory').get(),
   ]);
+  if (!person) notFound();
   const names = nameMap(people);
   const descendants = people.filter((p) => p.ancestorIds.includes(personId));
   const current = entitlements.find((e) => e.state === 'ACTIVE') ?? entitlements[0] ?? null;
@@ -90,6 +91,8 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
         eligibleParents={eligibleParents}
         template={person.profileType && person.registrationStatus === 'APPROVED' && person.active ? templateWindow(person.profileType, today) : null}
         activeEntitlementId={activeEnt?.id ?? null}
+        activeWindow={activeEnt ? { startDate: activeEnt.startDate, endDate: activeEnt.endDate, weekdays: activeEnt.weekdays, startTime: activeEnt.startTime, endTime: activeEnt.endTime } : null}
+        details={{ firstName: person.firstName, lastName: person.lastName, mobile: String(person.mobile ?? ''), purpose: String(person.purpose ?? '') }}
       />
 
       <Section title={`Entitlements (${entitlements.length})`}>

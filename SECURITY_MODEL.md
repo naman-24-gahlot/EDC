@@ -223,12 +223,36 @@ approve route recomputes expiry inside its transaction before acting.
 - **Username / email enumeration via login** — server-side verification returns the same
   generic failure for unknown identifier and wrong password.
 
+## Pages authorize themselves (post-P12 fix)
+A layout is **not** a security boundary in the Next.js App Router: on client-side navigation
+Next renders only the changed page segment and skips layouts the browser says it already has.
+Before this fix, replaying an ordinary navigation request let a member, a guard or an
+anonymous caller receive the admin pages' data (audit log, people, entries, hierarchy). Every
+page now checks the session and role itself as its first statement —
+`requirePageRole(...)` (`lib/session.ts`) / `requireMasterPage()` (`app/admin/data.ts`) — and
+`tests/live/security.mts` replays that exact attack against every admin page.
+
+## Sessions
+Firebase session cookies, `httpOnly`, `secure` in production, `SameSite=Lax`, verified with
+revocation checking on every request. Lifetime by role: **Master 12 h, guard 16 h, member
+5 days**. Deactivation, promotion/demotion, password change/reset and "Sign out of all devices"
+revoke every session at once. "Sign out" on one device just clears that device's cookie.
+
+## Rate limiting and request size (`proxy.ts`, `lib/rateLimit.ts`)
+In-memory, per server instance, writing nothing to Firestore (so it can't be used to burn the
+free tier's quotas). Keys follow the person: signed-in traffic per session, a high per-IP ceiling
+for scripts (a campus may share one Wi-Fi address). Budgets: sign-in 10 attempts per account per
+IP per 10 min (plus Firebase's own lockout of an account after repeated wrong passwords) and
+300 per IP; registration 30 per IP per hour; gate 120 checks per guard per minute; other API
+writes 60 / reads 300 per minute; 3,000 requests per IP per minute overall. API bodies over 1 MB
+are refused before parsing. Over budget → 429 with `Retry-After` and a plain message.
+
 ## Accepted risks (reviewed in P11, deliberately not changed)
 - **Registration reveals whether a username or email is taken** — a public sign-up form has to
   say so; login itself stays non-enumerating.
-- **No app-level rate limiting** — login relies on Firebase Auth's throttling; the gate is
-  guard-only and every attempt is logged; public registration only creates `PENDING` people.
-  Adding a limiter would need a new service (out of scope on the free tiers).
+- **Rate limits are per server instance** — best-effort on serverless (Fluid compute reuses
+  instances, so they hold well in practice); a determined distributed attacker could exceed them.
+  Edge rate limiting (Vercel WAF) would need a new package and dashboard rules.
 - **Bare Auth accounts can still be created via the REST API** — they can't sign in to the app
   (no identifier, no claim, Firestore denies them) and are removed if they ever block a real
   registration. Optionally disable sign-up at the source: Firebase console → Authentication →

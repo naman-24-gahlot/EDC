@@ -21,6 +21,19 @@ export async function allPeople(): Promise<PersonRecord[]> {
   return (await adminDb.collection('people').get()).docs.map((d) => toPerson(d)!);
 }
 
+/** Nav badges: actionable PENDING requests (past-deadline ones excluded) and PENDING registrations. */
+export async function pendingCounts(): Promise<{ requests: number; registrations: number }> {
+  const nowMs = Date.now();
+  const [pendingRequests, pendingRegistrations] = await Promise.all([
+    adminDb.collection('accessRequests').where('status', '==', 'PENDING').select('actionableUntil').get(),
+    adminDb.collection('people').where('registrationStatus', '==', 'PENDING').count().get(),
+  ]);
+  return {
+    requests: pendingRequests.docs.filter((d) => (d.data().actionableUntil?.toMillis?.() ?? 0) > nowMs).length,
+    registrations: pendingRegistrations.data().count,
+  };
+}
+
 export function nameMap(people: PersonRecord[]): Map<string, string> {
   return new Map(people.map((p) => [p.personId, `${p.firstName} ${p.lastName}`]));
 }

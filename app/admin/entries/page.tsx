@@ -18,7 +18,10 @@ export default async function AdminEntriesPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-sm font-medium text-gray-500">Gate entries — most recent {snap.size}{snap.size === LIMIT ? ` (latest ${LIMIT})` : ''}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-gray-500">Gate entries — most recent {snap.size}{snap.size === LIMIT ? ` (latest ${LIMIT})` : ''}</h2>
+        <a href="/api/admin/export/entries" download className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium">Download CSV</a>
+      </div>
       {snap.empty ? <p className="text-sm text-gray-400">No gate activity yet.</p> : (
         <div className="overflow-x-auto rounded border border-gray-200">
           <table className="w-full text-left text-sm">

@@ -14,6 +14,7 @@ import { RequestForm } from './RequestForm';
 import { DecisionButtons } from '@/components/DecisionButtons';
 import { CreatePersonForm } from './CreatePersonForm';
 import { GrantButton } from './GrantButton';
+import { AccountSettings } from './AccountSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,14 +60,23 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default async function MePage() {
   const user = await requirePageRole('member', 'master');
-  const me = await loadPerson(user.personId);
+  const isMaster = user.systemRole === 'master';
+
+  // Round 1, all at once. The people list is the server-side scope (Master: everyone;
+  // anyone else: their descendants by ancestorIds) — fetched up front because it's one query
+  // either way, and empty for people who have nobody under them.
+  const [me, current, myRequests, scoped] = await Promise.all([
+    loadPerson(user.personId),
+    getCurrentEntitlement(user.personId),
+    listRequestsFor(user.personId),
+    isMaster
+      ? adminDb.collection('people').get().then((s) => s.docs.map((d) => toPerson(d)!).filter((p) => p.personId !== user.personId))
+      : listDescendants(user.personId),
+  ]);
   if (!me) redirect('/login');
 
   const today = todayDateString();
-  const isMaster = user.systemRole === 'master';
   const canManage = isMaster || (me.profileType === 'employee' && me.registrationStatus === 'APPROVED' && me.active);
-
-  const [current, myRequests] = await Promise.all([getCurrentEntitlement(me.personId), listRequestsFor(me.personId)]);
   const myEffective = current ? effectiveStatus(current, today) : null;
   const myStatus = accessStatus(me, myEffective);
   const period = current && myEffective !== 'SUPERSEDED' ? current : null;
@@ -76,12 +86,13 @@ export default async function MePage() {
   let queue: AccessRequest[] = [];
   let peopleEnts = new Map<string, Entitlement>();
   if (canManage) {
-    // Listing scope is decided here, server-side: Master everyone, anyone else their descendants.
-    people = isMaster
-      ? (await adminDb.collection('people').get()).docs.map((d) => toPerson(d)!).filter((p) => p.personId !== me.personId)
-      : await listDescendants(me.personId);
-    queue = await listApprovalQueue(user);
-    peopleEnts = await currentEntitlements(people.map((p) => p.personId));
+    people = scoped;
+    const ids = people.map((p) => p.personId);
+    // Round 2, both at once, reusing round 1 instead of re-reading.
+    [queue, peopleEnts] = await Promise.all([
+      listApprovalQueue(user, { self: me, descendantIds: ids }),
+      currentEntitlements(ids),
+    ]);
     people.sort((a, b) => a.ancestorIds.length - b.ancestorIds.length || a.firstName.localeCompare(b.firstName));
   }
   const nameOf = new Map(people.map((p) => [p.personId, `${p.firstName} ${p.lastName}`]));
@@ -118,6 +129,9 @@ export default async function MePage() {
           <Row label="Profile type" value={me.profileType ? PROFILE_LABEL[me.profileType] : '—'} />
           <Row label="Registration" value={<Pill status={me.registrationStatus} />} />
         </dl>
+        <AccountSettings
+          initial={{ firstName: me.firstName, lastName: me.lastName, mobile: String(me.mobile ?? ''), purpose: String(me.purpose ?? '') }}
+        />
       </Section>
 
       <Section title="Access" id="access">

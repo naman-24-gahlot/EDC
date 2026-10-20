@@ -9,17 +9,17 @@ import { effectiveStatus, getCurrentEntitlement } from '@/lib/access/entitlement
 import { decideAccess } from '@/lib/access/evaluate';
 import { passTokenFor } from '@/lib/access/credential';
 import { LogoutButton } from '@/components/LogoutButton';
+import { PassQr } from './PassQr';
 import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate } from '@/lib/display';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PassPage() {
   const user = await requirePageRole('member', 'master');
-  const person = await loadPerson(user.personId);
+  const [person, entitlement] = await Promise.all([loadPerson(user.personId), getCurrentEntitlement(user.personId)]);
   if (!person) redirect('/login');
 
   const now = nowInIST();
-  const entitlement = await getCurrentEntitlement(person.personId);
   const effective = entitlement ? effectiveStatus(entitlement, now.date) : null;
 
   const status = accessStatus(person, effective);
@@ -75,13 +75,7 @@ export default async function PassPage() {
           </span>
 
           {qrSvg ? (
-            <div
-              className="w-[300px] max-w-full rounded-[14px] border border-[#D5DDE4] bg-white p-2 [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
-              data-testid="pass-qr"
-              role="img"
-              aria-label="Entry pass QR code"
-              dangerouslySetInnerHTML={{ __html: qrSvg }}
-            />
+            <PassQr svg={qrSvg} code={accessCode} name={name} />
           ) : (
             <p className="max-w-xs text-sm text-[#46596B]">
               {status === 'PENDING APPROVAL' && 'Your registration is waiting for approval. Your pass appears here once it is approved and access is granted.'}

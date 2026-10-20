@@ -64,6 +64,18 @@ Components or Route Handlers).
    person; see EXPANSION_PLAN.md. The old `seed`/`seed:demo` scripts from the daily-permission
    prototype were removed in the identity/hierarchy expansion (Expansion P2).
 
+## Region, Fluid compute, tests
+
+- `vercel.json` pins functions to **`bom1` (Mumbai)**, next to the Firestore database
+  (`asia-south2`, Delhi). Functions ran in `iad1` (Washington, D.C.) before, so every database
+  read crossed the world. The free plan allows any single region. Keep `"framework": "nextjs"` in
+  that file: the Vercel project's own framework setting is empty, and without it every route 404s.
+- `"fluid": true` turns on Fluid compute (instance reuse; fewer cold starts). Free on Hobby.
+- `npm test` — offline unit tests (no credentials needed). GitHub Actions runs lint, typecheck
+  and these on every push (`.github/workflows/ci.yml`).
+- `npm run test:live` — read-only security probe against a running instance; set
+  `BASE=https://edc-gib-24.vercel.app` to probe production. Needs `.demo-credentials.local.txt`.
+
 ## Portability
 
 This prototype intentionally runs on **Firebase's Spark (free) tier** and **Vercel's

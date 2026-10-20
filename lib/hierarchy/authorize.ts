@@ -78,17 +78,16 @@ export function requireMaster(actor: SessionUser): void {
  * Non-masters get 403 for a missing target too, so ids can't be probed for existence.
  */
 export async function assertCanActOn(actor: SessionUser, targetPersonId: string): Promise<PersonRecord> {
-  const target = await loadPerson(targetPersonId);
-
   if (actor.systemRole === 'master') {
+    const target = await loadPerson(targetPersonId);
     if (!target) throw new HttpError(404, 'Person not found.');
     return target;
   }
 
+  // Both reads at once: the rule needs the target's chain AND the actor's own standing.
+  const [target, self] = await Promise.all([loadPerson(targetPersonId), loadPerson(actor.personId)]);
   const denied = new HttpError(403, 'Not authorized to act on this person.');
   if (!target || !target.ancestorIds.includes(actor.personId)) throw denied;
-
-  const self = await loadPerson(actor.personId);
   if (!self || self.registrationStatus !== 'APPROVED' || self.active !== true) throw denied;
 
   return target;

@@ -6,7 +6,8 @@ import { nowInIST } from '@/lib/date';
 import { parsePassToken, verifyPassSignature } from '@/lib/qr-token';
 import { loadPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { PREFIX } from '@/lib/access/codes';
-import { evaluateAccess, type AccessDenialReason } from '@/lib/access/evaluate';
+import { decideAccess, type AccessDenialReason } from '@/lib/access/evaluate';
+import { getCurrentEntitlement, type Entitlement } from '@/lib/access/entitlements';
 
 // The gate. ONE path for QR and typed code — see SECURITY_MODEL.md "Verification".
 // Every verdict is recorded (entryEvent + audit) BEFORE it is returned: if recording
@@ -21,29 +22,38 @@ const KNOWN_PREFIXES = new Set(Object.values(PREFIX));
 interface Resolved {
   person: PersonRecord | null;
   denial: ResolveReason | null;
+  entitlement: Entitlement | null;
+}
+
+// As soon as we know WHO it is, the person and their entitlement are fetched together —
+// one round trip instead of two on the path every gate check takes.
+async function loadSubject(personId: string) {
+  const [person, entitlement] = await Promise.all([loadPerson(personId), getCurrentEntitlement(personId)]);
+  return { person, entitlement };
 }
 
 async function resolveToken(raw: string): Promise<Resolved> {
   const parsed = parsePassToken(raw);
   if (!parsed || !verifyPassSignature(parsed.personId, parsed.credentialVersion, parsed.signature)) {
     // Unauthenticated claim — don't attribute the attempt to whoever the token names.
-    return { person: null, denial: 'Invalid QR' };
+    return { person: null, denial: 'Invalid QR', entitlement: null };
   }
-  const person = await loadPerson(parsed.personId);
-  if (!person) return { person: null, denial: 'Invalid QR' };
+  const { person, entitlement } = await loadSubject(parsed.personId);
+  if (!person) return { person: null, denial: 'Invalid QR', entitlement: null };
   // Genuine but old (reissued / revoked / deactivated since): attributable, still denied.
-  if (person.credentialVersion !== parsed.credentialVersion) return { person, denial: 'Invalid QR' };
-  return { person, denial: null };
+  if (person.credentialVersion !== parsed.credentialVersion) return { person, denial: 'Invalid QR', entitlement: null };
+  return { person, denial: null, entitlement };
 }
 
 async function resolveCode(code: string): Promise<Resolved> {
   const match = code.match(CODE_RE);
-  if (!match || !KNOWN_PREFIXES.has(match[1])) return { person: null, denial: 'Invalid access code' };
+  if (!match || !KNOWN_PREFIXES.has(match[1])) return { person: null, denial: 'Invalid access code', entitlement: null };
   const owner = (await adminDb.collection('accessNumbers').doc(match[2]).get()).data()?.personId;
-  const person = typeof owner === 'string' ? await loadPerson(owner) : null;
-  if (!person || !person.profileType) return { person: null, denial: 'Invalid access code' };
-  if (PREFIX[person.profileType] !== match[1]) return { person, denial: 'Code superseded' };
-  return { person, denial: null };
+  if (typeof owner !== 'string') return { person: null, denial: 'Invalid access code', entitlement: null };
+  const { person, entitlement } = await loadSubject(owner);
+  if (!person || !person.profileType) return { person: null, denial: 'Invalid access code', entitlement: null };
+  if (PREFIX[person.profileType] !== match[1]) return { person, denial: 'Code superseded', entitlement: null };
+  return { person, denial: null, entitlement };
 }
 
 export async function POST(request: NextRequest) {
@@ -60,13 +70,13 @@ export async function POST(request: NextRequest) {
   const method = token ? 'QR' : 'CODE';
 
   try {
-    const { person, denial } = token ? await resolveToken(token) : await resolveCode(code!);
+    const { person, denial, entitlement } = token ? await resolveToken(token) : await resolveCode(code!);
 
     let approved = false;
     let reason: Reason | null = denial;
     let entitlementId: string | null = null;
     if (person && !denial) {
-      const decision = await evaluateAccess(person, nowInIST());
+      const decision = decideAccess(person, entitlement, nowInIST());
       approved = decision.allowed;
       reason = decision.reason;
       entitlementId = decision.entitlement?.id ?? null;

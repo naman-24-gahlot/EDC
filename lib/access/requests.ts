@@ -7,7 +7,7 @@ if (typeof window !== 'undefined') {
 import { Timestamp, type DocumentSnapshot, type Transaction } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
-import { HttpError, assertCanActOn, listDescendants, loadPerson, toPerson } from '@/lib/hierarchy/authorize';
+import { HttpError, assertCanActOn, listDescendants, loadPerson, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { parseWindowPatch, planGrant, type EntitlementWindow } from './entitlements';
 
 export const ACTIONABLE_MS = 3 * 24 * 60 * 60 * 1000;
@@ -97,14 +97,19 @@ export async function listRequestsFor(personId: string): Promise<AccessRequest[]
  * The actor's approval queue: PENDING requests for people below them (Master: everyone),
  * never their own. Scoped by an ancestorIds query, then lazily expired.
  */
-export async function listApprovalQueue(actor: SessionUser): Promise<AccessRequest[]> {
+export async function listApprovalQueue(
+  actor: SessionUser,
+  /** Pass what the caller already loaded to skip re-reading it (same server-side scope). */
+  known?: { self: PersonRecord | null; descendantIds: string[] }
+): Promise<AccessRequest[]> {
   let candidates: AccessRequest[];
   if (actor.systemRole === 'master') {
     candidates = (await requests().where('status', '==', 'PENDING').get()).docs.map(toRequest);
   } else {
-    const self = await loadPerson(actor.personId);
+    const [self, below] = known
+      ? [known.self, known.descendantIds]
+      : await Promise.all([loadPerson(actor.personId), listDescendants(actor.personId).then((d) => d.map((p) => p.personId))]);
     if (!self || self.registrationStatus !== 'APPROVED' || self.active !== true) return [];
-    const below = (await listDescendants(actor.personId)).map((p) => p.personId);
     candidates = (await requestsForPeople(below)).filter((r) => r.status === 'PENDING');
   }
   const current = await expireStaleRequests(candidates);
