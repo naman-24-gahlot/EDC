@@ -277,6 +277,11 @@ Guard is shown", "Fail-safe") and DATABASE_SCHEMA.md (entryEvents).
 
 Scope: app/api/guard/**, app/guard/**.
 
+Before verifying: run `npm run reset:seed -- --yes-i-mean-it` (pre-approved, synthetic data;
+fresh passwords in `.demo-credentials.local.txt`), then as master PATCH Rahul's ACTIVE
+entitlement to weekdays [0..6], 00:00–23:59 so the checks below don't depend on the clock.
+Get tokens with `passTokenFor(person)` from lib/access/credential.ts in a temporary script.
+
 Verify live as guard1: Rahul's token → ENTRY APPROVED, again → ENTRY APPROVED (reusable; two
 entryEvents); "EDC25166" → ENTRY APPROVED; Karan Mehta's code → "No active access"; a token
 with one signature character changed → "Invalid QR"; a random code → "Invalid access code";
@@ -297,7 +302,8 @@ Build app/me/** as the home for every signed-in member (all profile types) and M
 - Profile: names, username, EDC email (or "not assigned"), communication email, mobile,
   profile type, registration status, photo.
 - Access: current entitlement (effective status, dates, days, hours), access code, link to
-  /me/pass.
+  /me/pass, and a "Reissue my pass" control (confirm first; calls a new
+  POST /api/me/credential/reissue → reissueCredential(user, user.personId)).
 - Requests: raise a request (purpose + optional period) via POST /api/requests; list own
   requests with status, history included (EXPIRED shown, never hidden).
 - People under me (employees and Master only): each subordinate with their profile type,
@@ -309,7 +315,11 @@ Build app/me/** as the home for every signed-in member (all profile types) and M
 - Retire app/employee/**; ROLE_HOME_PATH member → /me; add a redirect from /employee to /me.
   Update components/RoleHeader.tsx labels accordingly.
 
-Scope: app/me/**, app/employee (deletion + redirect), lib/roles.ts, components/RoleHeader.tsx.
+Scope: app/me/**, app/api/me/**, app/employee (deletion + redirect), lib/roles.ts,
+components/RoleHeader.tsx.
+
+Before verifying: run `npm run reset:seed -- --yes-i-mean-it` (pre-approved; earlier phases'
+tests approved Vikram's seeded request, and the fixtures below need it PENDING again).
 
 Verify live: `rahul` sees Suresh, Anita, Vikram, Priya and Vikram's pending request, and
 approving it creates his entitlement; `rahul` does NOT see Ramesh or Karan anywhere, and a
