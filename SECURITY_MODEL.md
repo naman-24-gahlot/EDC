@@ -109,6 +109,12 @@ stops working only when the entitlement no longer permits entry, or when the ver
 bumped (revocation, profile-type change, explicit reissue, deactivation), which invalidates
 every previously issued QR at once.
 
+Implementation (`lib/qr-token.ts`, `lib/access/credential.ts`): `parsePassToken` rejects
+anything but `[A-Za-z0-9]+ . positive-integer . 64 lowercase hex` before any HMAC work;
+`reissueCredential` may be called by the person themselves (lost phone, leaked screenshot),
+Master, or an ancestor, and is audited `CREDENTIAL_REISSUED`. The pass page computes the token
+server-side on every render and only renders a QR while the entitlement is effectively ACTIVE.
+
 The human-readable code (`PREFIX + accessNumber`, e.g. `EDC25166`) is **not a secret and not
 a bypass**. It is a lookup key that reaches the *same* evaluation as the QR. Its security is
 that the evaluation happens server-side against the person's live state, exactly as for the

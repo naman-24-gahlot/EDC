@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/session';
 import { RoleHeader } from '@/components/RoleHeader';
@@ -20,6 +21,12 @@ export default async function EmployeeHomePage() {
         This area is being rebuilt as part of the identity/hierarchy expansion — profile,
         access, requests and your entry pass are coming back in the next phases.
       </p>
+      <Link
+        href="/me/pass"
+        className="inline-block rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white"
+      >
+        View my entry pass
+      </Link>
     </main>
   );
 }
