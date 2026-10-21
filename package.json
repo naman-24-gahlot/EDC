@@ -9,7 +9,8 @@
     "lint": "eslint",
     "reset:seed": "tsx scripts/reset-and-seed.ts",
     "test": "tsx --tsconfig tsconfig.json --test \"tests/unit/*.test.ts\"",
-    "test:live": "tsx --tsconfig tsconfig.json --env-file=.env.local tests/live/security.mts"
+    "test:live": "tsx --tsconfig tsconfig.json --env-file=.env.local tests/live/security.mts",
+    "test:password": "tsx --tsconfig tsconfig.json --env-file=.env.local scripts/set-test-password.ts"
   },
   "dependencies": {
     "firebase-admin": "^14.4.0",

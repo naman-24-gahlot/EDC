@@ -95,6 +95,8 @@ export async function POST(request: NextRequest) {
       presentedCode: method === 'CODE' ? code : null, // the QR token itself is never stored
       timestamp: now,
     });
+    // "Recently at the gate" sorting on the people lists reads this instead of scanning entries.
+    if (approved && person) batch.update(adminDb.collection('people').doc(person.personId), { lastEntryAt: now });
     batch.set(adminDb.collection('auditLogs').doc(), {
       action: approved ? 'ENTRY_APPROVED' : 'ENTRY_DENIED',
       actorId: user.personId,

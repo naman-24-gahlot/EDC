@@ -10,6 +10,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { SystemRole } from '@/lib/roles';
 import { type ProfileType, accessCodeFor, issueAccessNumber } from '@/lib/access/codes';
 import { HttpError, computeAncestorIds, loadPerson } from '@/lib/hierarchy/authorize';
+import { hashPassword, writeHashes } from '@/lib/auth/passwordHashes';
 
 export const PersonCreateError = HttpError;
 
@@ -167,6 +168,8 @@ export async function createPerson(
     authCreated = true;
     const systemRole: SystemRole = options.systemRole ?? 'member';
     await adminAuth.setCustomUserClaims(personId, { systemRole });
+    // Fingerprint only (lib/auth/passwordHashes.ts) — lets a later reset refuse the same password.
+    await writeHashes(personId, { current: await hashPassword(input.password) });
 
     // (3) The person.
     const isApproved = options.registrationStatus === 'APPROVED';

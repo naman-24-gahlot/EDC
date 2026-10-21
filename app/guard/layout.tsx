@@ -1,12 +1,9 @@
 import type { ReactNode } from 'react';
-import { redirect } from 'next/navigation';
-import { getSessionUser } from '@/lib/session';
+import { requirePageRole } from '@/lib/session';
 
 // Server-side route protection: every page under /guard is gated here.
 // systemRole comes only from the verified session cookie — never trust the client.
 export default async function GuardLayout({ children }: { children: ReactNode }) {
-  const user = await getSessionUser();
-  if (!user) redirect('/login');
-  if (user.systemRole !== 'guard') redirect('/login');
+  await requirePageRole('guard'); // also routes ended sessions and pending password changes
   return <>{children}</>;
 }

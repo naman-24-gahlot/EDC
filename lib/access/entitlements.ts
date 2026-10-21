@@ -289,9 +289,12 @@ export async function editEntitlement(actor: SessionUser, entitlementId: string,
       startTime: fresh.startTime, endTime: fresh.endTime, ...patch,
     };
     assertCoherent(merged);
+    // The form sends the whole period; record only what actually changed.
+    const changed = keys.filter((k) => JSON.stringify(fresh[k]) !== JSON.stringify(merged[k]));
+    if (changed.length === 0) throw new HttpError(400, 'Nothing changed.');
     tx.update(ref, { ...patch });
     audit(tx, 'ENTITLEMENT_CHANGED', actor, ent.personId, entitlementId,
-      keys.map((k) => `${k}: ${JSON.stringify(fresh[k])} → ${JSON.stringify(merged[k])}`).join('; '));
+      changed.map((k) => `${k}: ${JSON.stringify(fresh[k])} → ${JSON.stringify(merged[k])}`).join('; '));
     return { entitlementId, ...merged };
   });
 }

@@ -238,6 +238,29 @@ revocation checking on every request. Lifetime by role: **Master 12 h, guard 16 
 5 days**. Deactivation, promotion/demotion, password change/reset and "Sign out of all devices"
 revoke every session at once. "Sign out" on one device just clears that device's cookie.
 
+A page reached with an ended session (timed out, revoked) redirects to `/login?expired=1`, which
+says so. Sign-in and password requests from the browser go through `lib/clientFetch.ts`: offline,
+dropped connections, a 20 s timeout and ended sessions each get a plain message, never a raw error.
+
+## Password reset (Master) — forced change
+- **Reset** (`resetPassword`): one-time password set, sessions revoked, custom claim
+  `mustChangePassword: true` set (claim first, so a failure later still forces the change).
+- **Signing in with it** issues a session whose claim makes `getSessionUser()` return **null**
+  everywhere — every page and API treats it as signed out (fail closed; no route has to remember
+  a check). Pages send it to `/set-password` (`requirePageRole`); only `getPasswordResetSession()`
+  (the set-password page and `POST /api/auth/set-password`) accepts it.
+- **New password** must differ from the one-time password **and** the password held before the
+  reset (also across several resets). Password set first, claim cleared second, then a fresh
+  session — an interruption in between just asks again. A retry after a lost reply is answered
+  "session ended — sign in with your new password if you already chose one".
+- **No passwords are stored, readable or otherwise.** Firebase Auth holds the real (hashed)
+  password. `passwordHashes/{personId}` (server-only, deny-all rules) holds salted **scrypt
+  fingerprints** — `current` (learned at creation, sign-in and change), `previous` and
+  `oneTime` during a reset, both cleared after it — enough to answer "same as before?" and
+  nothing more. Promotion/demotion merge claims, so a pending reset survives them.
+- **Testing:** `npm run test:password -- <username> [password]` (local, Admin SDK) sets a known
+  password on a test account and writes it to the git-ignored `.demo-credentials.local.txt`.
+
 ## Rate limiting and request size (`proxy.ts`, `lib/rateLimit.ts`)
 In-memory, per server instance, writing nothing to Firestore (so it can't be used to burn the
 free tier's quotas). Keys follow the person: signed-in traffic per session, a high per-IP ceiling

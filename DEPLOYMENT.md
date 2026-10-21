@@ -75,6 +75,8 @@ Components or Route Handlers).
   and these on every push (`.github/workflows/ci.yml`).
 - `npm run test:live` — read-only security probe against a running instance; set
   `BASE=https://edc-gib-24.vercel.app` to probe production. Needs `.demo-credentials.local.txt`.
+- `npm run test:password -- <username> [password]` — set a known password on a test account and
+  record it in `.demo-credentials.local.txt` (local only; see SECURITY_MODEL.md "Password reset").
 
 ## Caching and paging
 
@@ -90,9 +92,14 @@ Components or Route Handlers).
   only for the rows shown. Names are looked up only for ids on screen (`namesFor`).
 - **Streaming**: the person page and `/me` show their top part first; heavy sections (history,
   "people under me") stream in with placeholders. Admin nav badges stream in too.
+- **Lists:** People (Master) and People under me (`/me`) have category chips with counts,
+  sort (name, recently at gate, newest, code) and a List/Cards view; the Master overview shows
+  "Recently at the gate" first, then each category. Audit log: tick-list of actions (grouped),
+  date range, order; Entries: result, date range, order. **Download these as CSV** exports
+  exactly the filtered rows (`lib/logs.ts` builds the query for page and export alike).
 - **Composite indexes** for the paged queries live in `firestore.indexes.json`; deploy with
   `firebase deploy --only firestore:indexes` (they take a minute or two to build — queries that
-  need one fail with FAILED_PRECONDITION until then).
+  need one say "still being prepared" on the page — or 503 on the CSV export — until then).
 
 ## Portability
 

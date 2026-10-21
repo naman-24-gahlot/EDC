@@ -13,6 +13,9 @@ import { RoleHeader } from '@/components/RoleHeader';
 import { SkeletonBlock } from '@/components/Skeleton';
 import { Pager } from '@/components/Pager';
 import { DataStamp } from '@/components/DataStamp';
+import { Chips } from '@/components/Chips';
+import { CardGrid, PersonCard } from '@/components/PersonCard';
+import { CATEGORIES, SORTS, VIEWS, categoryOf, countByCategory, lastEntryMillis, parseCategory, parseView, sortPeople } from '@/lib/people/browse';
 import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate, formatDateTime, windowSummary } from '@/lib/display';
 import { ReissueButton } from './ReissueButton';
 import { RequestForm } from './RequestForm';
@@ -54,13 +57,27 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
  * The expensive part of /me — streamed in after the rest of the page is already on screen.
  * Scope is decided here, server-side: Master everyone, anyone else their descendants.
  */
-async function PeopleSection({ user, me, page }: { user: SessionUser; me: PersonRecord; page: number }) {
+const ME_SORTS = [['tree', 'By hierarchy'], ...SORTS] as const;
+type MeParams = { people?: string; requests?: string; pcat?: string; psort?: string; pview?: string };
+
+async function PeopleSection({ user, me, params }: { user: SessionUser; me: PersonRecord; params: MeParams }) {
   const isMaster = user.systemRole === 'master';
   const people = isMaster
     ? (await adminDb.collection('people').get()).docs.map((d) => toPerson(d)!).filter((p) => p.personId !== user.personId)
     : await listDescendants(user.personId);
-  people.sort((a, b) => a.ancestorIds.length - b.ancestorIds.length || a.firstName.localeCompare(b.firstName));
-  const view = paginate(people, page);
+  // Scope above is the server's; category / sort / view below only arrange what's in scope.
+  const cat = parseCategory(params.pcat);
+  const sortKey = ME_SORTS.find(([v]) => v === params.psort)?.[0] ?? 'tree';
+  const display = parseView(params.pview);
+  const codeOf = (p: PersonRecord) => accessCodeFor(p.profileType, p.accessNumber) ?? '';
+  const counts = countByCategory(people);
+  const inCat = people.filter((p) => cat === 'all' || categoryOf(p) === cat);
+  const arranged = sortKey === 'tree'
+    ? inCat.sort((a, b) => a.ancestorIds.length - b.ancestorIds.length || a.firstName.localeCompare(b.firstName))
+    : sortPeople(inCat, sortKey, codeOf);
+  const view = paginate(arranged, parsePage(params.people));
+  const keep = { pcat: params.pcat, psort: params.psort, pview: params.pview };
+  const usedCats = CATEGORIES.filter(([c]) => c === 'all' || counts[c] > 0).map(([v, l]) => [v, l, counts[v]] as const);
   const [queue, ents] = await Promise.all([
     listApprovalQueue(user, { self: me, descendantIds: people.map((p) => p.personId) }),
     currentEntitlementsFor(view.items.map((p) => p.personId)), // just the people on this page
@@ -106,15 +123,47 @@ async function PeopleSection({ user, me, page }: { user: SessionUser; me: Person
         </div>
       )}
 
+      {people.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-[#D5DDE4] bg-white p-3">
+          {usedCats.length > 2 && <Chips label="Show" param="pcat" path="/me" params={keep} current={cat} options={usedCats} pageParam="people" />}
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <Chips label="Sort" param="psort" path="/me" params={keep} current={sortKey} options={ME_SORTS} pageParam="people" />
+            <Chips label="View" param="pview" path="/me" params={keep} current={display} options={VIEWS} pageParam="people" />
+          </div>
+        </div>
+      )}
+
       {people.length === 0 ? (
         <p className="text-sm text-[#7C8C9B]">Nobody here yet.</p>
+      ) : display === 'cards' ? (
+        <>
+          <CardGrid>
+            {view.items.map((p) => {
+              const ent = ents.get(p.personId) ?? null;
+              const status = p.systemRole === 'guard' ? 'GUARD' : accessStatus(p, ent ? effectiveStatus(ent, today) : null);
+              return (
+                <PersonCard key={p.personId}
+                  p={{ personId: p.personId, firstName: p.firstName, lastName: p.lastName, username: p.username, category: categoryOf(p),
+                    typeLabel: p.systemRole === 'master' ? 'Master' : p.profileType ? PROFILE_LABEL[p.profileType] : 'Guard',
+                    code: codeOf(p) || null, status, lastEntry: lastEntryMillis(p) ? formatDateTime(new Date(lastEntryMillis(p))) : null,
+                    under: p.parentId ? nameOf.get(p.parentId) ?? (p.parentId === me.personId ? 'me' : null) : null }}
+                  footer={(pendingByPerson.has(p.personId) || (p.profileType && (status === 'NONE' || status === 'EXPIRED'))) ? (
+                    pendingByPerson.has(p.personId)
+                      ? <span className="text-xs font-semibold text-amber-700">Request pending</span>
+                      : <GrantButton personId={p.personId} name={`${p.firstName} ${p.lastName}`} summary={usualAccess(p.profileType!, today)} />
+                  ) : undefined} />
+              );
+            })}
+          </CardGrid>
+          <Pager page={view.page} pages={view.pages} total={view.total} param="people" noun="people" />
+        </>
       ) : (
         <>
           <ul className="divide-y divide-[#D5DDE4]" data-testid="people-list">
             {view.items.map((p) => {
               const ent = ents.get(p.personId) ?? null;
               const status = p.systemRole === 'guard' ? 'GUARD' : accessStatus(p, ent ? effectiveStatus(ent, today) : null);
-              const depth = Math.min(3, Math.max(0, p.ancestorIds.length - (isMaster ? 0 : me.ancestorIds.length + 1)));
+              const depth = sortKey !== 'tree' ? 0 : Math.min(3, Math.max(0, p.ancestorIds.length - (isMaster ? 0 : me.ancestorIds.length + 1)));
               return (
                 <li key={p.personId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 py-2 text-sm" style={{ paddingLeft: depth * 12 }} data-person={p.username}>
                   <div className="min-w-0 flex-1 basis-44">
@@ -142,7 +191,7 @@ async function PeopleSection({ user, me, page }: { user: SessionUser; me: Person
   );
 }
 
-export default async function MePage({ searchParams }: { searchParams: Promise<{ people?: string; requests?: string }> }) {
+export default async function MePage({ searchParams }: { searchParams: Promise<MeParams> }) {
   const user = await requirePageRole('member', 'master');
   const params = await searchParams;
   const isMaster = user.systemRole === 'master';
@@ -257,7 +306,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
 
       {canManage && (
         <Suspense fallback={<Section title={isMaster ? 'Everyone' : 'People under me'} id="people"><SkeletonBlock className="h-10 w-48" /><SkeletonBlock className="h-40 w-full" /></Section>}>
-          <PeopleSection user={user} me={me} page={parsePage(params.people)} />
+          <PeopleSection user={user} me={me} params={params} />
         </Suspense>
       )}
     </main>

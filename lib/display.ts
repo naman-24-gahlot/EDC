@@ -30,12 +30,13 @@ export function formatDateTime(d: Date): string {
 }
 
 /** The person-facing access status: the entitlement's effective status, not the time-of-day verdict. */
-export type AccessStatus = 'ACTIVE' | 'NONE' | 'EXPIRED' | 'REVOKED' | 'NOT YET ACTIVE' | 'PENDING APPROVAL';
+export type AccessStatus = 'ACTIVE' | 'NONE' | 'EXPIRED' | 'REVOKED' | 'NOT YET ACTIVE' | 'PENDING APPROVAL' | 'REJECTED';
 
 export function accessStatus(
   person: { registrationStatus: string; active: boolean },
   effective: EffectiveStatus | null
 ): AccessStatus {
+  if (person.registrationStatus === 'REJECTED') return 'REJECTED';
   if (person.registrationStatus !== 'APPROVED') return 'PENDING APPROVAL';
   if (!person.active) return 'REVOKED';
   if (!effective || effective === 'SUPERSEDED') return 'NONE';

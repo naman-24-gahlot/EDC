@@ -4,6 +4,7 @@ import { loginWithIdentifier, LoginError } from '@/lib/auth/login';
 import { createSessionCookie, SESSION_COOKIE_NAME, SESSION_EXPIRES_IN_MS } from '@/lib/session';
 import { isSystemRole } from '@/lib/roles';
 import { RULES, clientIpFrom, loginLimiter } from '@/lib/rateLimit';
+import { learnCurrent } from '@/lib/auth/passwordHashes';
 
 // Deliberately identical for "unknown identifier" and "wrong password" — no
 // enumeration oracle. See SECURITY_MODEL.md "Identity and login".
@@ -32,8 +33,9 @@ export async function POST(request: NextRequest) {
   }
 
   let idToken: string;
+  let personId: string;
   try {
-    ({ idToken } = await loginWithIdentifier(identifier, password));
+    ({ idToken, personId } = await loginWithIdentifier(identifier, password));
   } catch (err) {
     if (err instanceof LoginError) {
       return NextResponse.json(GENERIC_ERROR, { status: 401 });
@@ -54,8 +56,12 @@ export async function POST(request: NextRequest) {
   }
 
   const sessionCookie = await createSessionCookie(idToken, decoded.systemRole);
+  // Remember this password's fingerprint for "new must differ from old" (never the password).
+  await learnCurrent(personId, password).catch((err) => console.error('Could not record password fingerprint', err));
 
-  const response = NextResponse.json({ systemRole: decoded.systemRole });
+  // After a reset the session is only good for choosing a new password (lib/session.ts).
+  const mustChangePassword = decoded.mustChangePassword === true;
+  const response = NextResponse.json({ systemRole: decoded.systemRole, mustChangePassword });
   response.cookies.set(SESSION_COOKIE_NAME, sessionCookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

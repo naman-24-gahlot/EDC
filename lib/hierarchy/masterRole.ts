@@ -61,7 +61,9 @@ export async function setMasterRole(
   // Authorization reads the custom claim, so it must follow. Revoking forces a fresh
   // sign-in, which is what makes a demotion take effect on an already-open session.
   try {
-    await adminAuth.setCustomUserClaims(targetPersonId, { systemRole: newRole });
+    // Merge, don't replace: a pending forced password change (mustChangePassword) must survive.
+    const claims = (await adminAuth.getUser(targetPersonId)).customClaims ?? {};
+    await adminAuth.setCustomUserClaims(targetPersonId, { ...claims, systemRole: newRole });
     await adminAuth.revokeRefreshTokens(targetPersonId);
   } catch (err) {
     await people.doc(targetPersonId).update({ systemRole: previousRole }).catch(() => {});

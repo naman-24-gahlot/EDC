@@ -1,7 +1,6 @@
 import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { getSessionUser } from '@/lib/session';
+import { requirePageRole } from '@/lib/session';
 import { pendingCounts } from './data';
 import { RoleHeader } from '@/components/RoleHeader';
 import { AdminNav } from './AdminNav';
@@ -15,9 +14,7 @@ async function NavWithCounts() {
 // systemRole comes only from the verified session cookie — never trust the client.
 // (Each admin page ALSO checks Master itself — a layout alone can be skipped; see app/admin/data.ts.)
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const user = await getSessionUser();
-  if (!user) redirect('/login');
-  if (user.systemRole !== 'master') redirect('/login');
+  const user = await requirePageRole('master'); // also routes ended sessions and pending password changes
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">

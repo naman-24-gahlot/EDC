@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { sendJson } from '@/lib/clientFetch';
 
 interface Window { startDate: string; endDate: string | null; weekdays: number[]; startTime: string; endTime: string }
 type Details = { firstName: string; lastName: string; mobile: string; purpose: string };
@@ -51,12 +52,8 @@ function describe(w: Window) {
   return `${w.endDate ? `${w.startDate} → ${w.endDate}` : `from ${w.startDate}, open-ended`} · ${days} · ${w.startTime}–${w.endTime}`;
 }
 
-async function send(url: string, body: unknown, method = 'POST') {
-  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error ?? 'Action failed');
-  return data;
-}
+// Plain-language failures for offline / timeouts / an ended session (lib/clientFetch.ts).
+const send = (url: string, body: unknown, method = 'POST') => sendJson<{ password?: string }>(url, body ?? {}, method);
 
 function WindowFields({ value, onChange }: { value: Window; onChange: (w: Window) => void }) {
   return (
@@ -326,7 +323,7 @@ export function PersonActions(props: Props) {
           </button>
         )}
         <button className={`${btn} border-gray-400`} disabled={busy}
-          onClick={async () => { const d = await act(`${base}/reset-password`, `Reset ${person.name}'s password? They are signed out everywhere and get a one-time password.`, 'Password reset.'); if (d?.password) setOneTimePassword(d.password); }}>
+          onClick={async () => { const d = await act(`${base}/reset-password`, `Reset ${person.name}'s password? They are signed out everywhere and get a one-time password, which only lets them choose a new one.`, 'Password reset.'); if (d?.password) setOneTimePassword(d.password); }}>
           Reset password
         </button>
       </div>
@@ -334,7 +331,7 @@ export function PersonActions(props: Props) {
       {oneTimePassword && (
         <div role="status" className="rounded border border-emerald-300 bg-emerald-50 p-3 text-sm">
           One-time password for {person.name}: <span className="font-mono font-semibold">{oneTimePassword}</span>
-          <span className="block text-xs text-gray-600">Shown once — hand it over now. They can change it from their account page.</span>
+          <span className="block text-xs text-gray-600">Shown once — hand it over now. When they sign in with it, they must choose a new password (not this one, not their old one) before anything else.</span>
           <button type="button" className="mt-1 text-xs underline" onClick={() => setOneTimePassword(null)}>Hide</button>
         </div>
       )}

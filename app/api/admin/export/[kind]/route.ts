@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getSessionUser } from '@/lib/session';
 import { todayDateString } from '@/lib/date';
+import { auditQuery, entryQuery, parseAuditFilter, parseEntryFilter } from '@/lib/logs';
 
-// Master only: download gate entries or the audit log as CSV for the office.
+// Master only: download gate entries or the audit log as CSV for the office — filtered exactly
+// like the page (lib/logs.ts): ?action=…&person=…&from=…&to=…&order=… / ?result=…
 const LIMIT = 5000;
 
 // Spreadsheet apps execute cells starting with = + - @ (and tab/CR) as formulas, so a name or
@@ -16,7 +18,7 @@ function cell(value: unknown): string {
 
 const iso = (v: unknown) => (v as { toDate?: () => Date } | null)?.toDate?.().toISOString() ?? '';
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ kind: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ kind: string }> }) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
   if (user.systemRole !== 'master') return NextResponse.json({ error: 'Master only.' }, { status: 403 });
@@ -24,10 +26,19 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const { kind } = await params;
   if (kind !== 'entries' && kind !== 'audit') return NextResponse.json({ error: 'Unknown export.' }, { status: 404 });
 
-  const [rows, people] = await Promise.all([
-    adminDb.collection(kind === 'entries' ? 'entryEvents' : 'auditLogs').orderBy('timestamp', 'desc').limit(LIMIT).get(),
-    adminDb.collection('people').select('firstName', 'lastName', 'username').get(),
-  ]);
+  const sp = request.nextUrl.searchParams;
+  const raw = Object.fromEntries([...new Set(sp.keys())].map((k) => [k, sp.getAll(k)]));
+  let rows, people;
+  try {
+    [rows, people] = await Promise.all([
+      (kind === 'entries' ? entryQuery(parseEntryFilter(raw)) : auditQuery(parseAuditFilter(raw))).limit(LIMIT).get(),
+      adminDb.collection('people').select('firstName', 'lastName', 'username').get(),
+    ]);
+  } catch (err) {
+    // FAILED_PRECONDITION: the index for this filter is still building after a deploy.
+    if ((err as { code?: number }).code === 9) return NextResponse.json({ error: 'This filter is still being prepared by the database — try again in a few minutes.' }, { status: 503 });
+    throw err;
+  }
   const name = new Map(people.docs.map((d) => [d.id, `${d.data().firstName} ${d.data().lastName} (@${d.data().username})`]));
   const who = (id: unknown) => (typeof id === 'string' ? name.get(id) ?? id : '');
 
@@ -45,7 +56,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="edc-${kind}-${todayDateString()}.csv"`,
+      'Content-Disposition': `attachment; filename="edc-${kind}-${sp.size ? 'filtered-' : ''}${todayDateString()}.csv"`,
       'Cache-Control': 'no-store',
     },
   });

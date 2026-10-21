@@ -11,6 +11,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
 import { HttpError, assertCanActOn, loadPerson, requireMaster } from '@/lib/hierarchy/authorize';
 import { validatePhoto } from './create';
+import { hashPassword, matches, readHashes, writeHashes } from '@/lib/auth/passwordHashes';
 
 export interface ProfilePatch {
   firstName?: string;
@@ -104,7 +105,11 @@ export async function changeOwnPassword(actor: SessionUser, current: unknown, ne
   const record = await adminAuth.getUser(actor.personId);
   if (!record.email || !(await passwordSignIn(record.email, current))) throw new HttpError(403, 'Current password is incorrect.');
 
+  const hashes = await readHashes(actor.personId);
+  if (await matches(newPassword, hashes.previous)) throw new HttpError(400, 'Pick a password you have not used just before.');
+
   await adminAuth.updateUser(actor.personId, { password: newPassword });
+  await writeHashes(actor.personId, { previous: await hashPassword(current), current: await hashPassword(newPassword), oneTime: null });
   await adminAuth.revokeRefreshTokens(actor.personId);
   await adminDb.collection('auditLogs').add({
     action: 'PASSWORD_CHANGED', actorId: actor.personId, actorRole: actor.systemRole,
@@ -125,6 +130,13 @@ export async function resetPassword(actor: SessionUser, personId: string): Promi
   const person = await loadPerson(personId);
   if (!person) throw new HttpError(404, 'Person not found.');
   const password = randomBytes(9).toString('base64url');
+  // The password they had stays on record as "previous" (a fingerprint, not the password) so the
+  // one they must now choose can't be the same. A second reset before they finish keeps it.
+  const hashes = await readHashes(personId);
+  await writeHashes(personId, { previous: hashes.current ?? hashes.previous, current: null, oneTime: await hashPassword(password) });
+  const claims = (await adminAuth.getUser(personId)).customClaims ?? {};
+  // Claim first: if the password update below fails, they're still made to change it on sign-in.
+  await adminAuth.setCustomUserClaims(personId, { ...claims, mustChangePassword: true });
   await adminAuth.updateUser(personId, { password });
   await adminAuth.revokeRefreshTokens(personId);
   await adminDb.collection('auditLogs').add({
@@ -132,6 +144,41 @@ export async function resetPassword(actor: SessionUser, personId: string): Promi
     targetPersonId: personId, subjectId: null, timestamp: Timestamp.now(), details: 'one-time password issued; sessions signed out',
   });
   return password;
+}
+
+/**
+ * Finishing a reset: the person signed in with the one-time password and must now pick a new
+ * one that is neither the one-time password nor the password they had before the reset. Safe
+ * to retry: if the change already went through, the same new password just signs them in.
+ */
+export async function completePasswordReset(personId: string, next: unknown): Promise<string> {
+  const newPassword = checkNewPassword(next);
+  const record = await adminAuth.getUser(personId);
+  if (!record.email) throw new HttpError(500, 'Account has no sign-in email.');
+  const hashes = await readHashes(personId);
+  const claims = record.customClaims ?? {};
+
+  if (claims.mustChangePassword === true) {
+    if (await matches(newPassword, hashes.oneTime)) throw new HttpError(400, 'Choose your own password — not the one-time password.');
+    if (await matches(newPassword, hashes.previous)) throw new HttpError(400, 'That is your old password. Choose a new one you have not used before.');
+    await adminAuth.updateUser(personId, { password: newPassword });
+    await writeHashes(personId, { current: await hashPassword(newPassword), oneTime: null, previous: null });
+    // Password first, then the flag: a failure in between leaves them asked again — never let through.
+    const { mustChangePassword: _done, ...rest } = claims; // eslint-disable-line @typescript-eslint/no-unused-vars -- dropping the flag
+    await adminAuth.setCustomUserClaims(personId, rest);
+    await adminAuth.revokeRefreshTokens(personId);
+    await adminDb.collection('auditLogs').add({
+      action: 'PASSWORD_CHANGED', actorId: personId, actorRole: typeof claims.systemRole === 'string' ? claims.systemRole : 'member',
+      targetPersonId: personId, subjectId: null, timestamp: Timestamp.now(), details: 'new password set after a reset',
+    });
+    await new Promise((r) => setTimeout(r, 1100)); // see changeOwnPassword: revocation is per second
+  } else if (!(await matches(newPassword, hashes.current))) {
+    // Already finished (e.g. the first attempt's reply was lost) and this isn't that password.
+    throw new HttpError(409, 'Your new password is already set — sign in with it.');
+  }
+  const idToken = await passwordSignIn(record.email, newPassword);
+  if (!idToken) throw new HttpError(500, 'Password saved — please sign in with your new password.');
+  return idToken;
 }
 
 /** Self-service "sign out of all devices". */

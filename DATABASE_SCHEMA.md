@@ -42,6 +42,7 @@ The person: identity, current profile, hierarchy position, credential state.
   registrationStatus: 'PENDING' | 'APPROVED' | 'REJECTED',
   registrationDecision: { by: string, at: Timestamp, note: string | null, appliedProfileType?: ProfileType } | null,
   // Set only when approved under a different type than applied for; shown once on /me, then seenAt is set.
+  lastEntryAt?: Timestamp,          // last APPROVED gate entry — written by /api/guard/verify; drives "Recently at the gate"
   approvalNotice?: { appliedAs: ProfileType, approvedAs: ProfileType, by: string, at: Timestamp, seenAt: Timestamp | null },
 
   accessNumber: string | null,      // 5 digits, unique across all people, stable for life. Issued at approval.
@@ -162,6 +163,14 @@ Append-only. **Every** gate attempt, approved or denied. Entering does not consu
   presentedCode: string | null,     // CODE method only. The QR token is NEVER stored.
   timestamp: Timestamp,
 }
+```
+
+### `passwordHashes/{personId}`
+Server-only fingerprints for "the new password must differ from the old one" (SECURITY_MODEL.md
+"Password reset"). Never a password; Firebase Auth keeps the real one.
+```
+{ current: string | null, previous: string | null, oneTime: string | null, updatedAt: Timestamp }
+// each "scrypt$<salt>$<hash>" (base64url, 16-byte salt, 32-byte key)
 ```
 
 ### `auditLogs/{id}`

@@ -3,6 +3,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { downscalePhoto } from '@/lib/photo';
+import { sendJson } from '@/lib/clientFetch';
 
 type Panel = 'details' | 'password' | null;
 
@@ -23,9 +24,7 @@ export function AccountSettings({ initial, username }: { initial: { firstName: s
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? 'Something went wrong');
+      await sendJson(url, body, method); // plain-language messages for offline / timeouts / ended sessions
       return true;
     } catch (err) {
       setMessage({ ok: false, text: err instanceof Error ? err.message : 'Something went wrong' });
