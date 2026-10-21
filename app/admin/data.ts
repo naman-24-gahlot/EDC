@@ -6,7 +6,6 @@ if (typeof window !== 'undefined') {
 import { adminDb } from '@/lib/firebase/admin';
 import { requirePageRole, type SessionUser } from '@/lib/session';
 import { toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
-import type { Entitlement } from '@/lib/access/entitlements';
 
 /**
  * Every admin PAGE must call this first. The layout's check is not enough: on client-side
@@ -34,19 +33,15 @@ export async function pendingCounts(): Promise<{ requests: number; registrations
   };
 }
 
+/** Display names for just these ids — one batched read of three fields each, not the whole table. */
+export async function namesFor(ids: (string | null | undefined)[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids.filter((x): x is string => typeof x === 'string' && /^[A-Za-z0-9]{1,128}$/.test(x)))];
+  if (unique.length === 0) return new Map();
+  const snaps = await adminDb.getAll(...unique.map((id) => adminDb.collection('people').doc(id)), { fieldMask: ['firstName', 'lastName'] });
+  return new Map(snaps.filter((s) => s.exists).map((s) => [s.id, `${s.data()!.firstName} ${s.data()!.lastName}`]));
+}
+
 export function nameMap(people: PersonRecord[]): Map<string, string> {
   return new Map(people.map((p) => [p.personId, `${p.firstName} ${p.lastName}`]));
 }
 
-/** Current entitlement per person: the ACTIVE one, else the most recent. */
-export async function currentEntitlementByPerson(): Promise<Map<string, Entitlement>> {
-  const all = (await adminDb.collection('entitlements').get()).docs
-    .map((d) => ({ ...(d.data() as Omit<Entitlement, 'id'>), id: d.id }))
-    .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-  const out = new Map<string, Entitlement>();
-  for (const e of all) {
-    const seen = out.get(e.personId);
-    if (!seen || (seen.state !== 'ACTIVE' && e.state === 'ACTIVE')) out.set(e.personId, e);
-  }
-  return out;
-}

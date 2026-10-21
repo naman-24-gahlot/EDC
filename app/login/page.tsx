@@ -1,11 +1,9 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import { ROLE_HOME_PATH, isSystemRole } from '@/lib/roles';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +27,8 @@ export default function LoginPage() {
       }
 
       const systemRole = data.systemRole;
-      router.push(isSystemRole(systemRole) ? ROLE_HOME_PATH[systemRole] : '/login');
-      router.refresh();
+      // Full page load: starts the new account with an empty page cache in this browser.
+      window.location.assign(isSystemRole(systemRole) ? ROLE_HOME_PATH[systemRole] : '/login');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign-in failed');
       setLoading(false);

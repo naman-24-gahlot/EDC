@@ -27,7 +27,7 @@ export function GrantButton({ personId, name }: { personId: string; name: string
   return (
     <span className="flex items-center gap-2">
       <button onClick={grant} disabled={busy} aria-label={`Grant default access to ${name}`}
-        className="rounded border border-emerald-700 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 disabled:opacity-50">
+        className="min-h-9 rounded border border-emerald-700 px-3 text-xs font-semibold text-emerald-800 disabled:opacity-50 md:min-h-0 md:px-2 md:py-0.5 md:text-[11px]">
         {busy ? 'Granting…' : 'Grant access'}
       </button>
       {error && <span className="text-[11px] text-red-600">{error}</span>}

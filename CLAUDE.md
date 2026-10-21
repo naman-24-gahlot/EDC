@@ -72,7 +72,10 @@ Docs (read only what the current phase needs):
 ## Out of scope — do not build, do not prepare for
 Aadhaar/government-ID/external identity verification, biometrics, facial recognition,
 RFID/gate hardware, offline verification, analytics dashboards, payments, ERP, WhatsApp/SMS/
-email notifications, password reset, i18n, dark mode, pagination.
+email notifications, self-service password reset by email, i18n, dark mode.
+(Built later at the user's request: in-app password change and Master reset, paging of long
+lists with `lib/paging.ts` + `components/Pager.tsx`, and a client page cache — see
+DEPLOYMENT.md "Caching and paging".)
 
 ## Testing expectations
 Every implementation phase ends with `npm run lint`, `npx tsc --noEmit` and `npm run build`

@@ -41,7 +41,7 @@ export function ReissueButton() {
           </div>
         </div>
       ) : (
-        <button onClick={() => setConfirming(true)} className="text-sm font-medium text-amber-800 underline underline-offset-2">
+        <button onClick={() => setConfirming(true)} className="inline-flex min-h-10 items-center md:min-h-0 text-sm font-medium text-amber-800 underline underline-offset-2">
           Reissue my pass
         </button>
       )}

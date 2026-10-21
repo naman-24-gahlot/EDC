@@ -135,6 +135,28 @@ export async function listEntitlements(personId: string): Promise<Entitlement[]>
   return snap.docs.map(toEntitlement).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 }
 
+/**
+ * Current entitlement (ACTIVE, else most recent) for each of `personIds` — chunked `in`
+ * queries over just these people, so a page of 25 reads only their entitlements.
+ */
+export async function currentEntitlementsFor(personIds: string[]): Promise<Map<string, Entitlement>> {
+  const byPerson = new Map<string, Entitlement[]>();
+  const ids = [...new Set(personIds)];
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+  const snaps = await Promise.all(chunks.map((c) => adminDb.collection('entitlements').where('personId', 'in', c).get()));
+  for (const snap of snaps) for (const doc of snap.docs) {
+    const e = toEntitlement(doc);
+    byPerson.set(e.personId, [...(byPerson.get(e.personId) ?? []), e]);
+  }
+  const out = new Map<string, Entitlement>();
+  for (const [id, list] of byPerson) {
+    list.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    out.set(id, list.find((e) => e.state === 'ACTIVE') ?? list[0]);
+  }
+  return out;
+}
+
 export async function getActiveEntitlement(personId: string): Promise<Entitlement | null> {
   return (await listEntitlements(personId)).find((e) => e.state === 'ACTIVE') ?? null;
 }

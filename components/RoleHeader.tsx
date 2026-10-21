@@ -17,15 +17,15 @@ const ROLE_LABEL: Record<SystemRole, string> = {
 // page shell, not role-specific feature UI. Makes the signed-in role unmistakable.
 export function RoleHeader({ role, subtitle }: { role: SystemRole; subtitle?: string }) {
   return (
-    <div className="mb-6 flex items-center justify-between">
-      <div className="flex items-center gap-2">
+    <div className="mb-6 flex items-center justify-between gap-3">
+      <div className="flex shrink-0 items-center gap-2">
         <span className="text-sm font-semibold text-gray-900">EDC Access</span>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${ROLE_STYLES[role]}`}>
           {ROLE_LABEL[role]}
         </span>
       </div>
-      <div className="flex items-center gap-3">
-        {subtitle && <span className="text-xs text-gray-500">{subtitle}</span>}
+      <div className="flex min-w-0 items-center gap-3">
+        {subtitle && <span className="hidden min-w-0 truncate text-xs text-gray-500 min-[400px]:inline">{subtitle}</span>}
         <LogoutButton />
       </div>
     </div>

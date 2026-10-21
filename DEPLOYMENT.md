@@ -76,6 +76,24 @@ Components or Route Handlers).
 - `npm run test:live` — read-only security probe against a running instance; set
   `BASE=https://edc-gib-24.vercel.app` to probe production. Needs `.demo-credentials.local.txt`.
 
+## Caching and paging
+
+- **Browser page cache** (`next.config.ts` → `experimental.staleTimes.dynamic = 120`): pages
+  already visited are reused for 2 minutes during in-app navigation — no request. Every action
+  calls `router.refresh()`, which discards the cache. Sign-in and sign-out are full page loads so
+  one account's cached pages are never shown to the next.
+- **"Updated … ago · Refresh"** bar (`components/DataStamp.tsx`) on every data page shows how
+  old the shown data is; Refresh refetches and returns every list on the page to page 1.
+- **Paging** (`lib/paging.ts`, `components/Pager.tsx`, 25 per page): Entries, Audit and decided
+  Requests are paged **in Firestore** (offset + limit, plus a cheap `count()`), so a page reads
+  ~25 records instead of the whole history. People lists page in memory and read access periods
+  only for the rows shown. Names are looked up only for ids on screen (`namesFor`).
+- **Streaming**: the person page and `/me` show their top part first; heavy sections (history,
+  "people under me") stream in with placeholders. Admin nav badges stream in too.
+- **Composite indexes** for the paged queries live in `firestore.indexes.json`; deploy with
+  `firebase deploy --only firestore:indexes` (they take a minute or two to build — queries that
+  need one fail with FAILED_PRECONDITION until then).
+
 ## Portability
 
 This prototype intentionally runs on **Firebase's Spark (free) tier** and **Vercel's

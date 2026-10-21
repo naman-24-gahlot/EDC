@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { accessCodeFor } from '@/lib/access/codes';
 import { PROFILE_LABEL } from '@/lib/display';
 import type { PersonRecord } from '@/lib/hierarchy/authorize';
+import { fetchedAtNow } from '@/lib/paging';
+import { DataStamp } from '@/components/DataStamp';
 import { allPeople, requireMasterPage } from '../data';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +45,7 @@ export default async function AdminHierarchyPage() {
 
   return (
     <div className="space-y-6">
+      <DataStamp fetchedAt={fetchedAtNow()} />
       <section>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Master</h2>
         <ul>{masters.map((p) => <Node key={p.personId} person={p} kidsMap={kidsMap} />)}</ul>

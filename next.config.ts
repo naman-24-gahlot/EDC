@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Keep pages already visited in the browser for 2 minutes, so moving back and forth between
+    // them makes no request. Every action calls router.refresh(), which discards this cache, and
+    // each page shows when its data was fetched with a Refresh button. Sign-in and sign-out are
+    // full page loads, so one account's cached pages are never shown to the next.
+    staleTimes: { dynamic: 120 },
+  },
   async headers() {
     return [
       {

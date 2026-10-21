@@ -10,6 +10,8 @@ import { decideAccess } from '@/lib/access/evaluate';
 import { passTokenFor } from '@/lib/access/credential';
 import { LogoutButton } from '@/components/LogoutButton';
 import { PassQr } from './PassQr';
+import { fetchedAtNow } from '@/lib/paging';
+import { DataStamp } from '@/components/DataStamp';
 import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate } from '@/lib/display';
 
 export const dynamic = 'force-dynamic';
@@ -39,9 +41,10 @@ export default async function PassPage() {
   return (
     <main className="mx-auto max-w-md px-4 py-6 font-sans text-[#1B2A38]">
       <div className="mb-4 flex items-center justify-between">
-        <Link href="/me" className="text-sm font-semibold text-[#0D5B7A]">← My account</Link>
+        <Link href="/me" className="inline-flex min-h-10 items-center md:min-h-0 text-sm font-semibold text-[#0D5B7A]">← My account</Link>
         <LogoutButton />
       </div>
+      <div className="mb-3"><DataStamp fetchedAt={fetchedAtNow()} /></div>
 
       <section className="overflow-hidden rounded-[22px] border border-[#D5DDE4] bg-[#F7F9FB] shadow-[0_4px_16px_rgba(10,40,60,.10),0_1px_3px_rgba(10,40,60,.07)]">
         <header className="flex items-center gap-3 border-b-[3px] border-[#DB3B51] bg-gradient-to-r from-[#004180] to-[#0D5B7A] px-5 py-3 text-white">

@@ -65,7 +65,8 @@ export function AccountSettings({ initial }: { initial: { firstName: string; las
   }
 
   async function signOutEverywhere() {
-    if (await send('DELETE', '/api/me/sessions')) router.push('/login');
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate full load: clears the in-browser page cache between accounts
+    if (await send('DELETE', '/api/me/sessions')) window.location.assign('/login');
   }
 
   return (

@@ -42,7 +42,7 @@ function WindowFields({ value, onChange, idPrefix }: { value: Window; onChange: 
           return (
             <button type="button" key={d} aria-pressed={on}
               onClick={() => onChange({ ...value, weekdays: on ? value.weekdays.filter((x) => x !== i) : [...value.weekdays, i].sort() })}
-              className={`rounded px-2 py-1 text-xs font-semibold ${on ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-300'}`}>
+              className={`min-h-10 min-w-11 rounded px-2 py-1 text-xs font-semibold md:min-h-0 md:min-w-0 ${on ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-300'}`}>
               {d}
             </button>
           );

@@ -28,11 +28,11 @@ export function DecisionButtons({ base, what }: { base: string; what: string }) 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button onClick={() => decide('approve')} disabled={busy !== null} aria-label={`Approve ${what}`}
-        className="rounded bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-50">
+        className="min-h-10 rounded bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50 md:min-h-0 md:px-2.5 md:py-1 md:text-xs">
         {busy === 'approve' ? 'Approving…' : 'Approve'}
       </button>
       <button onClick={() => decide('reject')} disabled={busy !== null} aria-label={`Reject ${what}`}
-        className="rounded border border-gray-300 px-2.5 py-1 text-xs font-semibold disabled:opacity-50">
+        className="min-h-10 rounded border border-gray-300 bg-white px-4 text-sm font-semibold disabled:opacity-50 md:min-h-0 md:px-2.5 md:py-1 md:text-xs">
         {busy === 'reject' ? 'Rejecting…' : 'Reject'}
       </button>
       {error && <span className="text-xs text-red-600">{error}</span>}
