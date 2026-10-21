@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { downscalePhoto } from '@/lib/photo';
 
 const PROFILE_OPTIONS = [
@@ -31,8 +31,8 @@ function Field({
   placeholder?: string;
 }) {
   return (
-    <div className="space-y-1">
-      <label className="text-sm font-medium">{label}</label>
+    <label className="block space-y-1">
+      <span className="text-sm font-medium">{label}</span>
       <input
         type={type}
         value={value}
@@ -41,12 +41,11 @@ function Field({
         placeholder={placeholder}
         className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
       />
-    </div>
+    </label>
   );
 }
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
@@ -59,6 +58,7 @@ export default function RegisterPage() {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [taken, setTaken] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -78,6 +78,7 @@ export default function RegisterPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setTaken(false);
     setLoading(true);
     try {
       const response = await fetch('/api/register', {
@@ -97,6 +98,8 @@ export default function RegisterPage() {
         }),
       });
       const data = await response.json();
+      // 409 = that username or email already has a profile: sign in rather than register again.
+      if (response.status === 409) setTaken(true);
       if (!response.ok) throw new Error(data.error ?? 'Registration failed');
       setSubmitted(true);
     } catch (err) {
@@ -114,12 +117,9 @@ export default function RegisterPage() {
           Your registration is pending approval. You&apos;ll be able to sign in once an
           authorized approver approves it.
         </p>
-        <button
-          onClick={() => router.push('/login')}
-          className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white"
-        >
+        <Link href="/login" className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white">
           Go to sign in
-        </button>
+        </Link>
       </main>
     );
   }
@@ -130,6 +130,11 @@ export default function RegisterPage() {
         <h1 className="text-lg font-semibold">EDC Registration</h1>
         <p className="text-sm text-gray-500">
           Register once — your profile stays even if access later expires.
+        </p>
+        <p className="mt-2 text-sm">
+          Already registered?{' '}
+          <Link href="/login" className="inline-flex min-h-10 items-center font-medium text-[#0D5B7A] underline md:min-h-0">Sign in instead</Link>
+          <span className="block text-xs text-gray-500">Lost your pass or access ended? Don&apos;t register again — sign in and reissue your pass or request access from My account.</span>
         </p>
       </div>
 
@@ -163,8 +168,9 @@ export default function RegisterPage() {
         />
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">Profile / Purpose</label>
+          <label htmlFor="reg-purpose" className="text-sm font-medium">Profile / Purpose</label>
           <textarea
+            id="reg-purpose"
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
             required
@@ -174,8 +180,9 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">Profile type</label>
+          <label htmlFor="reg-type" className="text-sm font-medium">Profile type</label>
           <select
+            id="reg-type"
             value={profileType}
             onChange={(e) => setProfileType(e.target.value)}
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
@@ -199,8 +206,8 @@ export default function RegisterPage() {
         )}
 
         <div className="space-y-1">
-          <label className="text-sm font-medium">Profile photo (optional)</label>
-          <input type="file" accept="image/*" onChange={handlePhotoChange} className="text-sm" />
+          <label htmlFor="reg-photo" className="text-sm font-medium">Profile photo (optional)</label>
+          <input id="reg-photo" type="file" accept="image/*" onChange={handlePhotoChange} className="text-sm" />
           {photoDataUrl && (
             // eslint-disable-next-line @next/next/no-img-element -- data: URL preview, not a static/remote asset
             <img
@@ -212,7 +219,12 @@ export default function RegisterPage() {
           {photoError && <p className="text-sm text-red-600">{photoError}</p>}
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="text-sm text-red-600" role="alert">
+            {error}
+            {taken && <> <Link href="/login" className="font-medium underline">Sign in with it instead →</Link></>}
+          </p>
+        )}
 
         <button
           type="submit"

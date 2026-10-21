@@ -47,7 +47,7 @@ Live URL: `https://edc-gib-24.vercel.app` (or `npm run dev` → `http://localhos
 
 1. Vikram's request is in **Access requests to decide**. **Approve** it. Vikram turns
    **ACTIVE** — a bodyguard gets Mon–Sat 08:00–20:00 for 30 days (his profile's template).
-2. Next to the new driver (no access yet), click **Grant access** — same template, no request
+2. Next to the new driver (no access yet), click **Give usual access** — same template, no request
    needed because Rahul is their approver.
 3. Optional: **Create person under me** → a relative, approved on the spot with a `REL` code and
    a one-time password shown once.
@@ -76,8 +76,9 @@ Live URL: `https://edc-gib-24.vercel.app` (or `npm run dev` → `http://localhos
    left every queue after 3 days but is still in history. Approve Karan.
 2. **People → Suresh Kumar:** change **Driver → Relative**. His code changes from `DRV…` to
    `REL…` (same digits); the old code is now **Code superseded** at the gate, his old QR stops
-   working, and his access ends until a new grant — no silent auto-grant. Profile history
-   records it. Grant him access again from the pre-filled form.
+   working, and his access becomes the **Relative default** (the page says exactly what it will be
+   before you press **Save changes**). Profile history records it. Adjust his period in the
+   **Access period** form and press **Save changes** — same pass, applies at the gate at once.
 3. **Revoke** someone's access on their page → their code says **Access revoked**, their QR
    **Invalid QR**.
 4. **Hierarchy** shows Master → employees → their people. **Entries** shows every gate attempt.

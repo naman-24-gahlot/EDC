@@ -234,9 +234,14 @@ being scanned — the same pass keeps working for entry 1…n while the entitlem
 1. `profileHistory` entry written, including the old full code string.
 2. Prefix changes, `accessNumber` stays → old code string is rejected at the gate as superseded.
 3. `credentialVersion++` → every old QR dies.
-4. Any `ACTIVE` entitlement → `SUPERSEDED`. **No auto-grant** — Master grants a fresh one under
-   the new type's template. (Silently auto-granting access on a type change is the wrong
-   default for an access-control system; it's a one-line change if the college wants it.)
+4. Any `ACTIVE` entitlement → `SUPERSEDED`. If that access was still in force (ACTIVE or
+   SCHEDULED, not expired), a new entitlement is created in the same transaction from the **new
+   type's template**, starting today (or the old start date if later): benefits follow the
+   type both ways (relative 30 days → employee open-ended; employee → driver shrinks to 30
+   days). Expired or no access stays that way — a type change never creates access from
+   nothing. Changed from "no auto-grant" at the user's request; audited as
+   `ENTITLEMENT_CREATED` "… default after type change", and the history entry records
+   `grantedEntitlementId`.
 5. Validation: an Employee with live subordinates cannot become a non-parent type until they
    are rehomed; a subordinate type becoming Employee/Incubee is moved to top-level; a
    top-level person can't become a subordinate type until rehomed under an employee. Masters

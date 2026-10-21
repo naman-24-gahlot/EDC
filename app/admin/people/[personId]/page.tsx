@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { adminDb } from '@/lib/firebase/admin';
 import { todayDateString } from '@/lib/date';
 import { loadPerson, toPerson } from '@/lib/hierarchy/authorize';
-import { accessCodeFor } from '@/lib/access/codes';
+import { PROFILE_TYPES, accessCodeFor } from '@/lib/access/codes';
 import { effectiveStatus, listEntitlements, templateWindow } from '@/lib/access/entitlements';
 import { listRequestsFor } from '@/lib/access/requests';
 import { PROFILE_LABEL, accessStatus, daysLabel, formatDate, formatDateTime } from '@/lib/display';
@@ -173,16 +173,19 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
       </div>
 
       <PersonActions
-        key={`${person.profileType}-${person.active}`}
         person={{
           personId, name: `${person.firstName} ${person.lastName}`, isSelf: personId === user.personId,
           systemRole: person.systemRole, profileType: person.profileType, parentId: person.parentId,
           active: person.active, registrationStatus: person.registrationStatus, hasDescendants: descendantIds.size > 0,
         }}
         eligibleParents={eligibleParents}
-        template={person.profileType && person.registrationStatus === 'APPROVED' && person.active ? templateWindow(person.profileType, today) : null}
-        activeEntitlementId={activeEnt?.id ?? null}
-        activeWindow={activeEnt ? { startDate: activeEnt.startDate, endDate: activeEnt.endDate, weekdays: activeEnt.weekdays, startTime: activeEnt.startTime, endTime: activeEnt.endTime } : null}
+        templates={Object.fromEntries(PROFILE_TYPES.map((t) => [t, templateWindow(t, today)]))}
+        grantBlocked={person.registrationStatus !== 'APPROVED' ? 'Approve their registration first — then you can grant access here.'
+          : !person.active ? 'Reactivate them first — then you can grant access here.' : null}
+        current={activeEnt ? {
+          id: activeEnt.id, status: effectiveStatus(activeEnt, today),
+          window: { startDate: activeEnt.startDate, endDate: activeEnt.endDate, weekdays: activeEnt.weekdays, startTime: activeEnt.startTime, endTime: activeEnt.endTime },
+        } : null}
         details={{ firstName: person.firstName, lastName: person.lastName, mobile: String(person.mobile ?? ''), purpose: String(person.purpose ?? '') }}
       />
 

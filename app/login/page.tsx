@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { ROLE_HOME_PATH, isSystemRole } from '@/lib/roles';
 
 export default function LoginPage() {
@@ -76,7 +77,13 @@ export default function LoginPage() {
           />
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="text-sm text-red-600" role="alert">
+            {error}
+            {/* Same hint for every failure, so it reveals nothing about which accounts exist. */}
+            <span className="mt-1 block text-xs text-gray-600">Registered recently? You can sign in once an approver accepts your registration.</span>
+          </p>
+        )}
 
         <button
           type="submit"
@@ -85,6 +92,22 @@ export default function LoginPage() {
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
+
+        <div className="space-y-2 border-t border-gray-100 pt-4 text-sm">
+          <p>
+            New to EDC?{' '}
+            <Link href="/register" className="inline-flex min-h-10 items-center font-medium text-[#0D5B7A] underline md:min-h-0">Register here</Link>
+          </p>
+          <details className="text-xs text-gray-600">
+            <summary className="inline-flex min-h-10 cursor-pointer items-center md:min-h-0">Already registered and stuck?</summary>
+            <ul className="mt-1 list-disc space-y-1 pl-4">
+              <li><b>Lost your pass or it stopped working?</b> Sign in, then use <i>Reissue my pass</i> on My account.</li>
+              <li><b>Access ended?</b> Sign in and send a new access request from My account.</li>
+              <li><b>Forgot your password?</b> Ask an EDC administrator to reset it — they&apos;ll give you a one-time password.</li>
+              <li><b>Don&apos;t register again</b> — your profile is kept even after access ends.</li>
+            </ul>
+          </details>
+        </div>
       </form>
     </main>
   );

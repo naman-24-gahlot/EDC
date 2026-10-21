@@ -6,7 +6,7 @@ import { requirePageRole, type SessionUser } from '@/lib/session';
 import { todayDateString } from '@/lib/date';
 import { listDescendants, loadPerson, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { accessCodeFor } from '@/lib/access/codes';
-import { currentEntitlementsFor, effectiveStatus, getCurrentEntitlement } from '@/lib/access/entitlements';
+import { currentEntitlementsFor, effectiveStatus, getCurrentEntitlement, templateWindow } from '@/lib/access/entitlements';
 import { listApprovalQueue, listRequestsFor } from '@/lib/access/requests';
 import { fetchedAtNow, paginate, parsePage } from '@/lib/paging';
 import { RoleHeader } from '@/components/RoleHeader';
@@ -124,7 +124,7 @@ async function PeopleSection({ user, me, page }: { user: SessionUser; me: Person
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {p.profileType && (status === 'NONE' || status === 'EXPIRED') && !pendingByPerson.has(p.personId) && (
-                      <GrantButton personId={p.personId} name={`${p.firstName} ${p.lastName}`} />
+                      <GrantButton personId={p.personId} name={`${p.firstName} ${p.lastName}`} summary={usualAccess(p.profileType, today)} />
                     )}
                     <Pill status={status} />
                   </div>
@@ -251,4 +251,9 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
       )}
     </main>
   );
+}
+
+function usualAccess(type: NonNullable<PersonRecord['profileType']>, today: string): string {
+  const w = templateWindow(type, today);
+  return `${PROFILE_LABEL[type]} default: ${w.endDate ? `${formatDate(w.startDate)} → ${formatDate(w.endDate)}` : `from ${formatDate(w.startDate)}, no end date`} · ${daysLabel(w.weekdays)} · ${w.startTime}–${w.endTime}`;
 }
