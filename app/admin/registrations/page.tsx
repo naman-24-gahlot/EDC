@@ -6,13 +6,14 @@ import { fetchedAtNow, paginate, parsePage } from '@/lib/paging';
 import { StatusPill } from '@/components/StatusPill';
 import { Pager } from '@/components/Pager';
 import { DataStamp } from '@/components/DataStamp';
-import { RegistrationActions } from './RegistrationActions';
+import { RegistrationDecision } from '@/components/RegistrationDecision';
+import { approveOptions } from '@/lib/people/approveRegistration';
 import { namesFor, requireMasterPage } from '../data';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminRegistrationsPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
-  await requireMasterPage();
+  const user = await requireMasterPage();
   const { page } = await searchParams;
   // Only people still waiting (or rejected) — not the whole people table.
   const snap = await adminDb.collection('people').where('registrationStatus', 'in', ['PENDING', 'REJECTED']).get();
@@ -23,6 +24,7 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
       : a.registrationStatus === 'PENDING' ? -1 : 1));
   const view = paginate(open, parsePage(page));
   const names = await namesFor(view.items.map((p) => p.parentId));
+  const options = approveOptions(user);
 
   return (
     <div className="space-y-4">
@@ -51,7 +53,9 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
                   </div>
                   <StatusPill status={p.registrationStatus} />
                 </div>
-                <RegistrationActions personId={p.personId} status={p.registrationStatus} />
+                {p.profileType && (
+                  <RegistrationDecision personId={p.personId} name={`${p.firstName} ${p.lastName}`} status={p.registrationStatus} appliedAs={p.profileType} options={options} />
+                )}
               </li>
             );
           })}

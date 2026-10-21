@@ -6,6 +6,8 @@ import { getSessionUser } from '@/lib/session';
 import { createPerson, PersonCreateError } from '@/lib/people/create';
 import { accessCodeFor, isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
 import { listDescendants, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
+import { templateWindow } from '@/lib/access/entitlements';
+import { todayDateString } from '@/lib/date';
 
 function generatePassword(): string {
   return randomBytes(9).toString('base64url');
@@ -108,6 +110,18 @@ export async function POST(request: NextRequest) {
 
   const now = Timestamp.now();
   const batch = adminDb.batch();
+  // Approved at creation, so access starts at creation too: the type's default period.
+  const window = templateWindow(profileType, todayDateString());
+  const entRef = adminDb.collection('entitlements').doc();
+  batch.create(entRef, {
+    personId: created.personId, profileTypeAtGrant: profileType, ...window, state: 'ACTIVE', sourceRequestId: null,
+    approvedBy: user.personId, approvedAt: now, revokedBy: null, revokedAt: null, revokeReason: null, createdAt: now,
+  });
+  batch.set(adminDb.collection('auditLogs').doc(), {
+    action: 'ENTITLEMENT_CREATED', actorId: user.personId, actorRole: user.systemRole, targetPersonId: created.personId,
+    subjectId: entRef.id, timestamp: now,
+    details: `${profileType} default on creation: ${window.startDate} → ${window.endDate ?? 'open'}, days ${window.weekdays.join('')}, ${window.startTime}–${window.endTime}`,
+  });
   batch.set(adminDb.collection('auditLogs').doc(), {
     action: 'REGISTRATION_SUBMITTED',
     actorId: user.personId,

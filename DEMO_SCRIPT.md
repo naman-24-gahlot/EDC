@@ -38,8 +38,11 @@ Live URL: `https://edc-gib-24.vercel.app` (or `npm run dev` → `http://localhos
 ## 2 — Approval → persistent profile → access code (as Rahul)
 
 1. Sign in as `rahul`. You land on **/me**: Profile, Access, My requests, **People under me**.
-2. Under "Registrations to decide", **Approve** the driver you just registered. They get a
-   `DRV` + 5-digit code immediately and appear in Rahul's list.
+2. Under "Registrations to decide", the driver you just registered shows **Approve as: Driver
+   (applied for)** and the access it grants. Switch it to **Bodyguard** to show the approver
+   decides — the note says they'll be told. **Approve as Bodyguard**: they get a `BDG` + 5-digit
+   code and the bodyguard default access immediately, and appear in Rahul's list. Sign in as
+   them: a one-time notice explains the change; **OK, got it** and it never shows again.
 3. Point out the list: only Rahul's own people. Neha's people (Ramesh, Karan) are not
    filtered out in the browser — the server never sends them.
 
@@ -47,8 +50,8 @@ Live URL: `https://edc-gib-24.vercel.app` (or `npm run dev` → `http://localhos
 
 1. Vikram's request is in **Access requests to decide**. **Approve** it. Vikram turns
    **ACTIVE** — a bodyguard gets Mon–Sat 08:00–20:00 for 30 days (his profile's template).
-2. Next to the new driver (no access yet), click **Give usual access** — same template, no request
-   needed because Rahul is their approver.
+2. If someone under Rahul has no access (e.g. after it expired), **Give usual access** next to
+   them grants their type's default — no request needed because Rahul is their approver.
 3. Optional: **Create person under me** → a relative, approved on the spot with a `REL` code and
    a one-time password shown once.
 

@@ -5,7 +5,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import { requirePageRole, type SessionUser } from '@/lib/session';
 import { todayDateString } from '@/lib/date';
 import { listDescendants, loadPerson, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
-import { accessCodeFor } from '@/lib/access/codes';
+import { accessCodeFor, isProfileType } from '@/lib/access/codes';
 import { currentEntitlementsFor, effectiveStatus, getCurrentEntitlement, templateWindow } from '@/lib/access/entitlements';
 import { listApprovalQueue, listRequestsFor } from '@/lib/access/requests';
 import { fetchedAtNow, paginate, parsePage } from '@/lib/paging';
@@ -13,13 +13,16 @@ import { RoleHeader } from '@/components/RoleHeader';
 import { SkeletonBlock } from '@/components/Skeleton';
 import { Pager } from '@/components/Pager';
 import { DataStamp } from '@/components/DataStamp';
-import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate, formatDateTime } from '@/lib/display';
+import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate, formatDateTime, windowSummary } from '@/lib/display';
 import { ReissueButton } from './ReissueButton';
 import { RequestForm } from './RequestForm';
 import { DecisionButtons } from '@/components/DecisionButtons';
+import { RegistrationDecision } from '@/components/RegistrationDecision';
+import { approveOptions } from '@/lib/people/approveRegistration';
 import { CreatePersonForm } from './CreatePersonForm';
 import { GrantButton } from './GrantButton';
 import { AccountSettings } from './AccountSettings';
+import { ApprovalNotice } from './ApprovalNotice';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,7 +99,7 @@ async function PeopleSection({ user, me, page }: { user: SessionUser; me: Person
             {pendingRegistrations.map((p) => (
               <li key={p.personId} className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">
                 <p className="mb-2"><span className="font-semibold">{p.firstName} {p.lastName}</span> <span className="text-[#7C8C9B]">@{p.username} · {p.profileType ? PROFILE_LABEL[p.profileType] : '—'}</span></p>
-                <DecisionButtons base={`/api/registrations/${p.personId}`} what={`registration of ${p.firstName} ${p.lastName}`} />
+                {p.profileType && <RegistrationDecision personId={p.personId} name={`${p.firstName} ${p.lastName}`} status={p.registrationStatus} appliedAs={p.profileType} options={approveOptions(user)} />}
               </li>
             ))}
           </ul>
@@ -160,6 +163,9 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
   const requestsView = paginate(myRequests, parsePage(params.requests), MY_REQUESTS_PER_PAGE);
   const name = `${me.firstName} ${me.lastName}`;
   const photo = typeof me.photoDataUrl === 'string' ? me.photoDataUrl : null;
+  const rawNotice = me.approvalNotice as { appliedAs?: unknown; approvedAs?: unknown; seenAt?: unknown } | undefined;
+  const notice = rawNotice && !rawNotice.seenAt && isProfileType(rawNotice.appliedAs) && isProfileType(rawNotice.approvedAs)
+    ? { appliedAs: rawNotice.appliedAs, approvedAs: rawNotice.approvedAs } : null;
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-4 py-6 text-[#1B2A38]">
@@ -179,6 +185,10 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
         {isMaster && <Link href="/admin" className="inline-flex min-h-10 items-center md:min-h-0 ml-auto text-sm font-medium text-[#0D5B7A] underline">Admin dashboard →</Link>}
       </div>
       <DataStamp fetchedAt={fetchedAtNow()} pageParams={['people', 'requests']} />
+      {notice && (
+        <ApprovalNotice appliedAs={PROFILE_LABEL[notice.appliedAs]} approvedAs={PROFILE_LABEL[notice.approvedAs]}
+          code={accessCodeFor(me.profileType, me.accessNumber)} access={period ? windowSummary(period) : null} />
+      )}
 
       <Section title="Profile" id="profile">
         <dl>
@@ -191,6 +201,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
           <Row label="Registration" value={<Pill status={me.registrationStatus} />} />
         </dl>
         <AccountSettings
+          username={me.username}
           initial={{ firstName: me.firstName, lastName: me.lastName, mobile: String(me.mobile ?? ''), purpose: String(me.purpose ?? '') }}
         />
       </Section>
@@ -254,6 +265,5 @@ export default async function MePage({ searchParams }: { searchParams: Promise<{
 }
 
 function usualAccess(type: NonNullable<PersonRecord['profileType']>, today: string): string {
-  const w = templateWindow(type, today);
-  return `${PROFILE_LABEL[type]} default: ${w.endDate ? `${formatDate(w.startDate)} → ${formatDate(w.endDate)}` : `from ${formatDate(w.startDate)}, no end date`} · ${daysLabel(w.weekdays)} · ${w.startTime}–${w.endTime}`;
+  return `${PROFILE_LABEL[type]} default: ${windowSummary(templateWindow(type, today))}`;
 }

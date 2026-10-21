@@ -60,3 +60,8 @@ export const STATUS_STYLE: Record<string, string> = {
   GUARD: 'bg-amber-50 text-amber-800 ring-amber-200',
   MASTER: 'bg-purple-100 text-purple-800 ring-purple-300',
 };
+
+/** "21 Oct 2026 → 19 Nov 2026 · Mon–Sat · 08:00–20:00" for any access period. */
+export function windowSummary(w: { startDate: string; endDate: string | null; weekdays: number[]; startTime: string; endTime: string }): string {
+  return `${w.endDate ? `${formatDate(w.startDate)} → ${formatDate(w.endDate)}` : `from ${formatDate(w.startDate)}, no end date`} · ${daysLabel(w.weekdays)} · ${w.startTime}–${w.endTime}`;
+}

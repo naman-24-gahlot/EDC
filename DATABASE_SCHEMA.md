@@ -40,7 +40,9 @@ The person: identity, current profile, hierarchy position, credential state.
   ancestorIds: string[],            // root → parent chain, maintained server-side. [] for top-level.
 
   registrationStatus: 'PENDING' | 'APPROVED' | 'REJECTED',
-  registrationDecision: { by: string, at: Timestamp, note: string | null } | null,
+  registrationDecision: { by: string, at: Timestamp, note: string | null, appliedProfileType?: ProfileType } | null,
+  // Set only when approved under a different type than applied for; shown once on /me, then seenAt is set.
+  approvalNotice?: { appliedAs: ProfileType, approvedAs: ProfileType, by: string, at: Timestamp, seenAt: Timestamp | null },
 
   accessNumber: string | null,      // 5 digits, unique across all people, stable for life. Issued at approval.
   credentialVersion: number,        // starts at 1; bump invalidates every previously issued QR
@@ -190,13 +192,21 @@ SESSIONS_REVOKED`
 | From | To | Who | Effect |
 |---|---|---|---|
 | — | `PENDING` | public `/register`, or an Employee/Master creating a subordinate | person + identifiers written atomically |
-| `PENDING` | `APPROVED` | Master; or the parent Employee for **their own** subordinates | issues `accessNumber`, sets `active: true` |
+| `PENDING` | `APPROVED` | Master; or the parent Employee for **their own** subordinates | approver picks the profile type (default: as applied); issues `accessNumber`, sets `active: true`, **grants the approved type's default entitlement** — one transaction (`lib/people/approveRegistration.ts`) |
 | `PENDING` | `REJECTED` | same authority | person + identifiers retained |
 | `REJECTED` | `APPROVED` | Master only | second chance |
 
 Employee-created subordinates are written directly as `APPROVED` — the creator *is* their
 authorized approver — and both `REGISTRATION_SUBMITTED` and `REGISTRATION_APPROVED` are audited.
-Approval never grants an entitlement; that is a separate access request.
+Approval grants the approved type's default entitlement at once (user-requested; it used to need
+a separate access request). Directly created subordinates get theirs at creation.
+
+**Approving as a different type.** Master may pick any type; a parent Employee only the dependant
+types (driver, relative, bodyguard, event guest) — they can't make someone an employee/incubee,
+which would also move the person out of their tree. Hierarchy follows the type: a dependant with
+no parent is placed under the approving Master; an employee/incubee becomes top-level. When the
+type differs from the one applied for, `approvalNotice` is set and the person sees it once on
+`/me`; `POST /api/me/notice` (self only) sets `seenAt` — the record is kept.
 
 ### Access request (`accessRequests.status`)
 | From | To | Who | Effect |

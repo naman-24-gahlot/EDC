@@ -9,7 +9,7 @@ type Panel = 'details' | 'password' | null;
 const input = 'w-full rounded border border-gray-300 px-3 py-2 text-sm';
 const btn = 'rounded px-3 py-2 text-sm font-medium disabled:opacity-50';
 
-export function AccountSettings({ initial }: { initial: { firstName: string; lastName: string; mobile: string; purpose: string } }) {
+export function AccountSettings({ initial, username }: { initial: { firstName: string; lastName: string; mobile: string; purpose: string }; username: string }) {
   const router = useRouter();
   const [panel, setPanel] = useState<Panel>(null);
   const [busy, setBusy] = useState(false);
@@ -109,6 +109,9 @@ export function AccountSettings({ initial }: { initial: { firstName: string; las
 
       {panel === 'password' && (
         <form onSubmit={changePassword} className="space-y-3 rounded border border-gray-200 bg-white p-4" aria-label="Change password">
+          {/* Tells the browser's password manager WHICH account this new password belongs to.
+              Without it, browsers saved the new password against another saved account (e.g. Master). */}
+          <input type="text" name="username" autoComplete="username" value={username} readOnly hidden />
           <div className="space-y-1"><label htmlFor="as-cur" className="text-sm font-medium">Current password</label><input id="as-cur" type="password" autoComplete="current-password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} required className={input} /></div>
           <div className="space-y-1"><label htmlFor="as-new" className="text-sm font-medium">New password</label><input id="as-new" type="password" autoComplete="new-password" minLength={8} value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} required className={input} /></div>
           <div className="space-y-1"><label htmlFor="as-conf" className="text-sm font-medium">Repeat new password</label><input id="as-conf" type="password" autoComplete="new-password" minLength={8} value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required className={input} /></div>
