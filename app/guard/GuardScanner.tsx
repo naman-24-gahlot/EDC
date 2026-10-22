@@ -3,6 +3,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Html5Qrcode as Html5QrcodeType } from 'html5-qrcode';
 
+// What the guard should do next, for each reason the gate can give.
+const GUIDANCE: Record<string, string> = {
+  'Old QR (replaced)': 'This pass was replaced. Ask them to open their pass on their phone (a screenshot of an old QR no longer works), or type their access code.',
+  'Invalid QR': 'Not an EDC pass, or the image is damaged. Ask them to open their pass again, or type their access code.',
+  'Invalid access code': 'No one has this code. Check it for typos.',
+  'Code superseded': 'Their profile type changed, so their code changed. The new code is on their pass.',
+  'Registration not approved': 'Their registration is still waiting for approval.',
+  'Account deactivated': 'Their account is switched off. Send them to the EDC office.',
+  'Access revoked': 'An administrator ended their access period. Send them to the EDC office.',
+  'No active access': 'They have no access period. They can request one from their account.',
+  'Access expired': 'Their access period has ended. They can request a new one from their account.',
+  'Access not yet active': 'Their access starts on a later date (shown on their pass).',
+  'Outside permitted days': 'Their access does not cover today.',
+  'Outside permitted hours': 'Their access does not cover this time of day.',
+};
+
 type Verdict = {
   kind: 'verdict';
   approved: boolean;
@@ -207,6 +223,7 @@ export function GuardScanner() {
         >
           <p className="text-3xl font-extrabold tracking-wide">{result.approved ? 'ENTRY APPROVED' : 'ENTRY DENIED'}</p>
           {!result.approved && result.reason && <p className="mt-1 text-lg font-semibold">{result.reason}</p>}
+          {!result.approved && result.reason && GUIDANCE[result.reason] && <p className="mx-auto mt-1 max-w-sm text-sm text-red-50" data-testid="guidance">{GUIDANCE[result.reason]}</p>}
           {result.person && (
             <div className="mt-4 flex items-center justify-center gap-3">
               {result.person.photoDataUrl ? (

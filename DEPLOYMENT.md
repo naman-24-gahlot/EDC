@@ -135,3 +135,15 @@ server or LAN instead of Vercel+Firebase:
 None of this is built yet — it's a "when you need it" note, not a partially-done
 abstraction layer. Building it prematurely was avoided on purpose (see CLAUDE.md's
 context-discipline rules).
+
+## Events and bulk decisions
+
+- **Events** (Master → Events): each event has a public registration page `/e/<token>` that works
+  until the time set, then says registration is closed. Share it as is or tagged
+  (`?utm_source=whatsapp&utm_medium=group`) to see sign-ups per channel. Close, reopen or replace
+  the link from the event page. Approved registrants get access for the event's days and hours.
+- **Bulk decisions**: Access requests, Registrations and each event's page have tick boxes and a
+  "Select all"; approve or reject up to 100 at once (`lib/decisions.ts`: add a new kind of
+  decision there and the API and bulk bar support it).
+- `npm run test:live` probes with `rahul` by default; `MEMBER=neha npm run test:live` uses another
+  member (e.g. while rahul is mid password reset).

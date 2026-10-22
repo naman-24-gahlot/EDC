@@ -2,7 +2,7 @@ import { SkeletonBlock } from '@/components/Skeleton';
 
 export default function Loading() {
   return (
-    <main role="status" aria-live="polite" className="mx-auto max-w-md px-4 py-6">
+    <main role="status" aria-live="polite" className="mx-auto w-full max-w-md px-4 py-6">
       <span className="sr-only">Loading your entry pass…</span>
       <div className="overflow-hidden rounded-[22px] border border-[#D5DDE4] bg-[#F7F9FB]">
         <div className="h-16 bg-gradient-to-r from-[#004180] to-[#0D5B7A]" />

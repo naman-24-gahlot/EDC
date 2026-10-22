@@ -14,6 +14,7 @@ import { SUBORDINATE_PROFILE_TYPES, accessCodeFor, issueAccessNumber, type Profi
 import { templateWindow } from '@/lib/access/entitlements';
 import { todayDateString } from '@/lib/date';
 import { PROFILE_LABEL, windowSummary } from '@/lib/display';
+import { eventWindow, loadEvent } from '@/lib/events';
 
 /** Types this approver may approve someone as. A parent employee keeps them a dependant. */
 export function approvableTypes(actor: SessionUser): readonly ProfileType[] {
@@ -56,7 +57,11 @@ export async function approveRegistration(actor: SessionUser, personId: string, 
   const accessNumber = before.accessNumber ?? (await issueAccessNumber(personId));
   const personRef = adminDb.collection('people').doc(personId);
   const entRef = adminDb.collection('entitlements').doc();
-  const window = templateWindow(approvedAs, todayDateString());
+  // Event registrants get the event's days and hours; everyone else their type's default.
+  const event = typeof before.eventId === 'string' ? await loadEvent(before.eventId) : null;
+  // An event that has already ended gives no access (approval still records the person).
+  const today = todayDateString();
+  const window = event ? (event.accessTo >= today ? eventWindow(event, today) : null) : templateWindow(approvedAs, today);
 
   return adminDb.runTransaction(async (tx) => {
     const fresh = toPerson(await tx.get(personRef));
@@ -80,14 +85,32 @@ export async function approveRegistration(actor: SessionUser, personId: string, 
       // Shown once on their account; `seenAt` is set when they dismiss it (never deleted).
       ...(changed ? { approvalNotice: { appliedAs, approvedAs, by: actor.personId, at: now, seenAt: null } } : {}),
     });
-    tx.create(entRef, {
+    if (window) tx.create(entRef, {
       personId, profileTypeAtGrant: approvedAs, ...window, state: 'ACTIVE', sourceRequestId: null,
       approvedBy: actor.personId, approvedAt: now, revokedBy: null, revokedAt: null, revokeReason: null, createdAt: now,
     });
     const code = accessCodeFor(approvedAs, accessNumber);
     audit('REGISTRATION_APPROVED', null, `accessCode=${code}${changed ? `; applied as ${appliedAs}, approved as ${approvedAs}` : ''}${hierarchy ? (hierarchy.parentId ? '; placed under approver' : '; moved to top-level') : ''}`);
-    audit('ENTITLEMENT_CREATED', entRef.id, `${approvedAs} default on approval: ${window.startDate} → ${window.endDate ?? 'open'}, days ${window.weekdays.join('')}, ${window.startTime}–${window.endTime}`);
+    if (window) audit('ENTITLEMENT_CREATED', entRef.id, `${event ? `event "${event.name}"` : `${approvedAs} default`} on approval: ${window.startDate} → ${window.endDate ?? 'open'}, days ${window.weekdays.join('')}, ${window.startTime}–${window.endTime}`);
 
     return { personId, accessCode: code, profileType: approvedAs, appliedAs, access: window };
   });
+}
+
+/** PENDING → REJECTED, by Master or the person's ancestor. The person and identifiers are kept. */
+export async function rejectRegistration(actor: SessionUser, personId: string, note: string | null) {
+  const person = await assertCanActOn(actor, personId);
+  if (person.registrationStatus !== 'PENDING') throw new HttpError(409, `Cannot reject a ${person.registrationStatus.toLowerCase()} registration.`);
+  const now = Timestamp.now();
+  const batch = adminDb.batch();
+  batch.update(adminDb.collection('people').doc(personId), {
+    registrationStatus: 'REJECTED',
+    registrationDecision: { by: actor.personId, at: now, note },
+  });
+  batch.set(adminDb.collection('auditLogs').doc(), {
+    action: 'REGISTRATION_REJECTED', actorId: actor.personId, actorRole: actor.systemRole,
+    targetPersonId: personId, subjectId: null, timestamp: now, details: note,
+  });
+  await batch.commit();
+  return { personId };
 }

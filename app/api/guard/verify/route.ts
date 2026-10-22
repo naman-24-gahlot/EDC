@@ -13,7 +13,9 @@ import { getCurrentEntitlement, type Entitlement } from '@/lib/access/entitlemen
 // Every verdict is recorded (entryEvent + audit) BEFORE it is returned: if recording
 // fails, the guard gets an error (→ "Verification unavailable"), never an approval.
 
-type ResolveReason = 'Invalid QR' | 'Invalid access code' | 'Code superseded';
+// 'Old QR (replaced)': a real pass QR from before a replacement (reissue, deactivation, revoke or
+// type change) — distinct from 'Invalid QR' (not an EDC pass at all, or tampered with).
+type ResolveReason = 'Invalid QR' | 'Old QR (replaced)' | 'Invalid access code' | 'Code superseded';
 type Reason = ResolveReason | AccessDenialReason;
 
 const CODE_RE = /^([A-Z]{3})(\d{5})$/;
@@ -41,7 +43,7 @@ async function resolveToken(raw: string): Promise<Resolved> {
   const { person, entitlement } = await loadSubject(parsed.personId);
   if (!person) return { person: null, denial: 'Invalid QR', entitlement: null };
   // Genuine but old (reissued / revoked / deactivated since): attributable, still denied.
-  if (person.credentialVersion !== parsed.credentialVersion) return { person, denial: 'Invalid QR', entitlement: null };
+  if (person.credentialVersion !== parsed.credentialVersion) return { person, denial: 'Old QR (replaced)', entitlement: null };
   return { person, denial: null, entitlement };
 }
 

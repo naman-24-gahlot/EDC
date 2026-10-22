@@ -13,11 +13,14 @@ export const ACTION_GROUPS: readonly { label: string; actions: readonly string[]
   { label: 'Gate', actions: ['ENTRY_APPROVED', 'ENTRY_DENIED'] },
   { label: 'Access', actions: ['ACCESS_REQUEST_CREATED', 'ACCESS_REQUEST_APPROVED', 'ACCESS_REQUEST_REJECTED', 'ACCESS_REQUEST_EXPIRED', 'ENTITLEMENT_CREATED', 'ENTITLEMENT_CHANGED', 'ENTITLEMENT_REVOKED', 'ENTITLEMENT_SUPERSEDED'] },
   { label: 'People', actions: ['REGISTRATION_SUBMITTED', 'REGISTRATION_APPROVED', 'REGISTRATION_REJECTED', 'PROFILE_CREATED', 'PROFILE_UPDATED', 'PROFILE_TYPE_CHANGED', 'HIERARCHY_CHANGED', 'PERSON_DEACTIVATED', 'PERSON_REACTIVATED', 'GUARD_CREATED', 'MASTER_PROMOTED', 'MASTER_DEMOTED'] },
+  { label: 'Events', actions: ['EVENT_CREATED', 'EVENT_UPDATED', 'EVENT_LINK_CLOSED', 'EVENT_LINK_REOPENED', 'EVENT_LINK_REPLACED'] },
   { label: 'Passwords & passes', actions: ['PASSWORD_CHANGED', 'PASSWORD_RESET', 'SESSIONS_REVOKED', 'CREDENTIAL_REISSUED', 'ORPHAN_AUTH_ACCOUNT_REMOVED'] },
 ];
 export const ACTIONS: readonly string[] = ACTION_GROUPS.flatMap((g) => g.actions);
 
 const ID_RE = /^[A-Za-z0-9]{1,128}$/;
+// Firestore allows at most 30 values in an "in" filter and 10 in "not-in".
+const IN_LIMIT = 30;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 type Raw = Record<string, string | string[] | undefined>;
 const list = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? v.split(',') : []);
@@ -45,7 +48,7 @@ function base(raw: Raw): LogFilter {
 
 export function parseAuditFilter(raw: Raw): AuditFilter {
   const picked = [...new Set(list(raw.action).filter((a) => ACTIONS.includes(a)))];
-  // All ticked = no filter (and keeps the `in` list within Firestore's limit of 30).
+  // All ticked = no filter. More than 30 ticked becomes "not one of the unticked" (auditQuery).
   return { ...base(raw), actions: picked.length === ACTIONS.length ? [] : picked };
 }
 
@@ -68,6 +71,7 @@ export function auditQuery(f: AuditFilter): Query {
   let q: Query = adminDb.collection('auditLogs');
   if (f.person) q = q.where('targetPersonId', '==', f.person);
   if (f.actions.length === 1) q = q.where('action', '==', f.actions[0]);
+  else if (f.actions.length > IN_LIMIT) q = q.where('action', 'not-in', ACTIONS.filter((x) => !f.actions.includes(x))); // nearly all ticked: exclude the few that aren't
   else if (f.actions.length > 1) q = q.where('action', 'in', f.actions);
   return withDates(q, f);
 }

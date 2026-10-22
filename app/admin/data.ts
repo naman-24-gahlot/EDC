@@ -3,6 +3,7 @@ if (typeof window !== 'undefined') {
   throw new Error('app/admin/data.ts must never be imported into client code.');
 }
 
+import { headers } from 'next/headers';
 import { adminDb } from '@/lib/firebase/admin';
 import { requirePageRole, type SessionUser } from '@/lib/session';
 import { toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
@@ -45,3 +46,26 @@ export function nameMap(people: PersonRecord[]): Map<string, string> {
   return new Map(people.map((p) => [p.personId, `${p.firstName} ${p.lastName}`]));
 }
 
+
+/** This site's own origin, for links a Master copies and shares (e.g. event registration links). */
+export async function siteOrigin(): Promise<string> {
+  const h = await headers();
+  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000';
+  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+  return `${proto}://${host}`;
+}
+
+/** A Timestamp as "YYYY-MM-DDTHH:MM" in IST — what a datetime-local input holds. */
+export function istInput(ts: { toMillis: () => number }): string {
+  return new Date(ts.toMillis() + 330 * 60_000).toISOString().slice(0, 16);
+}
+
+/** Registration counts per status for these events (equality-only counts need no extra index). */
+export async function eventCounts(eventIds: string[]): Promise<Map<string, Record<'PENDING' | 'APPROVED' | 'REJECTED', number>>> {
+  const statuses = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+  const rows = await Promise.all(eventIds.map(async (id) => {
+    const counts = await Promise.all(statuses.map((s) => adminDb.collection('people').where('eventId', '==', id).where('registrationStatus', '==', s).count().get()));
+    return [id, Object.fromEntries(statuses.map((s, i) => [s, counts[i].data().count]))] as const;
+  }));
+  return new Map(rows as [string, Record<'PENDING' | 'APPROVED' | 'REJECTED', number>][]);
+}

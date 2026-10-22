@@ -39,7 +39,7 @@ export default async function PassPage() {
   const photo = typeof person.photoDataUrl === 'string' ? person.photoDataUrl : null;
 
   return (
-    <main className="mx-auto max-w-md px-4 py-6 font-sans text-[#1B2A38]">
+    <main className="mx-auto w-full max-w-md px-4 py-6 font-sans text-[#1B2A38]">
       <div className="mb-4 flex items-center justify-between">
         <Link href="/me" className="inline-flex min-h-10 items-center md:min-h-0 text-sm font-semibold text-[#0D5B7A]">← My account</Link>
         <LogoutButton />
@@ -84,7 +84,8 @@ export default async function PassPage() {
               {status === 'PENDING APPROVAL' && 'Your registration is waiting for approval. Your pass appears here once it is approved and access is granted.'}
               {status === 'NONE' && 'You don’t have access right now. Ask your approver for an access period.'}
               {status === 'EXPIRED' && `Your access ended on ${period?.endDate ? formatDate(period.endDate) : '—'}. Request a new period.`}
-              {status === 'REVOKED' && 'Your access has been revoked.'}
+              {status === 'REVOKED' && 'An administrator ended your access period. You can send a new access request from your account.'}
+              {status === 'DEACTIVATED' && 'Your account is switched off. Contact the EDC office.'}
               {status === 'NOT YET ACTIVE' && `Your access starts on ${period ? formatDate(period.startDate) : '—'}. Your QR appears here then.`}
             </p>
           )}

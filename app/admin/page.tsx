@@ -5,6 +5,7 @@ import { expireStaleRequests, type AccessRequest } from '@/lib/access/requests';
 import { PROFILE_LABEL, formatDate, formatDateTime } from '@/lib/display';
 import { PAGE_SIZE, fetchedAtNow, parsePage } from '@/lib/paging';
 import { DecisionButtons } from '@/components/DecisionButtons';
+import { DecisionTable, type DecisionRow } from '@/components/DecisionTable';
 import { StatusPill } from '@/components/StatusPill';
 import { Pager } from '@/components/Pager';
 import { DataStamp } from '@/components/DataStamp';
@@ -71,51 +72,28 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
       </div>
       <DataStamp fetchedAt={fetchedAtNow()} />
 
-      {shown.length === 0 ? (
-        <p className="text-sm text-gray-400">No requests.</p>
-      ) : (
-        <div className="overflow-x-auto rounded border border-gray-200">
-          <table className="rtable w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-              <tr>
-                <th className="px-3 py-2">Person</th>
-                <th className="px-3 py-2">Requested by</th>
-                <th className="px-3 py-2">Controller</th>
-                <th className="px-3 py-2">Purpose / period</th>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Actionable until</th>
-                <th className="px-3 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {shown.map((r) => {
-                const p = persons.get(r.personId);
-                return (
-                  <tr key={r.id} data-request={r.id}>
-                    <td data-label="" className="px-3 py-2">
-                      <Link href={`/admin/people/${r.personId}`} className="font-medium underline-offset-2 hover:underline">{names.get(r.personId) ?? r.personId}</Link>
-                      <span className="ml-1 text-xs text-gray-500 md:ml-0 md:block">{p?.profileType ? PROFILE_LABEL[p.profileType] : '—'}</span>
-                    </td>
-                    <td data-label="Requested by" className="px-3 py-2 text-xs">{r.requestedBy === r.personId ? 'self' : names.get(r.requestedBy) ?? r.requestedBy}</td>
-                    <td data-label="Controller" className="px-3 py-2 text-xs">{p?.parentId ? names.get(p.parentId) : 'Master'}</td>
-                    <td data-label="Purpose" className="px-3 py-2 text-xs">
-                      <span className="block text-sm">{r.purpose}</span>
-                      <span className="block text-gray-500">
-                        {r.requestedStartDate ? formatDate(r.requestedStartDate) : 'template'}{r.requestedEndDate ? ` → ${formatDate(r.requestedEndDate)}` : ''}
-                      </span>
-                    </td>
-                    <td data-label="Status" className="px-3 py-2"><StatusPill status={r.status} /></td>
-                    <td data-label="Until" className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{formatDateTime(r.actionableUntil.toDate())}</td>
-                    <td data-label="" className="px-3 py-2">
-                      {r.status === 'PENDING' && <DecisionButtons base={`/api/requests/${r.id}`} what={`request for ${names.get(r.personId)}`} />}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DecisionTable kind="request" headers={['Person', 'Requested by', 'Controller', 'Purpose / period', 'Status', 'Actionable until', '']}
+        labels={['', 'Requested by', 'Controller', 'Purpose', 'Status', 'Until', '']}
+        empty={filter === 'PENDING' ? 'No requests are waiting.' : 'No requests.'}
+        rows={shown.map((r): DecisionRow => {
+          const p = persons.get(r.personId);
+          return {
+            id: r.id,
+            label: names.get(r.personId) ?? 'request',
+            selectable: r.status === 'PENDING',
+            cells: [
+              <div key="p"><Link href={`/admin/people/${r.personId}`} className="font-medium underline-offset-2 hover:underline">{names.get(r.personId) ?? r.personId}</Link>
+                <span className="ml-1 text-xs text-gray-500 md:ml-0 md:block">{p?.profileType ? PROFILE_LABEL[p.profileType] : '—'}</span></div>,
+              <span key="b" className="text-xs">{r.requestedBy === r.personId ? 'self' : names.get(r.requestedBy) ?? r.requestedBy}</span>,
+              <span key="c" className="text-xs">{p?.parentId ? names.get(p.parentId) : 'Master'}</span>,
+              <span key="u" className="text-xs"><span className="block text-sm">{r.purpose}</span>
+                <span className="block text-gray-500">{r.requestedStartDate ? formatDate(r.requestedStartDate) : 'their usual period'}{r.requestedEndDate ? ` → ${formatDate(r.requestedEndDate)}` : ''}</span></span>,
+              <StatusPill key="s" status={r.status} />,
+              <span key="t" className="whitespace-nowrap text-xs text-gray-500">{formatDateTime(r.actionableUntil.toDate())}</span>,
+              r.status === 'PENDING' ? <DecisionButtons key="d" base={`/api/requests/${r.id}`} what={`request for ${names.get(r.personId)}`} /> : <span key="d" />,
+            ],
+          };
+        })} />
       <Pager page={Math.min(page, pages)} pages={pages} total={total} noun="requests" />
     </div>
   );

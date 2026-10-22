@@ -237,17 +237,31 @@ function AccessForm({ person, templates, grantBlocked, current, setMsg }: Props 
       {current && (
         <div className="flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3">
           <div className="min-w-0 flex-1 basis-48 space-y-1">
-            <label htmlFor="ax-reason" className={label}>Revoke access</label>
+            <label htmlFor="ax-reason" className={label}>Revoke access <span className="font-normal normal-case">(ends the period now; their account stays on)</span></label>
             <input id="ax-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" className={input} />
           </div>
           <button type="button" className={`${btn} border-red-300 text-red-700`} disabled={!!busy}
-            onClick={() => window.confirm(`Revoke ${person.name}'s access now? Their QR stops working too.`) &&
-              run('revoke', () => send(`/api/entitlements/${current.id}/revoke`, { reason }), 'Access revoked.')}>
-            {busy === 'revoke' ? 'Revoking…' : 'Revoke'}
+            onClick={() => window.confirm(`End ${person.name}'s access period now?
+
+The gate refuses them from now on ("Access revoked"). Their account stays on, so they can still sign in and request access again; granting new access later gives them a new QR.`) &&
+              run('revoke', () => send(`/api/entitlements/${current.id}/revoke`, { reason }), `${person.name}'s access period has ended. Grant new access here any time.`)}>
+            {busy === 'revoke' ? 'Revoking…' : 'Revoke access'}
           </button>
         </div>
       )}
     </form>
+  );
+}
+
+function ActionRow({ label, state, help, children }: { label: string; state: string; help: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
+      <div className="min-w-0 flex-1 basis-64">
+        <dt className="font-medium">{label} <span className="font-normal text-gray-500">· {state}</span></dt>
+        <dd className="text-xs text-gray-500">{help}</dd>
+      </div>
+      <div className="shrink-0">{children}</div>
+    </div>
   );
 }
 
@@ -291,42 +305,72 @@ export function PersonActions(props: Props) {
     <div className="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4" data-testid="person-actions">
       {msg && <p role="status" className={`rounded p-2 text-sm ${msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800'}`}>{msg.text}</p>}
 
-      <div className="flex flex-wrap gap-2">
-        {approved && (person.active ? (
-          <button className={`${btn} border-red-300 text-red-700`} disabled={busy}
-            onClick={() => act(`${base}/deactivate`, `Deactivate ${person.name}? They are signed out, can't sign in, and every QR stops working.`, 'Deactivated.')}>
-            Deactivate
-          </button>
-        ) : (
-          <button className={`${btn} border-emerald-400 text-emerald-800`} disabled={busy}
-            onClick={() => act(`${base}/reactivate`, null, 'Reactivated. Their old QR stays dead — the pass shows a new one.')}>
-            Reactivate
-          </button>
-        ))}
-        {person.systemRole === 'member' && person.profileType === 'employee' && approved && person.active && (
-          <button className={`${btn} border-purple-300 text-purple-800`} disabled={busy || person.parentId !== null}
-            title={person.parentId !== null ? 'Move them to top-level first' : undefined}
-            onClick={() => act(`${base}/promote`, `Make ${person.name} a Master? They get full system-wide authority.`, 'Promoted to Master.')}>
-            Promote to Master
-          </button>
+      {/* One row per thing an action changes, each with what it does — so similar-sounding
+          actions (deactivate vs revoke, replace QR vs reactivate) can't be confused. */}
+      <dl className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white text-sm">
+        {approved && (
+          <ActionRow label="Account" state={person.active ? 'On — can sign in and use the gate' : 'Switched off — cannot sign in or enter'}
+            help={person.active
+              ? 'Deactivating signs them out everywhere and stops sign-in and gate entry. Their profile, access period and history are kept; Reactivate undoes it.'
+              : 'Reactivating lets them sign in again; their access period (if still valid) applies again. QRs from before deactivation stay cancelled — their pass shows a new one.'}>
+            {person.active ? (
+              <button className={`${btn} border-red-300 text-red-700`} disabled={busy}
+                onClick={() => act(`${base}/deactivate`, `Deactivate ${person.name}'s account?
+
+They are signed out everywhere and can't sign in or enter the gate until reactivated. Nothing is deleted.`, `${person.name}'s account is switched off. Reactivate it any time.`)}>
+                Deactivate account
+              </button>
+            ) : (
+              <button className={`${btn} border-emerald-400 text-emerald-800`} disabled={busy}
+                onClick={() => act(`${base}/reactivate`, null, `${person.name}'s account is on again. They can sign in; their pass shows a new QR.`)}>
+                Reactivate account
+              </button>
+            )}
+          </ActionRow>
         )}
-        {person.systemRole === 'master' && (
-          <button className={`${btn} border-purple-300 text-purple-800`} disabled={busy}
-            onClick={() => act(`${base}/demote`, `Remove Master from ${person.name}?`, 'Demoted to member.')}>
-            Demote from Master
-          </button>
+        {person.systemRole !== 'guard' && approved && person.active && (
+          <ActionRow label="Entry pass QR" state="Their access code stays the same"
+            help="Use when a QR screenshot was shared or a phone was lost: every QR they've shown or saved stops working, and their pass shows a new one. Their access period and code don't change.">
+            <button className={`${btn} border-amber-300 text-amber-800`} disabled={busy}
+              onClick={() => act(`${base}/reissue`, `Replace ${person.name}'s QR code?
+
+Every QR they've shown or screenshotted stops working. Their pass shows the new one; access and code don't change.`, `New QR issued for ${person.name}. Old QRs are refused at the gate as "Old QR (replaced)".`)}>
+              Replace QR code
+            </button>
+          </ActionRow>
         )}
-        {person.systemRole !== 'guard' && approved && (
-          <button className={`${btn} border-amber-300 text-amber-800`} disabled={busy}
-            onClick={() => act(`${base}/reissue`, `Reissue ${person.name}'s pass? Every QR they hold stops working.`, 'Pass reissued — old QRs no longer work.')}>
-            Reissue pass
+        <ActionRow label="Password" state="Only they know it"
+          help="Gives you a one-time password to hand over. They are signed out everywhere, and must choose a new password (not the one-time one, not their old one) when they sign in with it.">
+          <button className={`${btn} border-gray-400`} disabled={busy}
+            onClick={async () => { const d = await act(`${base}/reset-password`, `Reset ${person.name}'s password?
+
+They are signed out everywhere. You'll get a one-time password to give them.`, `Password reset for ${person.name}. Give them the one-time password below.`); if (d?.password) setOneTimePassword(d.password); }}>
+            Reset password
           </button>
+        </ActionRow>
+        {(person.systemRole === 'master' || (person.systemRole === 'member' && person.profileType === 'employee' && approved && person.active)) && (
+          <ActionRow label="Role" state={person.systemRole === 'master' ? 'Master — full control of everyone' : 'Member'}
+            help={person.systemRole === 'master'
+              ? 'Removing Master makes them a normal employee again and signs them out.'
+              : person.parentId !== null ? 'Only a top-level employee can become Master — set their parent to top-level in Profile first.' : 'A Master can manage everyone and everything here, including other Masters.'}>
+            {person.systemRole === 'master' ? (
+              <button className={`${btn} border-purple-300 text-purple-800`} disabled={busy}
+                onClick={() => act(`${base}/demote`, `Remove Master from ${person.name}?
+
+They become a normal employee and are signed out.`, `${person.name} is no longer a Master.`)}>
+                Remove Master
+              </button>
+            ) : (
+              <button className={`${btn} border-purple-300 text-purple-800`} disabled={busy || person.parentId !== null}
+                onClick={() => act(`${base}/promote`, `Make ${person.name} a Master?
+
+They get full control of everyone and everything here.`, `${person.name} is now a Master. They get Master pages next time they sign in.`)}>
+                Make Master
+              </button>
+            )}
+          </ActionRow>
         )}
-        <button className={`${btn} border-gray-400`} disabled={busy}
-          onClick={async () => { const d = await act(`${base}/reset-password`, `Reset ${person.name}'s password? They are signed out everywhere and get a one-time password, which only lets them choose a new one.`, 'Password reset.'); if (d?.password) setOneTimePassword(d.password); }}>
-          Reset password
-        </button>
-      </div>
+      </dl>
 
       {oneTimePassword && (
         <div role="status" className="rounded border border-emerald-300 bg-emerald-50 p-3 text-sm">

@@ -30,7 +30,7 @@ export function formatDateTime(d: Date): string {
 }
 
 /** The person-facing access status: the entitlement's effective status, not the time-of-day verdict. */
-export type AccessStatus = 'ACTIVE' | 'NONE' | 'EXPIRED' | 'REVOKED' | 'NOT YET ACTIVE' | 'PENDING APPROVAL' | 'REJECTED';
+export type AccessStatus = 'ACTIVE' | 'NONE' | 'EXPIRED' | 'REVOKED' | 'DEACTIVATED' | 'NOT YET ACTIVE' | 'PENDING APPROVAL' | 'REJECTED';
 
 export function accessStatus(
   person: { registrationStatus: string; active: boolean },
@@ -38,7 +38,7 @@ export function accessStatus(
 ): AccessStatus {
   if (person.registrationStatus === 'REJECTED') return 'REJECTED';
   if (person.registrationStatus !== 'APPROVED') return 'PENDING APPROVAL';
-  if (!person.active) return 'REVOKED';
+  if (!person.active) return 'DEACTIVATED'; // the account is off — not the same as an access period being revoked
   if (!effective || effective === 'SUPERSEDED') return 'NONE';
   if (effective === 'SCHEDULED') return 'NOT YET ACTIVE';
   return effective;
@@ -58,6 +58,9 @@ export const STATUS_STYLE: Record<string, string> = {
   SUPERSEDED: 'bg-gray-100 text-gray-500 ring-gray-200',
   DENIED: 'bg-red-100 text-red-800 ring-red-300',
   DEACTIVATED: 'bg-red-100 text-red-800 ring-red-300',
+  'LINK OPEN': 'bg-emerald-100 text-emerald-800 ring-emerald-300',
+  'LINK CLOSED': 'bg-gray-100 text-gray-700 ring-gray-300',
+  'LINK EXPIRED': 'bg-amber-100 text-amber-800 ring-amber-300',
   GUARD: 'bg-amber-50 text-amber-800 ring-amber-200',
   MASTER: 'bg-purple-100 text-purple-800 ring-purple-300',
 };

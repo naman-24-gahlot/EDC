@@ -38,7 +38,7 @@ test('gate rules: hours are start-inclusive, end-exclusive; weekdays enforced', 
 
 test('gate rules: first failure wins, in the documented order', () => {
   assert.equal(decideAccess({ registrationStatus: 'PENDING', active: false }, ent(), at(MON, '10:00')).reason, 'Registration not approved');
-  assert.equal(decideAccess({ registrationStatus: 'APPROVED', active: false }, ent(), at(MON, '10:00')).reason, 'Access revoked');
+  assert.equal(decideAccess({ registrationStatus: 'APPROVED', active: false }, ent(), at(MON, '10:00')).reason, 'Account deactivated');
   assert.equal(decideAccess(ok, null, at(MON, '10:00')).reason, 'No active access');
   assert.equal(decideAccess(ok, ent({ state: 'SUPERSEDED' }), at(MON, '10:00')).reason, 'No active access');
   assert.equal(decideAccess(ok, ent({ state: 'REVOKED' }), at(MON, '10:00')).reason, 'Access revoked');

@@ -165,6 +165,23 @@ Append-only. **Every** gate attempt, approved or denied. Entering does not consu
 }
 ```
 
+### `events/{eventId}`
+A campus event with its own time-limited registration link (SECURITY_MODEL.md "Event registration links").
+```
+{
+  name: string, details: string, venue: string,
+  accessFrom: 'YYYY-MM-DD', accessTo: 'YYYY-MM-DD',   // days approved registrants may enter
+  gateOpens: 'HH:MM', gateCloses: 'HH:MM',
+  linkToken: string,              // /e/<token>; replaced by "Replace link"
+  linkExpiresAt: Timestamp,       // after this the link refuses registrations
+  closedAt: Timestamp | null,     // closed early by a Master (reopen clears it)
+  createdBy: string, createdAt: Timestamp, updatedAt: Timestamp,
+}
+```
+Link state is computed: CLOSED if `closedAt`, EXPIRED if past `linkExpiresAt`, else OPEN.
+People who registered through it carry `eventId`, `eventName` and
+`registrationSource: { source, medium, campaign }` (utm tags or null) on their `people` doc.
+
 ### `passwordHashes/{personId}`
 Server-only fingerprints for "the new password must differ from the old one" (SECURITY_MODEL.md
 "Password reset"). Never a password; Firebase Auth keeps the real one.
@@ -193,7 +210,8 @@ ACCESS_REQUEST_CREATED | ACCESS_REQUEST_APPROVED | ACCESS_REQUEST_REJECTED | ACC
 ENTITLEMENT_CREATED | ENTITLEMENT_CHANGED | ENTITLEMENT_REVOKED | ENTITLEMENT_SUPERSEDED |
 CREDENTIAL_REISSUED | ENTRY_APPROVED | ENTRY_DENIED | PERSON_DEACTIVATED | PERSON_REACTIVATED |
 ORPHAN_AUTH_ACCOUNT_REMOVED | PROFILE_UPDATED | PASSWORD_CHANGED | PASSWORD_RESET |
-SESSIONS_REVOKED`
+SESSIONS_REVOKED | EVENT_CREATED | EVENT_UPDATED | EVENT_LINK_CLOSED | EVENT_LINK_REOPENED |
+EVENT_LINK_REPLACED`
 
 ## State machines
 

@@ -15,12 +15,12 @@ import { allPeople, nameMap, requireMasterPage } from '../data';
 
 export const dynamic = 'force-dynamic';
 
-const STATUSES = [['any', 'Any'], ['active', 'Active'], ['ended', 'No / expired access'], ['pending', 'Awaiting approval'], ['off', 'Revoked / rejected']] as const;
+const STATUSES = [['any', 'Any'], ['active', 'Active'], ['ended', 'No / expired access'], ['pending', 'Awaiting approval'], ['off', 'Revoked, deactivated or rejected']] as const;
 const STATUS_MATCH: Record<string, (s: string) => boolean> = {
   active: (s) => s === 'ACTIVE' || s === 'NOT YET ACTIVE' || s === 'GUARD',
   ended: (s) => s === 'NONE' || s === 'EXPIRED',
   pending: (s) => s === 'PENDING APPROVAL',
-  off: (s) => s === 'REVOKED' || s === 'REJECTED',
+  off: (s) => s === 'REVOKED' || s === 'DEACTIVATED' || s === 'REJECTED',
 };
 const PREVIEW = 6;
 

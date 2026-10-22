@@ -10,6 +10,7 @@ import type { PersonRecord } from '@/lib/hierarchy/authorize';
 import { effectiveStatus, getCurrentEntitlement, type Entitlement } from './entitlements';
 
 export type AccessDenialReason =
+  | 'Account deactivated'
   | 'Access revoked'
   | 'Registration not approved'
   | 'No active access'
@@ -32,10 +33,10 @@ export function decideAccess(
 ): AccessDecision {
   const deny = (reason: AccessDenialReason): AccessDecision => ({ allowed: false, reason, entitlement });
 
-  // Registration before active: PENDING people are also active:false, and "Access revoked"
+  // Registration before active: PENDING people are also active:false, and "Account deactivated"
   // would be the wrong thing to tell them. Swapping changes the reason only, never the verdict.
   if (person.registrationStatus !== 'APPROVED') return deny('Registration not approved'); // 2
-  if (person.active !== true) return deny('Access revoked'); // 3
+  if (person.active !== true) return deny('Account deactivated'); // 3 — the whole account is off, not just an access period
   if (!entitlement || entitlement.state === 'SUPERSEDED') return deny('No active access'); // 4
 
   switch (effectiveStatus(entitlement, now.date)) { // 5

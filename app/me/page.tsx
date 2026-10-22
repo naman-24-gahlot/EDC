@@ -217,7 +217,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
     ? { appliedAs: rawNotice.appliedAs, approvedAs: rawNotice.approvedAs } : null;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 px-4 py-6 text-[#1B2A38]">
+    <main className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6 text-[#1B2A38]">
       <RoleHeader role={user.systemRole} subtitle={me.username} />
 
       <div className="flex flex-wrap items-center gap-3">

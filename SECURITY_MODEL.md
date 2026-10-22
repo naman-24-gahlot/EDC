@@ -128,11 +128,12 @@ failure wins, every outcome appends an `entryEvent` and an audit entry:
 1. Resolve to a person.
    - QR: split on `.`, exactly 3 parts; recompute the HMAC and compare with
      `crypto.timingSafeEqual`; load the person; the signed version must equal
-     `person.credentialVersion` → else **"Invalid QR"**.
+     `person.credentialVersion`. Bad signature / unknown person → **"Invalid QR"**; genuine but
+     outdated version (QR replaced, deactivated, revoked, type changed) → **"Old QR (replaced)"**.
    - Code: 3 letters + 5 digits; `accessNumbers/{digits}` → person; if
      `PREFIX[person.profileType] !== prefix` → **"Code superseded"**; unknown → **"Invalid access code"**.
 2. `registrationStatus !== 'APPROVED'` → **"Registration not approved"**.
-3. `!person.active` → **"Access revoked"**. (Registration is checked first because `PENDING`
+3. `!person.active` → **"Account deactivated"** (distinct from an access period being revoked). (Registration is checked first because `PENDING`
    people are also `active: false`; the order changes only the reason, never the verdict.)
 4. No `ACTIVE` entitlement → **"No active access"**.
 5. Effective status `REVOKED` → **"Access revoked"**; `EXPIRED` → **"Access expired"**;
@@ -150,7 +151,8 @@ Implementation notes (`app/api/guard/verify`, Expansion P8):
   never given that isn't on record.
 - **Attribution.** A token whose signature fails is logged with `personId: null` (the claimed
   id is unauthenticated). A genuine but outdated token (version bumped) is logged against its
-  person, still denied "Invalid QR". "Code superseded" is attributed too.
+  person, denied "Old QR (replaced)". "Code superseded" is attributed too. The guard screen shows
+  a one-line "what to do" for every reason (`GUIDANCE` in `app/guard/GuardScanner.tsx`).
 - Codes are trimmed and upper-cased; an unknown prefix is "Invalid access code", a known
   prefix that isn't the person's current one is "Code superseded".
 - The scanner pauses ~3s after each scan and ignores the same QR for 8s: a reusable pass held
@@ -241,6 +243,25 @@ revoke every session at once. "Sign out" on one device just clears that device's
 A page reached with an ended session (timed out, revoked) redirects to `/login?expired=1`, which
 says so. Sign-in and password requests from the browser go through `lib/clientFetch.ts`: offline,
 dropped connections, a 20 s timeout and ended sessions each get a plain message, never a raw error.
+
+## Event registration links (`lib/events.ts`)
+- A Master creates an event (name, details, venue, days, gate hours, **link expiry**). Its public
+  page is `/e/<token>`: 16 random base64url characters (96 bits), looked up by exact match, never
+  guessable from the event id. **Replace link** issues a new token, so every copy of the old one
+  stops working at once. **Close** and expiry make the page say registration is closed, and
+  `POST /api/register` re-checks the token on submit (410), so a page left open past the
+  deadline can't register anyone.
+- A link registration is still only a **PENDING** person (same validation, same rate limit as the
+  general page). It carries `eventId`, `eventName` and `registrationSource` (utm_source / medium
+  / campaign, kept only if they look like short tags). Dependants may leave out an employee there;
+  approval places them under the approving Master. Approval gives the event's days and hours.
+- Events are Master-only end to end (`requireMaster`, checked before the body is read).
+
+## Bulk decisions (`lib/decisions.ts`, `POST /api/decisions`)
+One registry for every approve/reject: registration or access request, one or up to 100. Each
+item runs through the same function as a single click (`assertCanActOn` and every rule, per
+item), so bulk grants no extra authority; an item that fails (not yours, already decided) is
+reported and the rest continue.
 
 ## Password reset (Master) — forced change
 - **Reset** (`resetPassword`): one-time password set, sessions revoked, custom claim

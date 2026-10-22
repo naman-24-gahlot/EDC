@@ -61,6 +61,8 @@ export interface CreatePersonInput {
 export interface CreatePersonOptions {
   createdBy: string; // personId, or 'self' for public registration
   parentId: string | null;
+  /** Registered through an event link: which event, and where the link was shared (utm tags). */
+  event?: { eventId: string; eventName: string; source: { source: string | null; medium: string | null; campaign: string | null } };
   registrationStatus: 'PENDING' | 'APPROVED';
   systemRole?: SystemRole; // defaults to 'member'
 }
@@ -195,6 +197,7 @@ export async function createPerson(
       active: isApproved,
       createdAt: now,
       createdBy: options.createdBy,
+      ...(options.event ? { eventId: options.event.eventId, eventName: options.event.eventName, registrationSource: options.event.source } : {}),
     });
 
     return { personId, username, commEmail: commEmailRaw, accessNumber, accessCode: accessCodeFor(input.profileType, accessNumber) };

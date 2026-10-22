@@ -4,10 +4,13 @@ import { adminDb } from '@/lib/firebase/admin';
 import { createPerson, PersonCreateError } from '@/lib/people/create';
 import { resolveEmployeeParent } from '@/lib/people/resolveParent';
 import { isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
+import { eventByToken, linkState, parseSource } from '@/lib/events';
 
 // Public, unauthenticated. Can only ever create a PENDING person — approval is the
-// real gate, so a public link needs no invite token. See SECURITY_MODEL.md
-// "Registration and approval authority".
+// real gate, so the general link needs no invite token. See SECURITY_MODEL.md
+// "Registration and approval authority". With { eventToken } (an event's link) the
+// registration is tagged with that event and refused once the link has expired or closed;
+// a controlling employee is optional then (approval places dependants under the approver).
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== 'object') {
@@ -33,8 +36,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid profile type.' }, { status: 400 });
   }
 
+  const event = body.eventToken === undefined ? null : await eventByToken(body.eventToken);
+  if (body.eventToken !== undefined) {
+    if (!event) return NextResponse.json({ error: 'This event link is not valid.' }, { status: 404 });
+    const state = linkState(event);
+    if (state !== 'OPEN') {
+      return NextResponse.json({ error: `Registration for ${event.name} is ${state === 'CLOSED' ? 'closed' : 'over — the link has expired'}.` }, { status: 410 });
+    }
+  }
+
   let parentId: string | null = null;
-  if (SUBORDINATE_PROFILE_TYPES.includes(profileType)) {
+  if (SUBORDINATE_PROFILE_TYPES.includes(profileType) && !(event && !parentIdentifier)) {
     if (!parentIdentifier) {
       return NextResponse.json(
         {
@@ -57,7 +69,10 @@ export async function POST(request: NextRequest) {
   try {
     created = await createPerson(
       { firstName, lastName, username, commEmail, mobile, purpose, profileType, password, photoDataUrl },
-      { createdBy: 'self', parentId, registrationStatus: 'PENDING' }
+      {
+        createdBy: 'self', parentId, registrationStatus: 'PENDING',
+        ...(event ? { event: { eventId: event.id, eventName: event.name, source: parseSource(body.source) } } : {}),
+      }
     );
   } catch (err) {
     if (err instanceof PersonCreateError) {
@@ -75,7 +90,8 @@ export async function POST(request: NextRequest) {
     targetPersonId: created.personId,
     subjectId: null,
     timestamp: Timestamp.now(),
-    details: `profileType=${profileType}`,
+    details: `profileType=${profileType}${event ? `; event: ${event.name}` : ''}`,
+    ...(event ? { subjectId: event.id } : {}),
   });
 
   return NextResponse.json({ personId: created.personId }, { status: 201 });

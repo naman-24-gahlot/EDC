@@ -99,7 +99,7 @@ export function LoginForm({ notice }: { notice: string | null }) {
           <details className="text-xs text-gray-600">
             <summary className="inline-flex min-h-10 cursor-pointer items-center md:min-h-0">Already registered and stuck?</summary>
             <ul className="mt-1 list-disc space-y-1 pl-4">
-              <li><b>Lost your pass or it stopped working?</b> Sign in, then use <i>Reissue my pass</i> on My account.</li>
+              <li><b>Lost your pass or it stopped working?</b> Sign in, then use <i>Replace my QR code</i> on My account.</li>
               <li><b>Access ended?</b> Sign in and send a new access request from My account.</li>
               <li><b>Forgot your password?</b> Ask an EDC administrator to reset it — they&apos;ll give you a one-time password.</li>
               <li><b>Don&apos;t register again</b> — your profile is kept even after access ends.</li>

@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const user = await requirePageRole('master'); // also routes ended sessions and pending password changes
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:py-8">
       <RoleHeader role="master" subtitle={user.email ?? undefined} />
       <p className="-mt-3 mb-3 text-right text-xs sm:-mt-4 sm:mb-4"><Link href="/me" className="inline-flex min-h-10 items-center md:min-h-0 text-gray-500 underline">My own account →</Link></p>
       <Suspense fallback={<AdminNav counts={{ requests: 0, registrations: 0 }} />}>

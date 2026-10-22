@@ -14,7 +14,7 @@ export async function POST(
   try {
     const { personId } = await params;
     if (personId === user.personId) {
-      return NextResponse.json({ error: 'Use “Reissue my pass” on your own page.' }, { status: 400 });
+      return NextResponse.json({ error: 'Use “Replace my QR code” on My account.' }, { status: 400 });
     }
     return NextResponse.json(await reissueCredential(user, personId));
   } catch (err) {

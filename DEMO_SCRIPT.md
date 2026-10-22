@@ -88,6 +88,18 @@ Live URL: `https://edc-gib-24.vercel.app` (or `npm run dev` → `http://localhos
    **Audit log** shows every action above, with who did it.
 5. **Guards:** create a guard; they sign in and land on the gate.
 
+## 6b — An event link (as master → Events)
+
+1. **+ New event**: name, details, days, gate hours, and when the link stops working. Create.
+2. On the event page, **Copy link**, or open "Tag where you're sharing it", pick *whatsapp* and copy:
+   the link now ends in `?utm_source=whatsapp`. Open it in a private window and register two
+   people (one as a relative with no employee named).
+3. Back on the event page both are **waiting**, and "Sign-ups by channel" shows where they came
+   from. **Select all → Approve 2**: each gets access for exactly the event's days and hours; the
+   relative is placed under you.
+4. **Close registration now**: the link says registration is closed. **Replace link**: the old
+   link stops working entirely.
+
 ## 7 — Scoping, the one-line version
 
 Sign in as `neha`: she sees Ramesh and Karan only. Ask her to approve Vikram's request by URL —
