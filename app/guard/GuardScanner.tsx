@@ -23,7 +23,7 @@ type Verdict = {
   kind: 'verdict';
   approved: boolean;
   reason: string | null;
-  person: { name: string; profileType: string | null; photoDataUrl: string | null } | null;
+  person: { name: string; profileType: string | null; photoDataUrl: string | null; eventName?: string | null } | null;
 };
 // Anything that is not an explicit verdict from the server. Never green, never "approved".
 type Unavailable = { kind: 'unavailable' };
@@ -238,6 +238,9 @@ export function GuardScanner() {
                 <p className="text-xl font-bold">{result.person.name}</p>
                 {result.person.profileType && (
                   <p className="text-sm opacity-90">{PROFILE_LABEL[result.person.profileType] ?? result.person.profileType}</p>
+                )}
+                {result.person.eventName && (
+                  <p className="mt-1 inline-block rounded-full bg-white/20 px-2.5 py-0.5 text-sm font-semibold" data-testid="verdict-event">Event: {result.person.eventName}</p>
                 )}
               </div>
             </div>

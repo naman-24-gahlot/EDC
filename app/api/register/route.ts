@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Timestamp } from 'firebase-admin/firestore';
-import { adminDb } from '@/lib/firebase/admin';
 import { createPerson, PersonCreateError } from '@/lib/people/create';
 import { resolveEmployeeParent } from '@/lib/people/resolveParent';
 import { isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
 import { eventByToken, linkState, parseSource } from '@/lib/events';
+import { audit } from '@/lib/audit';
 
 // Public, unauthenticated. Can only ever create a PENDING person — approval is the
 // real gate, so the general link needs no invite token. See SECURITY_MODEL.md
@@ -24,7 +23,9 @@ export async function POST(request: NextRequest) {
   const mobile = typeof body.mobile === 'string' ? body.mobile.trim() : '';
   const purpose = typeof body.purpose === 'string' ? body.purpose.trim() : '';
   const password = typeof body.password === 'string' ? body.password : '';
-  const profileType = body.profileType;
+  // Event links register guests only — the type is fixed here, whatever the form sent; a Master
+  // can approve them as another type, or change it later.
+  const profileType = body.eventToken !== undefined ? 'event_guest' : body.profileType;
   const parentIdentifier =
     typeof body.parentIdentifier === 'string' ? body.parentIdentifier.trim() : '';
   const photoDataUrl = typeof body.photoDataUrl === 'string' ? body.photoDataUrl : null;
@@ -82,16 +83,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Could not complete registration.' }, { status: 500 });
   }
 
-  const auditRef = adminDb.collection('auditLogs').doc();
-  await auditRef.set({
-    action: 'REGISTRATION_SUBMITTED',
-    actorId: 'public',
-    actorRole: 'public',
-    targetPersonId: created.personId,
-    subjectId: null,
-    timestamp: Timestamp.now(),
+  await audit(null, {
+    action: 'REGISTRATION_SUBMITTED', actor: 'public', targetPersonId: created.personId, eventId: event?.id ?? null,
     details: `profileType=${profileType}${event ? `; event: ${event.name}` : ''}`,
-    ...(event ? { subjectId: event.id } : {}),
   });
 
   return NextResponse.json({ personId: created.personId }, { status: 201 });

@@ -8,6 +8,7 @@ import { accessCodeFor, isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/a
 import { listDescendants, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { templateWindow } from '@/lib/access/entitlements';
 import { todayDateString } from '@/lib/date';
+import { audit } from '@/lib/audit';
 
 function generatePassword(): string {
   return randomBytes(9).toString('base64url');
@@ -117,38 +118,13 @@ export async function POST(request: NextRequest) {
     personId: created.personId, profileTypeAtGrant: profileType, ...window, state: 'ACTIVE', sourceRequestId: null,
     approvedBy: user.personId, approvedAt: now, revokedBy: null, revokedAt: null, revokeReason: null, createdAt: now,
   });
-  batch.set(adminDb.collection('auditLogs').doc(), {
-    action: 'ENTITLEMENT_CREATED', actorId: user.personId, actorRole: user.systemRole, targetPersonId: created.personId,
-    subjectId: entRef.id, timestamp: now,
+  audit(batch, {
+    action: 'ENTITLEMENT_CREATED', actor: user, targetPersonId: created.personId, subjectId: entRef.id, at: now,
     details: `${profileType} default on creation: ${window.startDate} → ${window.endDate ?? 'open'}, days ${window.weekdays.join('')}, ${window.startTime}–${window.endTime}`,
   });
-  batch.set(adminDb.collection('auditLogs').doc(), {
-    action: 'REGISTRATION_SUBMITTED',
-    actorId: user.personId,
-    actorRole: user.systemRole,
-    targetPersonId: created.personId,
-    subjectId: null,
-    timestamp: now,
-    details: `profileType=${profileType}`,
-  });
-  batch.set(adminDb.collection('auditLogs').doc(), {
-    action: 'REGISTRATION_APPROVED',
-    actorId: user.personId,
-    actorRole: user.systemRole,
-    targetPersonId: created.personId,
-    subjectId: null,
-    timestamp: now,
-    details: created.accessCode ? `accessCode=${created.accessCode}` : null,
-  });
-  batch.set(adminDb.collection('auditLogs').doc(), {
-    action: 'PROFILE_CREATED',
-    actorId: user.personId,
-    actorRole: user.systemRole,
-    targetPersonId: created.personId,
-    subjectId: null,
-    timestamp: now,
-    details: null,
-  });
+  audit(batch, { action: 'REGISTRATION_SUBMITTED', actor: user, targetPersonId: created.personId, at: now, details: `profileType=${profileType}` });
+  audit(batch, { action: 'REGISTRATION_APPROVED', actor: user, targetPersonId: created.personId, at: now, details: created.accessCode ? `accessCode=${created.accessCode}` : null });
+  audit(batch, { action: 'PROFILE_CREATED', actor: user, targetPersonId: created.personId, at: now });
   await batch.commit();
 
   return NextResponse.json(

@@ -252,7 +252,8 @@ dropped connections, a 20 s timeout and ended sessions each get a plain message,
   `POST /api/register` re-checks the token on submit (410), so a page left open past the
   deadline can't register anyone.
 - A link registration is still only a **PENDING** person (same validation, same rate limit as the
-  general page). It carries `eventId`, `eventName` and `registrationSource` (utm_source / medium
+  general page), and always an **event guest**: `/api/register` fixes the type when an event token
+  is present, whatever the form sent. A Master may approve them as another type, or change it later. It carries `eventId`, `eventName` and `registrationSource` (utm_source / medium
   / campaign, kept only if they look like short tags). Dependants may leave out an employee there;
   approval places them under the approving Master. Approval gives the event's days and hours.
 - Events are Master-only end to end (`requireMaster`, checked before the body is read).

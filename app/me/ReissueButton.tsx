@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { InfoTip } from '@/components/InfoTip';
 
 export function ReissueButton() {
   const router = useRouter();
@@ -41,9 +42,12 @@ export function ReissueButton() {
           </div>
         </div>
       ) : (
-        <button onClick={() => setConfirming(true)} className="inline-flex min-h-10 items-center md:min-h-0 text-sm font-medium text-amber-800 underline underline-offset-2">
-          Replace my QR code
-        </button>
+        <span className="inline-flex items-center">
+          <button onClick={() => setConfirming(true)} className="inline-flex min-h-10 items-center md:min-h-0 text-sm font-medium text-amber-800 underline underline-offset-2">
+            Replace my QR code
+          </button>
+          <InfoTip label="Replace my QR code">For a shared screenshot or a lost phone: every QR you&apos;ve shown or saved stops working, and your pass shows a new one. Your access code and access period stay the same.</InfoTip>
+        </span>
       )}
       {message && <p className="text-sm text-gray-700" role="status">{message}</p>}
     </div>

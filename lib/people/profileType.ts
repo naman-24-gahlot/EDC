@@ -13,6 +13,7 @@ import { HttpError, requireMaster, toPerson } from '@/lib/hierarchy/authorize';
 import { accessCodeFor, SUBORDINATE_PROFILE_TYPES, type ProfileType } from '@/lib/access/codes';
 import { effectiveStatus, templateWindow } from '@/lib/access/entitlements';
 import { todayDateString } from '@/lib/date';
+import { audit, eventIdOf } from '@/lib/audit';
 
 const TOP_LEVEL_TYPES: readonly ProfileType[] = ['employee', 'incubee'];
 
@@ -81,25 +82,20 @@ export async function changeProfileType(actor: SessionUser, personId: string, ne
     });
     for (const d of active) {
       tx.update(d.ref, { state: 'SUPERSEDED' });
-      tx.set(adminDb.collection('auditLogs').doc(), {
-        action: 'ENTITLEMENT_SUPERSEDED', actorId: actor.personId, actorRole: actor.systemRole,
-        targetPersonId: personId, subjectId: d.id, timestamp: now, details: `profile type ${oldType} → ${newType}`,
-      });
+      audit(tx, { action: 'ENTITLEMENT_SUPERSEDED', actor, targetPersonId: personId, subjectId: d.id, eventId: eventIdOf(person), at: now, details: `profile type ${oldType} → ${newType}` });
     }
     if (carried && carriedRef) {
       tx.create(carriedRef, {
         personId, profileTypeAtGrant: newType, ...carried, state: 'ACTIVE', sourceRequestId: null,
         approvedBy: actor.personId, approvedAt: now, revokedBy: null, revokedAt: null, revokeReason: null, createdAt: now,
       });
-      tx.set(adminDb.collection('auditLogs').doc(), {
-        action: 'ENTITLEMENT_CREATED', actorId: actor.personId, actorRole: actor.systemRole,
-        targetPersonId: personId, subjectId: carriedRef.id, timestamp: now,
+      audit(tx, {
+        action: 'ENTITLEMENT_CREATED', actor, targetPersonId: personId, subjectId: carriedRef.id, eventId: eventIdOf(person), at: now,
         details: `${newType} default after type change: ${carried.startDate} → ${carried.endDate ?? 'open'}, days ${carried.weekdays.join('')}, ${carried.startTime}–${carried.endTime}`,
       });
     }
-    tx.set(adminDb.collection('auditLogs').doc(), {
-      action: 'PROFILE_TYPE_CHANGED', actorId: actor.personId, actorRole: actor.systemRole,
-      targetPersonId: personId, subjectId: null, timestamp: now,
+    audit(tx, {
+      action: 'PROFILE_TYPE_CHANGED', actor, targetPersonId: personId, eventId: eventIdOf(person), at: now,
       details: `${oldType} → ${newType}; code ${oldCode ?? '—'} → ${newCode ?? '—'}${hierarchy ? '; moved to top-level' : ''}`,
     });
 

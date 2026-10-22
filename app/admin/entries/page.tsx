@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Timestamp } from 'firebase-admin/firestore';
+import { listEvents } from '@/lib/events';
 import { entryQuery, parseEntryFilter, runPaged } from '@/lib/logs';
 import { formatDateTime } from '@/lib/display';
 import { PAGE_SIZE, fetchedAtNow, parsePage } from '@/lib/paging';
@@ -11,6 +12,7 @@ import { namesFor, requireMasterPage } from '../data';
 export const dynamic = 'force-dynamic';
 
 interface EntryRow {
+  eventId?: string | null;
   id: string;
   personId: string | null;
   guardUid: string;
@@ -30,7 +32,8 @@ export default async function AdminEntriesPage({ searchParams }: { searchParams:
 
   // Paged in Firestore: only this page's rows are read (plus a count, billed per 1,000 entries).
   const base = entryQuery(filter);
-  const { building, total, docs } = await runPaged(base, page, PAGE_SIZE);
+  const [{ building, total, docs }, events] = await Promise.all([runPaged(base, page, PAGE_SIZE), listEvents()]);
+  const eventName = new Map(events.map((e) => [e.id, e.name]));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rows = docs.map((d) => ({ ...(d.data() as Omit<EntryRow, 'id'>), id: d.id }));
   const names = await namesFor([person, ...rows.map((r) => r.personId), ...rows.map((r) => r.guardUid)]);
@@ -53,6 +56,16 @@ export default async function AdminEntriesPage({ searchParams }: { searchParams:
             </select>
           </label>
         ))}
+        {!person && events.length > 0 && (
+          <label className="space-y-1 text-xs font-semibold uppercase text-gray-500">
+            <span className="block">Event</span>
+            <select name="event" defaultValue={filter.event ?? ''} className="max-w-[14rem] rounded border border-gray-300 px-2 py-1.5 text-sm">
+              <option value="">Any</option>
+              <option value="none">Not an event guest</option>
+              {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </label>
+        )}
         {(['from', 'to'] as const).map((k) => (
           <label key={k} className="space-y-1 text-xs font-semibold uppercase text-gray-500">
             <span className="block">{k === 'from' ? 'From' : 'To'}</span>
@@ -79,6 +92,7 @@ export default async function AdminEntriesPage({ searchParams }: { searchParams:
                 <th className="px-3 py-2">Method</th>
                 <th className="px-3 py-2">Result</th>
                 <th className="px-3 py-2">Reason</th>
+                <th className="px-3 py-2">Event</th>
                 <th className="px-3 py-2">Guard</th>
               </tr>
             </thead>
@@ -92,6 +106,7 @@ export default async function AdminEntriesPage({ searchParams }: { searchParams:
                   <td data-label="Method" className="px-3 py-2 text-xs">{e.method}{e.presentedCode ? <span className="font-mono"> {e.presentedCode}</span> : ''}</td>
                   <td data-label="Result" className="px-3 py-2"><StatusPill status={e.result} /></td>
                   <td data-label="Reason" className="px-3 py-2 text-xs">{e.reason ?? '—'}</td>
+                  <td data-label="Event" className="px-3 py-2 text-xs">{e.eventId && eventName.has(e.eventId) ? <Link href={`/admin/events/${e.eventId}`} className="underline">{eventName.get(e.eventId)}</Link> : <span className="text-gray-400">—</span>}</td>
                   <td data-label="Guard" className="px-3 py-2 text-xs text-gray-500">{names.get(e.guardUid) ?? e.guardUid}</td>
                 </tr>
               ))}

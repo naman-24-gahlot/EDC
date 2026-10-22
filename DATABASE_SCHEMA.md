@@ -144,6 +144,7 @@ A request to obtain or renew an entitlement. **At most one `PENDING` per person 
   decidedBy: string | null, decidedAt: Timestamp | null, decisionNote: string | null,
   resultingEntitlementId: string | null,
   expiredMarkedAt: Timestamp | null, // when lazy expiry persisted the EXPIRED status
+  eventId: string | null,           // the person's event when the request was made (filters)
 }
 ```
 `EXPIRED` is computed (`now > actionableUntil` while `PENDING`) and **lazily persisted** the
@@ -161,6 +162,7 @@ Append-only. **Every** gate attempt, approved or denied. Entering does not consu
   result: 'APPROVED' | 'DENIED',
   reason: DenialReason | null,      // see SECURITY_MODEL.md
   presentedCode: string | null,     // CODE method only. The QR token is NEVER stored.
+  eventId: string | null,           // the person's event, if they came through one (shown to the guard)
   timestamp: Timestamp,
 }
 ```
@@ -191,14 +193,19 @@ Server-only fingerprints for "the new password must differ from the old one" (SE
 ```
 
 ### `auditLogs/{id}`
-Append-only. No role may update or delete.
+Append-only. No role may update or delete. Written **only** through `audit()` in `lib/audit.ts`,
+which builds this exact shape (category from the action; the action list and groups live there
+too, so filters and writer can't drift). Records from before 2026-10-22 were given `category` and
+`eventId` once, additively.
 ```
 {
   action: AuditAction,
   actorId: string,                  // personId, or 'system', or 'public' (unauthenticated registration)
   actorRole: 'master' | 'guard' | 'member' | 'system' | 'public',
   targetPersonId: string | null,    // the person the action concerns
-  subjectId: string | null,         // requestId / entitlementId / entryEventId where relevant
+  subjectId: string | null,         // requestId / entitlementId / entryEventId / eventId where relevant
+  category: 'gate' | 'access' | 'people' | 'events' | 'security', // from the action
+  eventId: string | null,           // the event the entry is about (the person's, or the event itself)
   timestamp: Timestamp,
   details: string | null,
 }

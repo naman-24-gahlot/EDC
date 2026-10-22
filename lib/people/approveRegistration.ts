@@ -15,6 +15,7 @@ import { templateWindow } from '@/lib/access/entitlements';
 import { todayDateString } from '@/lib/date';
 import { PROFILE_LABEL, windowSummary } from '@/lib/display';
 import { eventWindow, loadEvent } from '@/lib/events';
+import { audit, eventIdOf } from '@/lib/audit';
 
 /** Types this approver may approve someone as. A parent employee keeps them a dependant. */
 export function approvableTypes(actor: SessionUser): readonly ProfileType[] {
@@ -70,10 +71,8 @@ export async function approveRegistration(actor: SessionUser, personId: string, 
 
     const now = Timestamp.now();
     const changed = approvedAs !== appliedAs;
-    const audit = (action: string, subjectId: string | null, details: string | null) =>
-      tx.set(adminDb.collection('auditLogs').doc(), {
-        action, actorId: actor.personId, actorRole: actor.systemRole, targetPersonId: personId, subjectId, timestamp: now, details,
-      });
+    const log = (action: 'REGISTRATION_APPROVED' | 'ENTITLEMENT_CREATED', subjectId: string | null, details: string | null) =>
+      audit(tx, { action, actor, targetPersonId: personId, subjectId, eventId: eventIdOf(before), at: now, details });
 
     tx.update(personRef, {
       registrationStatus: 'APPROVED',
@@ -90,8 +89,8 @@ export async function approveRegistration(actor: SessionUser, personId: string, 
       approvedBy: actor.personId, approvedAt: now, revokedBy: null, revokedAt: null, revokeReason: null, createdAt: now,
     });
     const code = accessCodeFor(approvedAs, accessNumber);
-    audit('REGISTRATION_APPROVED', null, `accessCode=${code}${changed ? `; applied as ${appliedAs}, approved as ${approvedAs}` : ''}${hierarchy ? (hierarchy.parentId ? '; placed under approver' : '; moved to top-level') : ''}`);
-    if (window) audit('ENTITLEMENT_CREATED', entRef.id, `${event ? `event "${event.name}"` : `${approvedAs} default`} on approval: ${window.startDate} → ${window.endDate ?? 'open'}, days ${window.weekdays.join('')}, ${window.startTime}–${window.endTime}`);
+    log('REGISTRATION_APPROVED', null, `accessCode=${code}${changed ? `; applied as ${appliedAs}, approved as ${approvedAs}` : ''}${hierarchy ? (hierarchy.parentId ? '; placed under approver' : '; moved to top-level') : ''}`);
+    if (window) log('ENTITLEMENT_CREATED', entRef.id, `${event ? `event "${event.name}"` : `${approvedAs} default`} on approval: ${window.startDate} → ${window.endDate ?? 'open'}, days ${window.weekdays.join('')}, ${window.startTime}–${window.endTime}`);
 
     return { personId, accessCode: code, profileType: approvedAs, appliedAs, access: window };
   });
@@ -107,10 +106,7 @@ export async function rejectRegistration(actor: SessionUser, personId: string, n
     registrationStatus: 'REJECTED',
     registrationDecision: { by: actor.personId, at: now, note },
   });
-  batch.set(adminDb.collection('auditLogs').doc(), {
-    action: 'REGISTRATION_REJECTED', actorId: actor.personId, actorRole: actor.systemRole,
-    targetPersonId: personId, subjectId: null, timestamp: now, details: note,
-  });
+  audit(batch, { action: 'REGISTRATION_REJECTED', actor, targetPersonId: personId, eventId: eventIdOf(person), at: now, details: note });
   await batch.commit();
   return { personId };
 }

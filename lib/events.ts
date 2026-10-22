@@ -13,6 +13,7 @@ import type { SessionUser } from '@/lib/session';
 import { HttpError, requireMaster } from '@/lib/hierarchy/authorize';
 import { todayDateString } from '@/lib/date';
 import type { EntitlementWindow } from '@/lib/access/entitlements';
+import { audit, type AuditAction } from '@/lib/audit';
 
 export interface EventRecord {
   id: string;
@@ -103,10 +104,8 @@ function assertCoherent(e: Pick<EventInput, 'accessFrom' | 'accessTo' | 'gateOpe
 
 // ---- changes (Master only, each audited) ---------------------------------------------------
 
-function audit(actor: SessionUser, action: string, eventId: string, details: string | null) {
-  return adminDb.collection('auditLogs').doc().set({
-    action, actorId: actor.personId, actorRole: actor.systemRole, targetPersonId: null, subjectId: eventId, timestamp: Timestamp.now(), details,
-  });
+function logEvent(actor: SessionUser, action: AuditAction, eventId: string, details: string | null) {
+  return audit(null, { action, actor, targetPersonId: null, subjectId: eventId, eventId, details });
 }
 
 export async function createEvent(actor: SessionUser, input: EventInput): Promise<EventRecord> {
@@ -117,7 +116,7 @@ export async function createEvent(actor: SessionUser, input: EventInput): Promis
   const now = Timestamp.now();
   const data = { ...input, linkToken: newToken(), closedAt: null, createdBy: actor.personId, createdAt: now, updatedAt: now };
   await ref.create(data);
-  await audit(actor, 'EVENT_CREATED', ref.id, `${input.name}: ${input.accessFrom} → ${input.accessTo}, link until ${input.linkExpiresAt.toDate().toISOString()}`);
+  await logEvent(actor, 'EVENT_CREATED', ref.id, `${input.name}: ${input.accessFrom} → ${input.accessTo}, link until ${input.linkExpiresAt.toDate().toISOString()}`);
   return { ...data, id: ref.id };
 }
 
@@ -130,7 +129,7 @@ export async function updateEvent(actor: SessionUser, id: string, patch: Partial
   const merged = { ...current, ...patch };
   assertCoherent(merged);
   const changes: Record<string, unknown> = { ...patch, updatedAt: Timestamp.now() };
-  let action = 'EVENT_UPDATED';
+  let action: AuditAction = 'EVENT_UPDATED';
   if (command === 'close') { changes.closedAt = Timestamp.now(); action = 'EVENT_LINK_CLOSED'; }
   if (command === 'reopen') {
     if (merged.linkExpiresAt.toMillis() <= Date.now()) throw new HttpError(400, 'Set a new "link works until" time in the future to reopen it.');
@@ -139,7 +138,7 @@ export async function updateEvent(actor: SessionUser, id: string, patch: Partial
   if (command === 'new-link') { changes.linkToken = newToken(); action = 'EVENT_LINK_REPLACED'; }
   if (Object.keys(changes).length === 1) throw new HttpError(400, 'Nothing changed.');
   await adminDb.collection('events').doc(id).update(changes);
-  await audit(actor, action, id, Object.keys(patch).length ? `changed: ${Object.keys(patch).join(', ')}` : null);
+  await logEvent(actor, action, id, Object.keys(patch).length ? `changed: ${Object.keys(patch).join(', ')}` : null);
   return { ...merged, ...changes } as EventRecord;
 }
 
@@ -151,4 +150,10 @@ export function parseSource(raw: unknown): { source: string | null; medium: stri
   const r = (raw ?? {}) as Record<string, unknown>;
   const tag = (v: unknown) => (typeof v === 'string' && TAG_RE.test(v) ? v.toLowerCase() : null);
   return { source: tag(r.source), medium: tag(r.medium), campaign: tag(r.campaign) };
+}
+
+/** Where an event sits in time, by its days (IST): running today, still to come, or over. */
+export type EventTiming = 'ongoing' | 'upcoming' | 'past';
+export function eventTiming(e: Pick<EventRecord, 'accessFrom' | 'accessTo'>, today = todayDateString()): EventTiming {
+  return today < e.accessFrom ? 'upcoming' : today > e.accessTo ? 'past' : 'ongoing';
 }

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { sendJson } from '@/lib/clientFetch';
+import { InfoTip } from '@/components/InfoTip';
 
 interface Window { startDate: string; endDate: string | null; weekdays: number[]; startTime: string; endTime: string }
 type Details = { firstName: string; lastName: string; mobile: string; purpose: string };
@@ -225,9 +226,12 @@ function AccessForm({ person, templates, grantBlocked, current, setMsg }: Props 
               {busy === 'save' ? 'Saving…' : current ? 'Save changes' : 'Grant access'}
             </button>
             {typeDefault && !sameWindow(w, typeDefault) && (
-              <button type="button" className={`${btn} border-gray-300`} disabled={!!busy} onClick={() => setW(typeDefault)}>
-                Use {typeName} default
-              </button>
+              <span className="inline-flex items-center">
+                <button type="button" className={`${btn} border-gray-300`} disabled={!!busy} onClick={() => setW(typeDefault)}>
+                  Use {typeName} default
+                </button>
+                <InfoTip label={`Use ${typeName} default`}>Fills the form with the usual period for a {typeName}: {describe(typeDefault)}. Nothing is saved until you press the green button.</InfoTip>
+              </span>
             )}
             {current && dirty && <button type="button" className={`${btn} border-gray-300`} disabled={!!busy} onClick={() => setW(current.window)}>Undo</button>}
           </div>
@@ -237,7 +241,7 @@ function AccessForm({ person, templates, grantBlocked, current, setMsg }: Props 
       {current && (
         <div className="flex flex-wrap items-end gap-2 border-t border-gray-100 pt-3">
           <div className="min-w-0 flex-1 basis-48 space-y-1">
-            <label htmlFor="ax-reason" className={label}>Revoke access <span className="font-normal normal-case">(ends the period now; their account stays on)</span></label>
+            <span className="flex items-center"><label htmlFor="ax-reason" className={label}>Revoke access</label><InfoTip label="Revoke access" align="left">Ends this access period now: the gate refuses them (&quot;Access revoked&quot;). Their account stays on, so they can sign in and request access again. Granting new access later gives them a new QR.</InfoTip></span>
             <input id="ax-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" className={input} />
           </div>
           <button type="button" className={`${btn} border-red-300 text-red-700`} disabled={!!busy}
@@ -253,14 +257,13 @@ The gate refuses them from now on ("Access revoked"). Their account stays on, so
   );
 }
 
-function ActionRow({ label, state, help, children }: { label: string; state: string; help: string; children: React.ReactNode }) {
+// One thing the person has (account, QR, password, role): its state, the action, and an "i"
+// explaining exactly what the action does.
+function ActionRow({ label, state, action, help, children }: { label: string; state: string; action: string; help: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
-      <div className="min-w-0 flex-1 basis-64">
-        <dt className="font-medium">{label} <span className="font-normal text-gray-500">· {state}</span></dt>
-        <dd className="text-xs text-gray-500">{help}</dd>
-      </div>
-      <div className="shrink-0">{children}</div>
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 p-3">
+      <dt className="min-w-0 flex-1 basis-56 font-medium">{label} <span className="font-normal text-gray-500">· {state}</span></dt>
+      <dd className="flex shrink-0 items-center gap-0.5">{children}<InfoTip label={action}>{help}</InfoTip></dd>
     </div>
   );
 }
@@ -309,7 +312,7 @@ export function PersonActions(props: Props) {
           actions (deactivate vs revoke, replace QR vs reactivate) can't be confused. */}
       <dl className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white text-sm">
         {approved && (
-          <ActionRow label="Account" state={person.active ? 'On — can sign in and use the gate' : 'Switched off — cannot sign in or enter'}
+          <ActionRow label="Account" state={person.active ? 'On — can sign in and use the gate' : 'Switched off — cannot sign in or enter'} action={person.active ? 'Deactivate account' : 'Reactivate account'}
             help={person.active
               ? 'Deactivating signs them out everywhere and stops sign-in and gate entry. Their profile, access period and history are kept; Reactivate undoes it.'
               : 'Reactivating lets them sign in again; their access period (if still valid) applies again. QRs from before deactivation stay cancelled — their pass shows a new one.'}>
@@ -329,7 +332,7 @@ They are signed out everywhere and can't sign in or enter the gate until reactiv
           </ActionRow>
         )}
         {person.systemRole !== 'guard' && approved && person.active && (
-          <ActionRow label="Entry pass QR" state="Their access code stays the same"
+          <ActionRow label="Entry pass QR" state="Their access code stays the same" action="Replace QR code"
             help="Use when a QR screenshot was shared or a phone was lost: every QR they've shown or saved stops working, and their pass shows a new one. Their access period and code don't change.">
             <button className={`${btn} border-amber-300 text-amber-800`} disabled={busy}
               onClick={() => act(`${base}/reissue`, `Replace ${person.name}'s QR code?
@@ -339,7 +342,7 @@ Every QR they've shown or screenshotted stops working. Their pass shows the new 
             </button>
           </ActionRow>
         )}
-        <ActionRow label="Password" state="Only they know it"
+        <ActionRow label="Password" state="Only they know it" action="Reset password"
           help="Gives you a one-time password to hand over. They are signed out everywhere, and must choose a new password (not the one-time one, not their old one) when they sign in with it.">
           <button className={`${btn} border-gray-400`} disabled={busy}
             onClick={async () => { const d = await act(`${base}/reset-password`, `Reset ${person.name}'s password?
@@ -349,7 +352,7 @@ They are signed out everywhere. You'll get a one-time password to give them.`, `
           </button>
         </ActionRow>
         {(person.systemRole === 'master' || (person.systemRole === 'member' && person.profileType === 'employee' && approved && person.active)) && (
-          <ActionRow label="Role" state={person.systemRole === 'master' ? 'Master — full control of everyone' : 'Member'}
+          <ActionRow label="Role" state={person.systemRole === 'master' ? 'Master — full control of everyone' : 'Member'} action={person.systemRole === 'master' ? 'Remove Master' : 'Make Master'}
             help={person.systemRole === 'master'
               ? 'Removing Master makes them a normal employee again and signs them out.'
               : person.parentId !== null ? 'Only a top-level employee can become Master — set their parent to top-level in Profile first.' : 'A Master can manage everyone and everything here, including other Masters.'}>

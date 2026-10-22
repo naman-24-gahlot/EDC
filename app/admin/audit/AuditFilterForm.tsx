@@ -5,13 +5,15 @@ import Link from 'next/link';
 
 // A plain GET form: "Apply" reloads the page with these filters; "Download" sends the same
 // fields to the CSV export, so the file holds exactly the selection.
-export function AuditFilterForm({ groups, selected, from, to, order, person }: {
+export function AuditFilterForm({ groups, selected, from, to, order, person, event, events }: {
   groups: readonly { label: string; actions: readonly string[] }[];
   selected: string[];
   from: string | null;
   to: string | null;
   order: 'desc' | 'asc';
   person: string | null;
+  event: string | null;
+  events: { id: string; name: string }[];
 }) {
   const all = groups.flatMap((g) => g.actions);
   const [ticked, setTicked] = useState<Set<string>>(new Set(selected.length ? selected : all));
@@ -57,6 +59,16 @@ export function AuditFilterForm({ groups, selected, from, to, order, person }: {
             })}
           </div>
         </details>
+        {!person && events.length > 0 && (
+          <label className="space-y-1 text-xs font-semibold uppercase text-gray-500">
+            <span className="block">Event</span>
+            <select name="event" defaultValue={event ?? ''} className={`${field} max-w-[14rem]`}>
+              <option value="">Any (all entries)</option>
+              <option value="none">Not about an event</option>
+              {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </label>
+        )}
         <label className="space-y-1 text-xs font-semibold uppercase text-gray-500">
           <span className="block">From</span>
           <input type="date" name="from" defaultValue={from ?? ''} className={field} />

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { sendJson } from '@/lib/clientFetch';
+import { InfoTip } from '@/components/InfoTip';
 
 const SOURCES = ['whatsapp', 'email', 'poster', 'instagram', 'linkedin'];
 const TAG = /^[A-Za-z0-9._-]{0,40}$/;
@@ -101,6 +102,9 @@ export function LinkPanel({ eventId, token, state, expires, origin }: { eventId:
           onClick={() => command('new-link', 'Replace the link?\n\nThe current link (and every copy shared so far) stops working at once. You will need to share the new one.', 'New link made — the old one no longer works. Copy and share the new link.')}>
           Replace link
         </button>
+        <InfoTip label="link controls" align="left">
+          <b>Close</b>: the link says registration is closed; people already registered are unaffected. <b>Reopen</b>: the same link works again (until its end time). <b>Replace link</b>: makes a new link — every copy of the old one stops working at once.
+        </InfoTip>
       </div>
       {msg && <p role="status" className={`text-sm ${msg.ok ? 'text-emerald-700' : 'text-red-700'}`}>{msg.text}</p>}
     </div>

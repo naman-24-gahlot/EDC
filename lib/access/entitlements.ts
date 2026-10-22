@@ -10,6 +10,7 @@ import { addDays, todayDateString } from '@/lib/date';
 import type { SessionUser } from '@/lib/session';
 import type { ProfileType } from '@/lib/access/codes';
 import { HttpError, assertCanActOn, toPerson } from '@/lib/hierarchy/authorize';
+import { audit, eventIdOf, type AuditAction } from '@/lib/audit';
 
 export type EntitlementState = 'ACTIVE' | 'REVOKED' | 'SUPERSEDED';
 export type EffectiveStatus = EntitlementState | 'EXPIRED' | 'SCHEDULED';
@@ -170,16 +171,8 @@ export async function getCurrentEntitlement(personId: string): Promise<Entitleme
   return all.find((e) => e.state === 'ACTIVE') ?? all[0] ?? null;
 }
 
-function audit(tx: Transaction, action: string, actor: SessionUser, personId: string, subjectId: string, details: string | null) {
-  tx.set(adminDb.collection('auditLogs').doc(), {
-    action,
-    actorId: actor.personId,
-    actorRole: actor.systemRole,
-    targetPersonId: personId,
-    subjectId,
-    timestamp: Timestamp.now(),
-    details,
-  });
+function log(tx: Transaction, action: AuditAction, actor: SessionUser, personId: string, subjectId: string, eventId: string | null, details: string | null) {
+  audit(tx, { action, actor, targetPersonId: personId, subjectId, eventId, details });
 }
 
 export interface GrantArgs {
@@ -219,7 +212,7 @@ export async function planGrant(tx: Transaction, actor: SessionUser, args: Grant
       const now = Timestamp.now();
       for (const d of toSupersede) {
         tx.update(d.ref, { state: 'SUPERSEDED' });
-        audit(tx, 'ENTITLEMENT_SUPERSEDED', actor, args.personId, d.id, `by ${ref.id}`);
+        log(tx, 'ENTITLEMENT_SUPERSEDED', actor, args.personId, d.id, eventIdOf(person), `by ${ref.id}`);
       }
       tx.create(ref, {
         personId: args.personId,
@@ -234,7 +227,7 @@ export async function planGrant(tx: Transaction, actor: SessionUser, args: Grant
         revokeReason: null,
         createdAt: now,
       });
-      audit(tx, 'ENTITLEMENT_CREATED', actor, args.personId, ref.id,
+      log(tx, 'ENTITLEMENT_CREATED', actor, args.personId, ref.id, eventIdOf(person),
         `${window.startDate} → ${window.endDate ?? 'open'}, days ${window.weekdays.join('')}, ${window.startTime}–${window.endTime}`);
     },
   };
@@ -266,11 +259,12 @@ export async function revokeEntitlement(actor: SessionUser, entitlementId: strin
   const ref = adminDb.collection('entitlements').doc(entitlementId);
   await adminDb.runTransaction(async (tx) => {
     const fresh = await tx.get(ref);
+    const eventId = eventIdOf((await tx.get(adminDb.collection('people').doc(ent.personId))).data());
     if (fresh.data()?.state !== 'ACTIVE') throw new HttpError(409, `Cannot revoke a ${fresh.data()?.state} entitlement.`);
     const now = Timestamp.now();
     tx.update(ref, { state: 'REVOKED', revokedBy: actor.personId, revokedAt: now, revokeReason: reason });
     tx.update(adminDb.collection('people').doc(ent.personId), { credentialVersion: FieldValue.increment(1) });
-    audit(tx, 'ENTITLEMENT_REVOKED', actor, ent.personId, entitlementId, reason);
+    log(tx, 'ENTITLEMENT_REVOKED', actor, ent.personId, entitlementId, eventId, reason);
   });
   return { entitlementId, state: 'REVOKED' as const };
 }
@@ -283,6 +277,7 @@ export async function editEntitlement(actor: SessionUser, entitlementId: string,
   const ref = adminDb.collection('entitlements').doc(entitlementId);
   return adminDb.runTransaction(async (tx) => {
     const fresh = toEntitlement(await tx.get(ref));
+    const eventId = eventIdOf((await tx.get(adminDb.collection('people').doc(ent.personId))).data());
     if (fresh.state !== 'ACTIVE') throw new HttpError(409, `Cannot edit a ${fresh.state} entitlement.`);
     const merged: EntitlementWindow = {
       startDate: fresh.startDate, endDate: fresh.endDate, weekdays: fresh.weekdays,
@@ -293,7 +288,7 @@ export async function editEntitlement(actor: SessionUser, entitlementId: string,
     const changed = keys.filter((k) => JSON.stringify(fresh[k]) !== JSON.stringify(merged[k]));
     if (changed.length === 0) throw new HttpError(400, 'Nothing changed.');
     tx.update(ref, { ...patch });
-    audit(tx, 'ENTITLEMENT_CHANGED', actor, ent.personId, entitlementId,
+    log(tx, 'ENTITLEMENT_CHANGED', actor, ent.personId, entitlementId, eventId,
       changed.map((k) => `${k}: ${JSON.stringify(fresh[k])} → ${JSON.stringify(merged[k])}`).join('; '));
     return { entitlementId, ...merged };
   });

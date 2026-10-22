@@ -1,5 +1,8 @@
 import Link from 'next/link';
-import { listEvents, linkState } from '@/lib/events';
+import { eventTiming, listEvents, linkState, type EventTiming } from '@/lib/events';
+
+// Ongoing first (what's happening now), then what's coming, then history.
+const GROUPS: [EventTiming, string][] = [['ongoing', 'Happening now'], ['upcoming', 'Coming up'], ['past', 'Past events']];
 import { todayDateString } from '@/lib/date';
 import { formatDate, formatDateTime } from '@/lib/display';
 import { fetchedAtNow } from '@/lib/paging';
@@ -29,9 +32,16 @@ export default async function AdminEventsPage() {
         <EventForm initial={{ name: '', details: '', venue: '', accessFrom: today, accessTo: today, gateOpens: '09:00', gateCloses: '18:00', linkExpiresAt: `${today}T23:59` }} />
       </details>
 
-      {events.length === 0 ? <p className="text-sm text-gray-400">No events yet.</p> : (
+      {events.length === 0 && <p className="text-sm text-gray-400">No events yet.</p>}
+      {GROUPS.map(([timing, title]) => {
+        const list = events.filter((e) => eventTiming(e, today) === timing)
+          .sort((a, b) => (timing === 'past' ? b.accessTo.localeCompare(a.accessTo) : a.accessFrom.localeCompare(b.accessFrom)));
+        if (list.length === 0) return null;
+        return (
+      <section key={timing} className="space-y-2" aria-labelledby={`t-${timing}`}>
+        <h3 id={`t-${timing}`} className="text-sm font-semibold">{title} <span className="font-normal text-gray-400">{list.length}</span></h3>
         <ul className="grid gap-3 sm:grid-cols-2">
-          {events.map((e) => {
+          {list.map((e) => {
             const c = counts.get(e.id)!;
             const state = linkState(e);
             return (
@@ -53,7 +63,9 @@ export default async function AdminEventsPage() {
             );
           })}
         </ul>
-      )}
+      </section>
+        );
+      })}
     </div>
   );
 }

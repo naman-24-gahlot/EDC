@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getSessionUser } from '@/lib/session';
 import { todayDateString } from '@/lib/date';
+import { listEvents } from '@/lib/events';
+import { categoryOf } from '@/lib/audit';
 import { auditQuery, entryQuery, parseAuditFilter, parseEntryFilter } from '@/lib/logs';
 
 // Master only: download gate entries or the audit log as CSV for the office — filtered exactly
@@ -41,16 +43,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
   const name = new Map(people.docs.map((d) => [d.id, `${d.data().firstName} ${d.data().lastName} (@${d.data().username})`]));
   const who = (id: unknown) => (typeof id === 'string' ? name.get(id) ?? id : '');
+  const eventName = new Map((await listEvents()).map((e) => [e.id, e.name]));
+  const ev = (id: unknown) => (typeof id === 'string' ? eventName.get(id) ?? id : '');
 
   const lines =
     kind === 'entries'
       ? [
-          ['time (UTC)', 'person', 'method', 'result', 'reason', 'code typed', 'guard'],
-          ...rows.docs.map((d) => { const e = d.data(); return [iso(e.timestamp), who(e.personId), e.method, e.result, e.reason, e.presentedCode, who(e.guardUid)]; }),
+          ['time (UTC)', 'person', 'method', 'result', 'reason', 'code typed', 'event', 'guard'],
+          ...rows.docs.map((d) => { const e = d.data(); return [iso(e.timestamp), who(e.personId), e.method, e.result, e.reason, e.presentedCode, ev(e.eventId), who(e.guardUid)]; }),
         ]
       : [
-          ['time (UTC)', 'action', 'by', 'by role', 'person', 'subject id', 'details'],
-          ...rows.docs.map((d) => { const a = d.data(); return [iso(a.timestamp), a.action, who(a.actorId), a.actorRole, who(a.targetPersonId), a.subjectId, a.details]; }),
+          ['time (UTC)', 'action', 'category', 'by', 'by role', 'person', 'event', 'subject id', 'details'],
+          ...rows.docs.map((d) => { const a = d.data(); return [iso(a.timestamp), a.action, a.category ?? categoryOf(a.action), who(a.actorId), a.actorRole, who(a.targetPersonId), ev(a.eventId), a.subjectId, a.details]; }),
         ];
   const csv = '﻿' + lines.map((l) => l.map(cell).join(',')).join('\r\n') + '\r\n';
   return new NextResponse(csv, {

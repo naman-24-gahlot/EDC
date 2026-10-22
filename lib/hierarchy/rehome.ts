@@ -4,10 +4,10 @@ if (typeof window !== 'undefined') {
   throw new Error('lib/hierarchy/rehome.ts must never be imported into client code.');
 }
 
-import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
 import { HttpError, MAX_DEPTH, computeAncestorIds, requireMaster, toPerson } from './authorize';
+import { audit, eventIdOf } from '@/lib/audit';
 
 const TOP_LEVEL_PROFILE_TYPES = new Set(['employee', 'incubee']);
 
@@ -64,13 +64,8 @@ export async function rehome(
 
     tx.update(people.doc(personId), { parentId: newParentId, ancestorIds: newAncestors });
     for (const r of rewrites) tx.update(people.doc(r.personId), { ancestorIds: r.ancestorIds });
-    tx.set(adminDb.collection('auditLogs').doc(), {
-      action: 'HIERARCHY_CHANGED',
-      actorId: actor.personId,
-      actorRole: actor.systemRole,
-      targetPersonId: personId,
-      subjectId: null,
-      timestamp: Timestamp.now(),
+    audit(tx, {
+      action: 'HIERARCHY_CHANGED', actor, targetPersonId: personId, eventId: eventIdOf(person),
       details: `parent ${person.parentId ?? 'top-level'} → ${newParentId ?? 'top-level'}; ${rewrites.length} descendant(s) moved`,
     });
 

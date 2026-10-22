@@ -17,6 +17,8 @@ export interface PersonCardData {
   status: string;
   lastEntry: string | null;
   under?: string | null;
+  /** The event they registered through, if any. */
+  event?: { id: string; name: string } | null;
 }
 
 // Initials, not photos: a page of cards stays a few KB instead of megabytes of data URLs.
@@ -37,6 +39,7 @@ export function PersonCard({ p, href, footer }: { p: PersonCardData; href?: stri
         <dt className="text-gray-400">Type</dt><dd className="truncate text-right">{p.typeLabel}</dd>
         <dt className="text-gray-400">Code</dt><dd className="truncate text-right font-mono">{p.code ?? '—'}</dd>
         {p.under !== undefined && <><dt className="text-gray-400">Under</dt><dd className="truncate text-right">{p.under ?? 'top-level'}</dd></>}
+        {p.event && <><dt className="text-gray-400">Event</dt><dd className="truncate text-right font-medium text-violet-800">{p.event.name}</dd></>}
         <dt className="text-gray-400">Last at gate</dt><dd className="truncate text-right">{p.lastEntry ?? 'never'}</dd>
       </dl>
       {footer && <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">{footer}</div>}

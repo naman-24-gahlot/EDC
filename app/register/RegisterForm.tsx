@@ -56,7 +56,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [profileType, setProfileType] = useState<string>('employee');
+  const [profileType, setProfileType] = useState<string>(event ? 'event_guest' : 'employee');
   const [parentIdentifier, setParentIdentifier] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -189,18 +189,27 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
 
         <div className="space-y-1">
           <label htmlFor="reg-type" className="text-sm font-medium">Profile type</label>
-          <select
-            id="reg-type"
-            value={profileType}
-            onChange={(e) => setProfileType(e.target.value)}
-            className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
-          >
-            {PROFILE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          {event ? (
+            // Event links register guests only; the server enforces it too.
+            <>
+              <input id="reg-type" value="Event Guest" readOnly aria-readonly="true"
+                className="w-full rounded border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700" />
+              <p className="text-xs text-gray-500">Everyone registering for this event joins as an event guest.</p>
+            </>
+          ) : (
+            <select
+              id="reg-type"
+              value={profileType}
+              onChange={(e) => setProfileType(e.target.value)}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            >
+              {PROFILE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {needsParent && (

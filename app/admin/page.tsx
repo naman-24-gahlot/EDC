@@ -6,6 +6,7 @@ import { PROFILE_LABEL, formatDate, formatDateTime } from '@/lib/display';
 import { PAGE_SIZE, fetchedAtNow, parsePage } from '@/lib/paging';
 import { DecisionButtons } from '@/components/DecisionButtons';
 import { DecisionTable, type DecisionRow } from '@/components/DecisionTable';
+import { EventTag } from '@/components/EventTag';
 import { StatusPill } from '@/components/StatusPill';
 import { Pager } from '@/components/Pager';
 import { DataStamp } from '@/components/DataStamp';
@@ -54,9 +55,9 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
   // Only the people on screen: their type and controller, plus requester and controller names.
   const personIds = [...new Set(shown.map((r) => r.personId))];
   const personSnaps = personIds.length
-    ? await adminDb.getAll(...personIds.map((id) => adminDb.collection('people').doc(id)), { fieldMask: ['firstName', 'lastName', 'profileType', 'parentId'] })
+    ? await adminDb.getAll(...personIds.map((id) => adminDb.collection('people').doc(id)), { fieldMask: ['firstName', 'lastName', 'profileType', 'parentId', 'eventId', 'eventName'] })
     : [];
-  const persons = new Map(personSnaps.filter((s) => s.exists).map((s) => [s.id, s.data() as { firstName: string; lastName: string; profileType: keyof typeof PROFILE_LABEL | null; parentId: string | null }]));
+  const persons = new Map(personSnaps.filter((s) => s.exists).map((s) => [s.id, s.data() as { firstName: string; lastName: string; profileType: keyof typeof PROFILE_LABEL | null; parentId: string | null; eventId?: string; eventName?: string }]));
   const names = await namesFor([...shown.map((r) => r.requestedBy), ...[...persons.values()].map((p) => p.parentId)]);
   for (const [id, p] of persons) names.set(id, `${p.firstName} ${p.lastName}`);
 
@@ -83,7 +84,8 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
             selectable: r.status === 'PENDING',
             cells: [
               <div key="p"><Link href={`/admin/people/${r.personId}`} className="font-medium underline-offset-2 hover:underline">{names.get(r.personId) ?? r.personId}</Link>
-                <span className="ml-1 text-xs text-gray-500 md:ml-0 md:block">{p?.profileType ? PROFILE_LABEL[p.profileType] : '—'}</span></div>,
+                <span className="ml-1 text-xs text-gray-500 md:ml-0 md:block">{p?.profileType ? PROFILE_LABEL[p.profileType] : '—'}</span>
+                {p?.eventId && <span className="mt-0.5 block"><EventTag id={p.eventId} name={p.eventName ?? 'Event'} /></span>}</div>,
               <span key="b" className="text-xs">{r.requestedBy === r.personId ? 'self' : names.get(r.requestedBy) ?? r.requestedBy}</span>,
               <span key="c" className="text-xs">{p?.parentId ? names.get(p.parentId) : 'Master'}</span>,
               <span key="u" className="text-xs"><span className="block text-sm">{r.purpose}</span>

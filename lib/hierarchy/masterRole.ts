@@ -4,11 +4,11 @@ if (typeof window !== 'undefined') {
   throw new Error('lib/hierarchy/masterRole.ts must never be imported into client code.');
 }
 
-import { Timestamp } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
 import type { SystemRole } from '@/lib/roles';
 import { HttpError, requireMaster, toPerson } from './authorize';
+import { audit, eventIdOf } from '@/lib/audit';
 
 export async function setMasterRole(
   actor: SessionUser,
@@ -46,15 +46,7 @@ export async function setMasterRole(
     }
 
     tx.update(people.doc(targetPersonId), { systemRole: newRole });
-    tx.set(adminDb.collection('auditLogs').doc(), {
-      action: makeMaster ? 'MASTER_PROMOTED' : 'MASTER_DEMOTED',
-      actorId: actor.personId,
-      actorRole: actor.systemRole,
-      targetPersonId,
-      subjectId: null,
-      timestamp: Timestamp.now(),
-      details: null,
-    });
+    audit(tx, { action: makeMaster ? 'MASTER_PROMOTED' : 'MASTER_DEMOTED', actor, targetPersonId, eventId: eventIdOf(target) });
     return target.systemRole;
   });
 

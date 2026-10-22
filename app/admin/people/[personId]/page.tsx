@@ -14,6 +14,7 @@ import { SkeletonBlock } from '@/components/Skeleton';
 import { DataStamp } from '@/components/DataStamp';
 import { namesFor, requireMasterPage } from '../../data';
 import { PersonActions } from './PersonActions';
+import { EventTag } from '@/components/EventTag';
 
 export const dynamic = 'force-dynamic';
 
@@ -164,6 +165,7 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
             {person.systemRole === 'master' && ' · Master'} · code <span className="font-mono" data-testid="person-code">{accessCodeFor(person.profileType, person.accessNumber) ?? '—'}</span>
           </p>
           <p className="text-sm text-gray-500">
+            {typeof person.eventId === 'string' && <><EventTag id={person.eventId} name={String(person.eventName ?? 'Event')} />{(person.registrationSource as { source?: string } | undefined)?.source ? <span className="text-xs"> via {(person.registrationSource as { source: string }).source}</span> : null}{' · '}</>}
             Parent: {person.parentId ? <Link href={`/admin/people/${person.parentId}`} className="underline">{names.get(person.parentId)}</Link> : 'top-level'}
             {' · '}{descendantIds.size} below · registration <StatusPill status={person.registrationStatus} /> {!person.active && person.registrationStatus === 'APPROVED' && <StatusPill status="DEACTIVATED" />}
           </p>

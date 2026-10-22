@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Timestamp } from 'firebase-admin/firestore';
 import { ACTION_GROUPS, auditQuery, parseAuditFilter, runPaged } from '@/lib/logs';
 import { AuditFilterForm } from './AuditFilterForm';
+import { listEvents } from '@/lib/events';
 import { formatDateTime } from '@/lib/display';
 import { PAGE_SIZE, fetchedAtNow, parsePage } from '@/lib/paging';
 import { Pager } from '@/components/Pager';
@@ -18,6 +19,7 @@ function actionStyle(action: string): string {
 }
 
 interface AuditRow {
+  eventId?: string | null;
   id: string;
   action: string;
   actorId: string;
@@ -37,7 +39,8 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
 
   // Paged in Firestore (lib/logs.ts; indexes in firestore.indexes.json).
   const base = auditQuery(filter);
-  const { building, total, docs } = await runPaged(base, page, PAGE_SIZE);
+  const [{ building, total, docs }, events] = await Promise.all([runPaged(base, page, PAGE_SIZE), listEvents()]);
+  const eventName = new Map(events.map((e) => [e.id, e.name]));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rows = docs.map((d) => ({ ...(d.data() as Omit<AuditRow, 'id'>), id: d.id }));
   const names = await namesFor([person, ...rows.map((r) => r.actorId), ...rows.map((r) => r.targetPersonId)]);
@@ -50,7 +53,8 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
           Audit log{person && <> for <span className="text-gray-900">{names.get(person) ?? 'this person'}</span> · <Link href="/admin/audit" className="underline">show everyone</Link></>}
         </h2>
       </div>
-      <AuditFilterForm key={JSON.stringify(filter)} groups={ACTION_GROUPS} selected={filter.actions} from={filter.from} to={filter.to} order={filter.order} person={person} />
+      <AuditFilterForm key={JSON.stringify(filter)} groups={ACTION_GROUPS} selected={filter.actions} from={filter.from} to={filter.to} order={filter.order} person={person}
+        event={filter.event} events={events.map((e) => ({ id: e.id, name: e.name }))} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-gray-500">{total} matching {total === 1 ? 'entry' : 'entries'}</p>
         <DataStamp fetchedAt={fetchedAtNow()} pageParams={['page']} />
@@ -64,6 +68,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
                 <th className="px-3 py-2">Action</th>
                 <th className="px-3 py-2">By</th>
                 <th className="px-3 py-2">Person</th>
+                <th className="px-3 py-2">Event</th>
                 <th className="px-3 py-2">Details</th>
               </tr>
             </thead>
@@ -74,6 +79,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
                   <td data-label="Action" className="px-3 py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${actionStyle(l.action)}`}>{l.action}</span></td>
                   <td data-label="By" className="px-3 py-2 text-xs">{who(l.actorId)} <span className="text-gray-400">({l.actorRole})</span></td>
                   <td data-label="Person" className="px-3 py-2 text-xs">{l.targetPersonId ? <Link href={`/admin/people/${l.targetPersonId}`} className="hover:underline">{who(l.targetPersonId)}</Link> : '—'}</td>
+                  <td data-label="Event" className="px-3 py-2 text-xs">{l.eventId && eventName.has(l.eventId) ? <Link href={`/admin/events/${l.eventId}`} className="underline">{eventName.get(l.eventId)}</Link> : <span className="text-gray-400">—</span>}</td>
                   <td data-label="Details" className="px-3 py-2 text-xs text-gray-600">{l.details ?? '—'}</td>
                 </tr>
               ))}

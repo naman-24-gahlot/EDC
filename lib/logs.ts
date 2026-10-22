@@ -8,15 +8,10 @@ if (typeof window !== 'undefined') {
 import { Timestamp, type Query } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 
-// Every action the app writes (DATABASE_SCHEMA.md), grouped for the picker.
-export const ACTION_GROUPS: readonly { label: string; actions: readonly string[] }[] = [
-  { label: 'Gate', actions: ['ENTRY_APPROVED', 'ENTRY_DENIED'] },
-  { label: 'Access', actions: ['ACCESS_REQUEST_CREATED', 'ACCESS_REQUEST_APPROVED', 'ACCESS_REQUEST_REJECTED', 'ACCESS_REQUEST_EXPIRED', 'ENTITLEMENT_CREATED', 'ENTITLEMENT_CHANGED', 'ENTITLEMENT_REVOKED', 'ENTITLEMENT_SUPERSEDED'] },
-  { label: 'People', actions: ['REGISTRATION_SUBMITTED', 'REGISTRATION_APPROVED', 'REGISTRATION_REJECTED', 'PROFILE_CREATED', 'PROFILE_UPDATED', 'PROFILE_TYPE_CHANGED', 'HIERARCHY_CHANGED', 'PERSON_DEACTIVATED', 'PERSON_REACTIVATED', 'GUARD_CREATED', 'MASTER_PROMOTED', 'MASTER_DEMOTED'] },
-  { label: 'Events', actions: ['EVENT_CREATED', 'EVENT_UPDATED', 'EVENT_LINK_CLOSED', 'EVENT_LINK_REOPENED', 'EVENT_LINK_REPLACED'] },
-  { label: 'Passwords & passes', actions: ['PASSWORD_CHANGED', 'PASSWORD_RESET', 'SESSIONS_REVOKED', 'CREDENTIAL_REISSUED', 'ORPHAN_AUTH_ACCOUNT_REMOVED'] },
-];
-export const ACTIONS: readonly string[] = ACTION_GROUPS.flatMap((g) => g.actions);
+// The action list and groups live with the writer (lib/audit.ts), so they can't drift apart.
+import { ACTION_GROUPS, ACTIONS as ALL_ACTIONS } from '@/lib/audit';
+export { ACTION_GROUPS };
+export const ACTIONS: readonly string[] = ALL_ACTIONS;
 
 const ID_RE = /^[A-Za-z0-9]{1,128}$/;
 // Firestore allows at most 30 values in an "in" filter and 10 in "not-in".
@@ -29,6 +24,8 @@ const date = (v: string | string[] | undefined) => { const d = one(v); return d 
 
 export interface LogFilter {
   person: string | null;
+  /** An event id, 'none' (not from any event), or null (everything). Ignored with a person filter. */
+  event: string | null;
   from: string | null; // YYYY-MM-DD, IST day
   to: string | null;
   order: 'desc' | 'asc';
@@ -38,8 +35,10 @@ export interface EntryFilter extends LogFilter { result: 'APPROVED' | 'DENIED' |
 
 function base(raw: Raw): LogFilter {
   const person = one(raw.person);
+  const event = one(raw.event);
   return {
     person: person && ID_RE.test(person) ? person : null,
+    event: event === 'none' || (event && ID_RE.test(event)) ? event : null,
     from: date(raw.from),
     to: date(raw.to),
     order: one(raw.order) === 'asc' ? 'asc' : 'desc',
@@ -61,6 +60,12 @@ export function parseEntryFilter(raw: Raw): EntryFilter {
 const dayStart = (d: string) => Timestamp.fromDate(new Date(`${d}T00:00:00+05:30`));
 const dayEnd = (d: string) => Timestamp.fromMillis(new Date(`${d}T00:00:00+05:30`).getTime() + 86_400_000);
 
+/** Entries about one event's people (and the event itself), or about nobody's event. */
+function withEvent(q: Query, f: LogFilter): Query {
+  if (f.person || !f.event) return q;
+  return q.where('eventId', '==', f.event === 'none' ? null : f.event);
+}
+
 function withDates(q: Query, f: LogFilter): Query {
   if (f.from) q = q.where('timestamp', '>=', dayStart(f.from));
   if (f.to) q = q.where('timestamp', '<', dayEnd(f.to));
@@ -70,6 +75,7 @@ function withDates(q: Query, f: LogFilter): Query {
 export function auditQuery(f: AuditFilter): Query {
   let q: Query = adminDb.collection('auditLogs');
   if (f.person) q = q.where('targetPersonId', '==', f.person);
+  q = withEvent(q, f);
   if (f.actions.length === 1) q = q.where('action', '==', f.actions[0]);
   else if (f.actions.length > IN_LIMIT) q = q.where('action', 'not-in', ACTIONS.filter((x) => !f.actions.includes(x))); // nearly all ticked: exclude the few that aren't
   else if (f.actions.length > 1) q = q.where('action', 'in', f.actions);
@@ -79,6 +85,7 @@ export function auditQuery(f: AuditFilter): Query {
 export function entryQuery(f: EntryFilter): Query {
   let q: Query = adminDb.collection('entryEvents');
   if (f.person) q = q.where('personId', '==', f.person);
+  q = withEvent(q, f);
   if (f.result) q = q.where('result', '==', f.result);
   return withDates(q, f);
 }
@@ -89,6 +96,7 @@ export function filterParams(f: Partial<AuditFilter & EntryFilter>): Record<stri
   if (f.actions?.length) out.action = f.actions.join(',');
   if (f.result) out.result = f.result;
   if (f.person) out.person = f.person;
+  if (f.event) out.event = f.event;
   if (f.from) out.from = f.from;
   if (f.to) out.to = f.to;
   if (f.order === 'asc') out.order = 'asc';

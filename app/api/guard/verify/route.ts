@@ -8,6 +8,7 @@ import { loadPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { PREFIX } from '@/lib/access/codes';
 import { decideAccess, type AccessDenialReason } from '@/lib/access/evaluate';
 import { getCurrentEntitlement, type Entitlement } from '@/lib/access/entitlements';
+import { audit } from '@/lib/audit';
 
 // The gate. ONE path for QR and typed code — see SECURITY_MODEL.md "Verification".
 // Every verdict is recorded (entryEvent + audit) BEFORE it is returned: if recording
@@ -20,6 +21,9 @@ type Reason = ResolveReason | AccessDenialReason;
 
 const CODE_RE = /^([A-Z]{3})(\d{5})$/;
 const KNOWN_PREFIXES = new Set(Object.values(PREFIX));
+
+/** The event a person registered through (people.eventId), or null. */
+const eventOf = (p: PersonRecord | null) => (p && typeof p.eventId === 'string' ? p.eventId : null);
 
 interface Resolved {
   person: PersonRecord | null;
@@ -95,18 +99,14 @@ export async function POST(request: NextRequest) {
       result: approved ? 'APPROVED' : 'DENIED',
       reason,
       presentedCode: method === 'CODE' ? code : null, // the QR token itself is never stored
+      eventId: eventOf(person),
       timestamp: now,
     });
     // "Recently at the gate" sorting on the people lists reads this instead of scanning entries.
     if (approved && person) batch.update(adminDb.collection('people').doc(person.personId), { lastEntryAt: now });
-    batch.set(adminDb.collection('auditLogs').doc(), {
-      action: approved ? 'ENTRY_APPROVED' : 'ENTRY_DENIED',
-      actorId: user.personId,
-      actorRole: user.systemRole,
-      targetPersonId: person?.personId ?? null,
-      subjectId: eventRef.id,
-      timestamp: now,
-      details: reason ? `${method}: ${reason}` : method,
+    audit(batch, {
+      action: approved ? 'ENTRY_APPROVED' : 'ENTRY_DENIED', actor: user, targetPersonId: person?.personId ?? null,
+      subjectId: eventRef.id, eventId: eventOf(person), at: now, details: reason ? `${method}: ${reason}` : method,
     });
     await batch.commit();
 
@@ -118,6 +118,8 @@ export async function POST(request: NextRequest) {
             name: `${person.firstName} ${person.lastName}`,
             profileType: person.profileType,
             photoDataUrl: typeof person.photoDataUrl === 'string' ? person.photoDataUrl : null,
+            // Event guests: the guard sees which event they are here for.
+            eventName: eventOf(person) ? String(person.eventName ?? 'Event') : null,
           }
         : null,
     });

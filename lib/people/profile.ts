@@ -6,12 +6,12 @@ if (typeof window !== 'undefined') {
 }
 
 import { randomBytes } from 'crypto';
-import { Timestamp } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
 import { HttpError, assertCanActOn, loadPerson, requireMaster } from '@/lib/hierarchy/authorize';
 import { validatePhoto } from './create';
 import { hashPassword, matches, readHashes, writeHashes } from '@/lib/auth/passwordHashes';
+import { audit, eventIdOf, lookupEventId } from '@/lib/audit';
 
 export interface ProfilePatch {
   firstName?: string;
@@ -62,13 +62,8 @@ export async function updateProfile(actor: SessionUser, personId: string, patch:
 
   const batch = adminDb.batch();
   batch.update(adminDb.collection('people').doc(personId), { ...patch });
-  batch.set(adminDb.collection('auditLogs').doc(), {
-    action: 'PROFILE_UPDATED',
-    actorId: actor.personId,
-    actorRole: actor.systemRole,
-    targetPersonId: personId,
-    subjectId: null,
-    timestamp: Timestamp.now(),
+  audit(batch, {
+    action: 'PROFILE_UPDATED', actor, targetPersonId: personId, eventId: eventIdOf(person),
     details: `changed: ${Object.keys(patch).join(', ')}`,
   });
   await batch.commit();
@@ -111,10 +106,7 @@ export async function changeOwnPassword(actor: SessionUser, current: unknown, ne
   await adminAuth.updateUser(actor.personId, { password: newPassword });
   await writeHashes(actor.personId, { previous: await hashPassword(current), current: await hashPassword(newPassword), oneTime: null });
   await adminAuth.revokeRefreshTokens(actor.personId);
-  await adminDb.collection('auditLogs').add({
-    action: 'PASSWORD_CHANGED', actorId: actor.personId, actorRole: actor.systemRole,
-    targetPersonId: actor.personId, subjectId: null, timestamp: Timestamp.now(), details: 'other sessions signed out',
-  });
+  await audit(null, { action: 'PASSWORD_CHANGED', actor, targetPersonId: actor.personId, eventId: await lookupEventId(actor.personId), details: 'other sessions signed out' });
   // Revocation is recorded to the second; a token minted in that same second could be judged
   // revoked too, so wait past the boundary before signing this device back in.
   await new Promise((r) => setTimeout(r, 1100));
@@ -139,10 +131,7 @@ export async function resetPassword(actor: SessionUser, personId: string): Promi
   await adminAuth.setCustomUserClaims(personId, { ...claims, mustChangePassword: true });
   await adminAuth.updateUser(personId, { password });
   await adminAuth.revokeRefreshTokens(personId);
-  await adminDb.collection('auditLogs').add({
-    action: 'PASSWORD_RESET', actorId: actor.personId, actorRole: actor.systemRole,
-    targetPersonId: personId, subjectId: null, timestamp: Timestamp.now(), details: 'one-time password issued; sessions signed out',
-  });
+  await audit(null, { action: 'PASSWORD_RESET', actor, targetPersonId: personId, eventId: eventIdOf(person), details: 'one-time password issued; sessions signed out' });
   return password;
 }
 
@@ -167,9 +156,10 @@ export async function completePasswordReset(personId: string, next: unknown): Pr
     const { mustChangePassword: _done, ...rest } = claims; // eslint-disable-line @typescript-eslint/no-unused-vars -- dropping the flag
     await adminAuth.setCustomUserClaims(personId, rest);
     await adminAuth.revokeRefreshTokens(personId);
-    await adminDb.collection('auditLogs').add({
-      action: 'PASSWORD_CHANGED', actorId: personId, actorRole: typeof claims.systemRole === 'string' ? claims.systemRole : 'member',
-      targetPersonId: personId, subjectId: null, timestamp: Timestamp.now(), details: 'new password set after a reset',
+    const role = claims.systemRole === 'master' || claims.systemRole === 'guard' ? claims.systemRole : 'member';
+    await audit(null, {
+      action: 'PASSWORD_CHANGED', actor: { personId, email: record.email, systemRole: role }, targetPersonId: personId,
+      eventId: await lookupEventId(personId), details: 'new password set after a reset',
     });
     await new Promise((r) => setTimeout(r, 1100)); // see changeOwnPassword: revocation is per second
   } else if (!(await matches(newPassword, hashes.current))) {
@@ -184,8 +174,5 @@ export async function completePasswordReset(personId: string, next: unknown): Pr
 /** Self-service "sign out of all devices". */
 export async function signOutEverywhere(actor: SessionUser) {
   await adminAuth.revokeRefreshTokens(actor.personId);
-  await adminDb.collection('auditLogs').add({
-    action: 'SESSIONS_REVOKED', actorId: actor.personId, actorRole: actor.systemRole,
-    targetPersonId: actor.personId, subjectId: null, timestamp: Timestamp.now(), details: null,
-  });
+  await audit(null, { action: 'SESSIONS_REVOKED', actor, targetPersonId: actor.personId, eventId: await lookupEventId(actor.personId) });
 }

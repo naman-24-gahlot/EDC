@@ -11,6 +11,7 @@ import type { SystemRole } from '@/lib/roles';
 import { type ProfileType, accessCodeFor, issueAccessNumber } from '@/lib/access/codes';
 import { HttpError, computeAncestorIds, loadPerson } from '@/lib/hierarchy/authorize';
 import { hashPassword, writeHashes } from '@/lib/auth/passwordHashes';
+import { audit } from '@/lib/audit';
 
 export const PersonCreateError = HttpError;
 
@@ -93,15 +94,7 @@ async function createAuthUser(uid: string, email: string, password: string, disp
     throw new PersonCreateError(409, 'That email is already registered.');
   }
   await adminAuth.deleteUser(existing.uid);
-  await adminDb.collection('auditLogs').add({
-    action: 'ORPHAN_AUTH_ACCOUNT_REMOVED',
-    actorId: 'system',
-    actorRole: 'system',
-    targetPersonId: null,
-    subjectId: existing.uid,
-    timestamp: Timestamp.now(),
-    details: 'Auth account with no profile held an email being registered',
-  });
+  await audit(null, { action: 'ORPHAN_AUTH_ACCOUNT_REMOVED', actor: 'system', targetPersonId: null, subjectId: existing.uid, details: 'Auth account with no profile held an email being registered' });
   await adminAuth.createUser({ uid, email, password, displayName, emailVerified: false });
 }
 

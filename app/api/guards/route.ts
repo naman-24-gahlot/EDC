@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
-import { Timestamp } from 'firebase-admin/firestore';
-import { adminDb } from '@/lib/firebase/admin';
 import { getSessionUser } from '@/lib/session';
 import { errorResponse, requireMaster } from '@/lib/hierarchy/authorize';
 import { createPerson } from '@/lib/people/create';
+import { audit } from '@/lib/audit';
 
 // Master only. Guard = system role, not a profile type: profileType null, top-level,
 // approved on creation, no access code. Body: { firstName, lastName, username, commEmail, mobile }.
@@ -27,10 +26,7 @@ export async function POST(request: NextRequest) {
       },
       { createdBy: user.personId, parentId: null, registrationStatus: 'APPROVED', systemRole: 'guard' }
     );
-    await adminDb.collection('auditLogs').add({
-      action: 'GUARD_CREATED', actorId: user.personId, actorRole: user.systemRole,
-      targetPersonId: created.personId, subjectId: null, timestamp: Timestamp.now(), details: null,
-    });
+    await audit(null, { action: 'GUARD_CREATED', actor: user, targetPersonId: created.personId });
     return NextResponse.json({ personId: created.personId, username: created.username, password }, { status: 201 });
   } catch (err) {
     return errorResponse(err, 'Could not create guard.');

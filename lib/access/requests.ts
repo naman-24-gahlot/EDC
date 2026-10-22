@@ -9,6 +9,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
 import { HttpError, assertCanActOn, listDescendants, loadPerson, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { parseWindowPatch, planGrant, type EntitlementWindow } from './entitlements';
+import { audit, eventIdOf } from '@/lib/audit';
 
 export const ACTIONABLE_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -29,6 +30,8 @@ export interface AccessRequest {
   decisionNote: string | null;
   resultingEntitlementId: string | null;
   expiredMarkedAt: Timestamp | null;
+  /** The person's event (people.eventId) when the request was made; for filtering. */
+  eventId?: string | null;
 }
 
 const requests = () => adminDb.collection('accessRequests');
@@ -43,13 +46,8 @@ function isStale(r: Pick<AccessRequest, 'status' | 'actionableUntil'>, nowMs: nu
 
 function writeExpiry(tx: Transaction, r: AccessRequest, now: Timestamp) {
   tx.update(requests().doc(r.id), { status: 'EXPIRED', expiredMarkedAt: now });
-  tx.set(adminDb.collection('auditLogs').doc(), {
-    action: 'ACCESS_REQUEST_EXPIRED',
-    actorId: 'system',
-    actorRole: 'system',
-    targetPersonId: r.personId,
-    subjectId: r.id,
-    timestamp: now,
+  audit(tx, {
+    action: 'ACCESS_REQUEST_EXPIRED', actor: 'system', targetPersonId: r.personId, subjectId: r.id, eventId: r.eventId ?? null, at: now,
     details: `not decided by ${r.actionableUntil.toDate().toISOString()}`,
   });
 }
@@ -179,20 +177,13 @@ export async function createRequest(actor: SessionUser, input: CreateRequestInpu
       decisionNote: null,
       resultingEntitlementId: null,
       expiredMarkedAt: null,
+      eventId: eventIdOf(person),
     };
     tx.create(ref, doc);
     // Writing the person doc makes concurrent creates for the same person conflict and
     // retry, so the "one PENDING per person" check above can't be raced.
     tx.update(personRef, { lastRequestAt: now });
-    tx.set(adminDb.collection('auditLogs').doc(), {
-      action: 'ACCESS_REQUEST_CREATED',
-      actorId: actor.personId,
-      actorRole: actor.systemRole,
-      targetPersonId: input.personId,
-      subjectId: ref.id,
-      timestamp: now,
-      details: input.purpose,
-    });
+    audit(tx, { action: 'ACCESS_REQUEST_CREATED', actor, targetPersonId: input.personId, subjectId: ref.id, eventId: eventIdOf(person), at: now, details: input.purpose });
     return { ...doc, id: ref.id };
   });
 }
@@ -252,14 +243,9 @@ async function decide(
       decisionNote: note,
       resultingEntitlementId: plan?.entitlementId ?? null,
     });
-    tx.set(adminDb.collection('auditLogs').doc(), {
-      action: approve ? 'ACCESS_REQUEST_APPROVED' : 'ACCESS_REQUEST_REJECTED',
-      actorId: actor.personId,
-      actorRole: actor.systemRole,
-      targetPersonId: req.personId,
-      subjectId: requestId,
-      timestamp: now,
-      details: plan ? `entitlement ${plan.entitlementId}${note ? `; ${note}` : ''}` : note,
+    audit(tx, {
+      action: approve ? 'ACCESS_REQUEST_APPROVED' : 'ACCESS_REQUEST_REJECTED', actor, targetPersonId: req.personId, subjectId: requestId,
+      eventId: fresh.eventId ?? null, at: now, details: plan ? `entitlement ${plan.entitlementId}${note ? `; ${note}` : ''}` : note,
     });
     plan?.write();
     return { kind: 'done', requestId, status: approve ? 'APPROVED' : 'REJECTED', entitlementId: plan?.entitlementId ?? null };
