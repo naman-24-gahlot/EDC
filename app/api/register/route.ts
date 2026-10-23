@@ -1,4 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
+import { assertGoodPassword } from '@/lib/auth/passwordPolicy';
+import { sendEmailVerification } from '@/lib/auth/emailActions';
+import { siteOrigin } from '@/lib/origin';
+import { errorResponse } from '@/lib/hierarchy/authorize';
 import { createPerson, PersonCreateError } from '@/lib/people/create';
 import { resolveEmployeeParent } from '@/lib/people/resolveParent';
 import { isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
@@ -66,6 +70,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  try {
+    await assertGoodPassword(password, { username, email: commEmail, name: `${firstName} ${lastName}` });
+  } catch (err) {
+    return errorResponse(err);
+  }
+
   let created;
   try {
     created = await createPerson(
@@ -88,5 +98,8 @@ export async function POST(request: NextRequest) {
     details: `profileType=${profileType}${event ? `; event: ${event.name}` : ''}`,
   });
 
+  // Email check link (or test outbox entry) — after the reply; a failure never blocks registration.
+  const origin = await siteOrigin();
+  after(() => sendEmailVerification(created.personId, origin).catch((err) => console.error('Verification email failed', err)));
   return NextResponse.json({ personId: created.personId }, { status: 201 });
 }

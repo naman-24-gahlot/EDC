@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ROLE_HOME_PATH, isSystemRole } from '@/lib/roles';
 import { RequestError, sendJson } from '@/lib/clientFetch';
+import { PasswordField } from '@/components/PasswordField';
 
 export function SetPasswordForm({ username, name }: { username: string; name: string }) {
   const [next, setNext] = useState('');
@@ -49,11 +50,7 @@ export function SetPasswordForm({ username, name }: { username: string; name: st
             {name ? `${name}, you` : 'You'} signed in with a one-time password. Choose your own before continuing — it can&apos;t be the one-time password or your previous password.
           </p>
         </div>
-        <div className="space-y-1">
-          <label htmlFor="sp-new" className="text-sm font-medium">New password</label>
-          <input id="sp-new" type="password" autoComplete="new-password" minLength={8} maxLength={128} required value={next} onChange={(e) => setNext(e.target.value)} className="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
-          <p className="text-xs text-gray-500">At least 8 characters.</p>
-        </div>
+        <PasswordField id="sp-new" label="New password" value={next} onChange={setNext} ctx={{ username }} />
         <div className="space-y-1">
           <label htmlFor="sp-confirm" className="text-sm font-medium">Repeat new password</label>
           <input id="sp-confirm" type="password" autoComplete="new-password" minLength={8} maxLength={128} required value={confirm} onChange={(e) => setConfirm(e.target.value)} className="w-full rounded border border-gray-300 px-3 py-2 text-sm" />

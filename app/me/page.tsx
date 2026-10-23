@@ -26,6 +26,8 @@ import { CreatePersonForm } from './CreatePersonForm';
 import { GrantButton } from './GrantButton';
 import { AccountSettings } from './AccountSettings';
 import { ApprovalNotice } from './ApprovalNotice';
+import { VerifyEmailBanner } from './VerifyEmailBanner';
+import { adminAuth } from '@/lib/firebase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -196,10 +198,11 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
   const params = await searchParams;
   const isMaster = user.systemRole === 'master';
 
-  const [me, current, myRequests] = await Promise.all([
+  const [me, current, myRequests, account] = await Promise.all([
     loadPerson(user.personId),
     getCurrentEntitlement(user.personId),
     listRequestsFor(user.personId),
+    adminAuth.getUser(user.personId),
   ]);
   if (!me) redirect('/login');
 
@@ -234,6 +237,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
         {isMaster && <Link href="/admin" className="inline-flex min-h-10 items-center md:min-h-0 ml-auto text-sm font-medium text-[#0D5B7A] underline">Admin dashboard →</Link>}
       </div>
       <DataStamp fetchedAt={fetchedAtNow()} pageParams={['people', 'requests']} />
+      {!account.emailVerified && account.email && <VerifyEmailBanner email={account.email} />}
       {notice && (
         <ApprovalNotice appliedAs={PROFILE_LABEL[notice.appliedAs]} approvedAs={PROFILE_LABEL[notice.approvedAs]}
           code={accessCodeFor(me.profileType, me.accessNumber)} access={period ? windowSummary(period) : null} />

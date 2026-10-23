@@ -4,6 +4,7 @@ import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { downscalePhoto } from '@/lib/photo';
 import { sendJson } from '@/lib/clientFetch';
+import { PasswordField } from '@/components/PasswordField';
 
 type Panel = 'details' | 'password' | null;
 
@@ -112,7 +113,7 @@ export function AccountSettings({ initial, username }: { initial: { firstName: s
               Without it, browsers saved the new password against another saved account (e.g. Master). */}
           <input type="text" name="username" autoComplete="username" value={username} readOnly hidden />
           <div className="space-y-1"><label htmlFor="as-cur" className="text-sm font-medium">Current password</label><input id="as-cur" type="password" autoComplete="current-password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} required className={input} /></div>
-          <div className="space-y-1"><label htmlFor="as-new" className="text-sm font-medium">New password</label><input id="as-new" type="password" autoComplete="new-password" minLength={8} value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} required className={input} /></div>
+          <PasswordField id="as-new" label="New password" value={pw.next} onChange={(v) => setPw({ ...pw, next: v })} ctx={{ username }} />
           <div className="space-y-1"><label htmlFor="as-conf" className="text-sm font-medium">Repeat new password</label><input id="as-conf" type="password" autoComplete="new-password" minLength={8} value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required className={input} /></div>
           <p className="text-xs text-gray-500">At least 8 characters. Changing it signs you out on every other device.</p>
           <button type="submit" disabled={busy} className={`${btn} bg-gray-900 text-white`}>{busy ? 'Changing…' : 'Change password'}</button>

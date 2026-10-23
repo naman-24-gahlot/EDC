@@ -12,6 +12,8 @@ import { HttpError, assertCanActOn, loadPerson, requireMaster } from '@/lib/hier
 import { validatePhoto } from './create';
 import { hashPassword, matches, readHashes, writeHashes } from '@/lib/auth/passwordHashes';
 import { audit, eventIdOf, lookupEventId } from '@/lib/audit';
+import { assertGoodPassword } from '@/lib/auth/passwordPolicy';
+import { identityToolkit, sendPasswordReset, actionErrorMessage } from '@/lib/auth/emailActions';
 
 export interface ProfilePatch {
   firstName?: string;
@@ -83,9 +85,10 @@ async function passwordSignIn(email: string, password: string): Promise<string |
   return res.ok && typeof body?.idToken === 'string' ? body.idToken : null;
 }
 
-function checkNewPassword(pw: unknown): string {
-  if (typeof pw !== 'string' || pw.length < 8 || pw.length > 128) throw new HttpError(400, 'New password must be 8–128 characters.');
-  return pw;
+/** The rules (length, common, own details, known breaches) with this person's details. */
+async function checkNewPassword(pw: unknown, personId: string): Promise<string> {
+  const [person, record] = await Promise.all([loadPerson(personId), adminAuth.getUser(personId)]);
+  return assertGoodPassword(pw, { username: person?.username, email: record.email, name: person ? `${person.firstName} ${person.lastName}` : undefined });
 }
 
 /**
@@ -95,7 +98,7 @@ function checkNewPassword(pw: unknown): string {
  */
 export async function changeOwnPassword(actor: SessionUser, current: unknown, next: unknown): Promise<string> {
   if (typeof current !== 'string' || !current) throw new HttpError(400, 'Enter your current password.');
-  const newPassword = checkNewPassword(next);
+  const newPassword = await checkNewPassword(next, actor.personId);
   if (newPassword === current) throw new HttpError(400, 'The new password must be different.');
   const record = await adminAuth.getUser(actor.personId);
   if (!record.email || !(await passwordSignIn(record.email, current))) throw new HttpError(403, 'Current password is incorrect.');
@@ -141,7 +144,7 @@ export async function resetPassword(actor: SessionUser, personId: string): Promi
  * to retry: if the change already went through, the same new password just signs them in.
  */
 export async function completePasswordReset(personId: string, next: unknown): Promise<string> {
-  const newPassword = checkNewPassword(next);
+  const newPassword = await checkNewPassword(next, personId);
   const record = await adminAuth.getUser(personId);
   if (!record.email) throw new HttpError(500, 'Account has no sign-in email.');
   const hashes = await readHashes(personId);
@@ -175,4 +178,84 @@ export async function completePasswordReset(personId: string, next: unknown): Pr
 export async function signOutEverywhere(actor: SessionUser) {
   await adminAuth.revokeRefreshTokens(actor.personId);
   await audit(null, { action: 'SESSIONS_REVOKED', actor, targetPersonId: actor.personId, eventId: await lookupEventId(actor.personId) });
+}
+
+// ---- Forgot password / verify email (links from lib/auth/emailActions.ts) ---------------------
+
+/**
+ * "Forgot password": emails a reset link if the identifier belongs to an approved, active
+ * account. Says nothing either way — the caller answers the same whatever happens, so the form
+ * can't be used to find out who has an account.
+ */
+export async function requestPasswordReset(identifier: unknown, origin: string): Promise<void> {
+  if (typeof identifier !== 'string') return;
+  const key = identifier.trim().toLowerCase();
+  if (!key || key.length > 254 || key.includes('/')) return;
+  const personId = (await adminDb.collection('identifiers').doc(key).get()).data()?.personId;
+  if (typeof personId !== 'string') return;
+  const person = await loadPerson(personId);
+  if (!person || person.registrationStatus !== 'APPROVED' || !person.active) return;
+  await sendPasswordReset(personId, origin);
+  await audit(null, { action: 'PASSWORD_RESET_EMAIL_SENT', actor: 'public', targetPersonId: personId, eventId: eventIdOf(person), details: 'requested from "Forgot password"' });
+}
+
+/** Who a reset link is for (masked email), without using it up. Throws HttpError 400 if invalid/expired. */
+export async function inspectResetCode(oobCode: unknown): Promise<{ email: string }> {
+  if (typeof oobCode !== 'string' || !oobCode || oobCode.length > 512) throw new HttpError(400, 'This link is not valid.');
+  try {
+    const { email } = await identityToolkit<{ email: string }>('accounts:resetPassword', { oobCode });
+    const [user, domain] = email.split('@');
+    return { email: `${user.slice(0, 2)}${'•'.repeat(Math.max(1, user.length - 2))}@${domain}` };
+  } catch (err) {
+    throw new HttpError(400, actionErrorMessage(err));
+  }
+}
+
+/**
+ * Finishes "forgot password": the same rules as any new password, plus not the current or the
+ * previous one. Using the link proves they own the inbox, so their email counts as verified.
+ */
+export async function completeEmailReset(oobCode: unknown, next: unknown): Promise<void> {
+  if (typeof oobCode !== 'string' || !oobCode) throw new HttpError(400, 'This link is not valid.');
+  let email: string;
+  try {
+    ({ email } = await identityToolkit<{ email: string }>('accounts:resetPassword', { oobCode }));
+  } catch (err) {
+    throw new HttpError(400, actionErrorMessage(err));
+  }
+  const user = await adminAuth.getUserByEmail(email);
+  const newPassword = await checkNewPassword(next, user.uid);
+  const hashes = await readHashes(user.uid);
+  if ((await matches(newPassword, hashes.current)) || (await matches(newPassword, hashes.previous))) {
+    throw new HttpError(400, 'That is a password you used recently. Choose a new one.');
+  }
+  try {
+    await identityToolkit('accounts:resetPassword', { oobCode, newPassword }); // uses the link up
+  } catch (err) {
+    throw new HttpError(400, actionErrorMessage(err));
+  }
+  await writeHashes(user.uid, { previous: hashes.current, current: await hashPassword(newPassword), oneTime: null });
+  const { mustChangePassword: _done, ...claims } = user.customClaims ?? {}; // eslint-disable-line @typescript-eslint/no-unused-vars -- a pending forced change is satisfied too
+  await adminAuth.setCustomUserClaims(user.uid, claims);
+  await adminAuth.updateUser(user.uid, { emailVerified: true });
+  await adminAuth.revokeRefreshTokens(user.uid);
+  await adminDb.collection('people').doc(user.uid).update({ emailVerified: true }).catch(() => {});
+  await audit(null, {
+    action: 'PASSWORD_CHANGED', actor: { personId: user.uid, email, systemRole: claims.systemRole === 'master' || claims.systemRole === 'guard' ? claims.systemRole : 'member' },
+    targetPersonId: user.uid, eventId: await lookupEventId(user.uid), details: 'reset with an email link; signed out everywhere',
+  });
+}
+
+/** Applies an email-verification link. */
+export async function applyEmailVerification(oobCode: unknown): Promise<void> {
+  if (typeof oobCode !== 'string' || !oobCode || oobCode.length > 512) throw new HttpError(400, 'This link is not valid.');
+  let email: string;
+  try {
+    ({ email } = await identityToolkit<{ email: string }>('accounts:update', { oobCode }));
+  } catch (err) {
+    throw new HttpError(400, actionErrorMessage(err));
+  }
+  const user = await adminAuth.getUserByEmail(email);
+  await adminDb.collection('people').doc(user.uid).update({ emailVerified: true }).catch(() => {});
+  await audit(null, { action: 'EMAIL_VERIFIED', actor: { personId: user.uid, email, systemRole: 'member' }, targetPersonId: user.uid, eventId: await lookupEventId(user.uid) });
 }

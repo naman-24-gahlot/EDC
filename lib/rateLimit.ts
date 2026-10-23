@@ -70,6 +70,8 @@ export const RULES = {
   loginPerAccount: { name: 'login-acct', max: 10, windowMs: 10 * MIN }, // per IP + identifier
   loginPerIp: { name: 'login-ip', max: 300, windowMs: 10 * MIN },
   registerPerIp: { name: 'register-ip', max: 30, windowMs: 60 * MIN },
+  emailPerIp: { name: 'email-ip', max: 10, windowMs: 10 * MIN }, // forgot-password / verification emails
+  checkPerIp: { name: 'check-ip', max: 120, windowMs: MIN }, // live 'is this taken?' checks while typing
   gatePerSession: { name: 'gate', max: 120, windowMs: MIN },
   writePerSession: { name: 'write', max: 60, windowMs: MIN },
   readPerSession: { name: 'read', max: 300, windowMs: MIN },
@@ -98,6 +100,10 @@ export function bucketsFor(r: RequestFacts): { rule: LimitRule; key: string }[] 
   const out = [{ rule: RULES.anyPerIp, key: r.ip }];
   if (r.method === 'POST' && r.pathname === '/api/auth/session') {
     out.push({ rule: RULES.loginPerIp, key: r.ip }); // per-account budget: see the login route
+  } else if (r.method === 'POST' && (r.pathname === '/api/auth/forgot' || r.pathname === '/api/me/verify-email')) {
+    out.push({ rule: RULES.emailPerIp, key: r.ip });
+  } else if (r.pathname === '/api/register/check') {
+    out.push({ rule: RULES.checkPerIp, key: r.ip });
   } else if (r.method === 'POST' && r.pathname === '/api/register') {
     out.push({ rule: RULES.registerPerIp, key: r.ip });
   } else if (r.method === 'POST' && r.pathname === '/api/guard/verify') {

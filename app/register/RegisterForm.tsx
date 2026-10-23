@@ -1,8 +1,37 @@
 'use client';
 
-import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
-import { downscalePhoto } from '@/lib/photo';
+import { PasswordField } from '@/components/PasswordField';
+import { PhotoInput } from '@/components/PhotoInput';
+import { passwordProblem } from '@/lib/passwordStrength';
+
+type Verdict = { ok: boolean; message: string | null };
+
+/** Asks the server about a username or email shortly after typing stops (live hint only). */
+function useLiveCheck(field: 'username' | 'email', value: string, minLength: number): Verdict | null {
+  const [result, setResult] = useState<{ for: string; v: Verdict } | null>(null);
+  useEffect(() => {
+    const v = value.trim();
+    if (v.length < minLength) return;
+    const t = setTimeout(() => {
+      fetch(`/api/register/check?${field}=${encodeURIComponent(v)}`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+        if (d?.[field]) setResult({ for: v, v: d[field] });
+      }).catch(() => {}); // offline etc.: no hint, the submit still checks
+    }, 450);
+    return () => clearTimeout(t);
+  }, [field, value, minLength]);
+  return result && result.for === value.trim() ? result.v : null;
+}
+
+// Indian numbers (+91 / 0 optional, 10 digits starting 6–9), or any international number with +.
+const mobileHint = (m: string): Verdict | null => {
+  const digits = m.replace(/[\s-]/g, '');
+  if (!digits) return null;
+  if (/^(\+91|0)?[6-9]\d{9}$/.test(digits)) return { ok: true, message: null };
+  if (/^\+[1-9]\d{7,14}$/.test(digits)) return { ok: true, message: 'International number.' };
+  return { ok: false, message: 'Enter a 10-digit Indian mobile number (or +country code for others).' };
+};
 
 const PROFILE_OPTIONS = [
   { value: 'employee', label: 'Employee' },
@@ -22,6 +51,8 @@ function Field({
   type = 'text',
   required,
   placeholder,
+  hint,
+  autoComplete,
 }: {
   label: string;
   value: string;
@@ -29,6 +60,8 @@ function Field({
   type?: string;
   required?: boolean;
   placeholder?: string;
+  hint?: Verdict | null;
+  autoComplete?: string;
 }) {
   return (
     <label className="block space-y-1">
@@ -39,8 +72,11 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         required={required}
         placeholder={placeholder}
-        className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+        autoComplete={autoComplete}
+        aria-invalid={hint ? !hint.ok : undefined}
+        className={`w-full rounded border px-3 py-2 text-sm ${hint && !hint.ok ? 'border-red-400' : 'border-gray-300'}`}
       />
+      {hint?.message && <span className={`block text-xs ${hint.ok ? 'text-emerald-700' : 'text-red-700'}`} aria-live="polite">{hint.ok ? '✓ ' : ''}{hint.message}</span>}
     </label>
   );
 }
@@ -59,24 +95,18 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   const [profileType, setProfileType] = useState<string>(event ? 'event_guest' : 'employee');
   const [parentIdentifier, setParentIdentifier] = useState('');
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
-  const [photoError, setPhotoError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [taken, setTaken] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   const needsParent = SUBORDINATE_TYPES.has(profileType);
-
-  async function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoError(null);
-    try {
-      setPhotoDataUrl(await downscalePhoto(file));
-    } catch {
-      setPhotoError('Could not process that photo — try a different image.');
-    }
-  }
+  const usernameCheck = useLiveCheck('username', username, 3);
+  const emailCheck = useLiveCheck('email', commEmail, 6);
+  const mobileCheck = mobileHint(mobile);
+  const pwCtx = { username, email: commEmail, name: `${firstName} ${lastName}` };
+  // Block only on what we know is wrong; the server has the final word on everything.
+  const blocking = [usernameCheck, emailCheck, mobileCheck].some((v) => v && !v.ok) || (password.length > 0 && !!passwordProblem(password, pwCtx));
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -121,6 +151,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           {event ? <>Your registration for <b>{event.name}</b> is waiting for approval. Once approved, you can sign in and show your entry pass at the gate during the event.</> : <>Your registration is pending approval. You&apos;ll be able to sign in once an
           authorized approver approves it.</>}
         </p>
+        <p className="text-sm text-gray-500">We&apos;ve emailed <b>{commEmail}</b> a link to confirm the address is yours — please open it. (Check spam if it&apos;s not there in a few minutes.)</p>
         <Link href="/login" className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white">
           Go to sign in
         </Link>
@@ -154,9 +185,11 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
         <Field
           label="Username"
           value={username}
-          onChange={setUsername}
+          onChange={(v) => setUsername(v.toLowerCase())}
           required
           placeholder="letters, numbers, . _ -"
+          autoComplete="username"
+          hint={usernameCheck}
         />
         <Field
           label="Communication email"
@@ -164,16 +197,11 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           value={commEmail}
           onChange={setCommEmail}
           required
+          autoComplete="email"
+          hint={emailCheck}
         />
-        <Field label="Mobile number" value={mobile} onChange={setMobile} required />
-        <Field
-          label="Password"
-          type="password"
-          value={password}
-          onChange={setPassword}
-          required
-          placeholder="at least 8 characters"
-        />
+        <Field label="Mobile number" type="tel" value={mobile} onChange={setMobile} required autoComplete="tel" placeholder="98765 43210" hint={mobileCheck} />
+        <PasswordField id="reg-password" label="Password" value={password} onChange={setPassword} ctx={pwCtx} />
 
         <div className="space-y-1">
           <label htmlFor="reg-purpose" className="text-sm font-medium">Profile / Purpose</label>
@@ -222,19 +250,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           />
         )}
 
-        <div className="space-y-1">
-          <label htmlFor="reg-photo" className="text-sm font-medium">Profile photo (optional)</label>
-          <input id="reg-photo" type="file" accept="image/*" onChange={handlePhotoChange} className="text-sm" />
-          {photoDataUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- data: URL preview, not a static/remote asset
-            <img
-              src={photoDataUrl}
-              alt="Preview"
-              className="mt-2 h-16 w-16 rounded-full object-cover"
-            />
-          )}
-          {photoError && <p className="text-sm text-red-600">{photoError}</p>}
-        </div>
+        <PhotoInput value={photoDataUrl} onChange={setPhotoDataUrl} />
 
         {error && (
           <p className="text-sm text-red-600" role="alert">
@@ -245,7 +261,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || blocking}
           className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {loading ? 'Submitting…' : 'Submit registration'}

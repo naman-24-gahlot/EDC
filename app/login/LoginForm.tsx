@@ -91,6 +91,8 @@ export function LoginForm({ notice }: { notice: string | null }) {
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
 
+        <p className="-mt-2 text-right text-sm"><Link href="/forgot" className="inline-flex min-h-10 items-center text-[#0D5B7A] underline md:min-h-0">Forgot password?</Link></p>
+
         <div className="space-y-2 border-t border-gray-100 pt-4 text-sm">
           <p>
             New to EDC?{' '}
@@ -101,7 +103,7 @@ export function LoginForm({ notice }: { notice: string | null }) {
             <ul className="mt-1 list-disc space-y-1 pl-4">
               <li><b>Lost your pass or it stopped working?</b> Sign in, then use <i>Replace my QR code</i> on My account.</li>
               <li><b>Access ended?</b> Sign in and send a new access request from My account.</li>
-              <li><b>Forgot your password?</b> Ask an EDC administrator to reset it — they&apos;ll give you a one-time password.</li>
+              <li><b>Forgot your password?</b> Use <Link href="/forgot" className="underline">Forgot password</Link> to get an email link — or ask an EDC administrator for a one-time password.</li>
               <li><b>Don&apos;t register again</b> — your profile is kept even after access ends.</li>
             </ul>
           </details>

@@ -169,7 +169,7 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
             Parent: {person.parentId ? <Link href={`/admin/people/${person.parentId}`} className="underline">{names.get(person.parentId)}</Link> : 'top-level'}
             {' · '}{descendantIds.size} below · registration <StatusPill status={person.registrationStatus} /> {!person.active && person.registrationStatus === 'APPROVED' && <StatusPill status="DEACTIVATED" />}
           </p>
-          <p className="break-all text-xs text-gray-400">{String(person.commEmail ?? '')} · {String(person.mobile ?? '')} · credential v{person.credentialVersion}</p>
+          <p className="break-all text-xs text-gray-400">{String(person.commEmail ?? '')} {person.emailVerified === true ? <span className="text-emerald-700">✓ confirmed</span> : <span className="text-amber-700">(not confirmed)</span>} · {String(person.mobile ?? '')} · credential v{person.credentialVersion}</p>
         </div>
         <div><StatusPill status={status} /></div>
       </div>
