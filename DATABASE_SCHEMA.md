@@ -42,7 +42,11 @@ The person: identity, current profile, hierarchy position, credential state.
   registrationStatus: 'PENDING' | 'APPROVED' | 'REJECTED',
   registrationDecision: { by: string, at: Timestamp, note: string | null, appliedProfileType?: ProfileType } | null,
   // Set only when approved under a different type than applied for; shown once on /me, then seenAt is set.
-  lastEntryAt?: Timestamp,          // last APPROVED gate entry — written by /api/guard/verify; drives "Recently at the gate"
+  lastEntryAt?: Timestamp,
+  lastExitAt?: Timestamp,           // last exit recorded at the gate — "on campus now" = entered today, no exit since
+  emailVerified?: boolean,          // mirrors Firebase Auth after the confirmation link (or a reset link) is used
+  idCheck?: { type: 'Aadhaar' | 'PAN card' | 'Driving licence' | 'Passport' | 'Voter ID' | 'College / company ID' | 'Other',
+              last4: string | null, by: string, at: Timestamp, entryId: string }, // a guard saw a photo ID; never the number          // last APPROVED gate entry — written by /api/guard/verify; drives "Recently at the gate"
   approvalNotice?: { appliedAs: ProfileType, approvedAs: ProfileType, by: string, at: Timestamp, seenAt: Timestamp | null },
 
   accessNumber: string | null,      // 5 digits, unique across all people, stable for life. Issued at approval.
@@ -162,6 +166,7 @@ Append-only. **Every** gate attempt, approved or denied. Entering does not consu
   result: 'APPROVED' | 'DENIED',
   reason: DenialReason | null,      // see SECURITY_MODEL.md
   presentedCode: string | null,     // CODE method only. The QR token is NEVER stored.
+  direction: 'IN' | 'OUT',          // entry or exit (exits are recorded, never refused; result 'EXITED')
   eventId: string | null,           // the person's event, if they came through one (shown to the guard)
   timestamp: Timestamp,
 }
@@ -183,6 +188,10 @@ A campus event with its own time-limited registration link (SECURITY_MODEL.md "E
 Link state is computed: CLOSED if `closedAt`, EXPIRED if past `linkExpiresAt`, else OPEN.
 People who registered through it carry `eventId`, `eventName` and
 `registrationSource: { source, medium, campaign }` (utm tags or null) on their `people` doc.
+
+### `testOutbox/{id}`
+Emails for test addresses (domain ending `.test`) are never sent; they're filed here for the
+Master's Test outbox page: `{ personId, to, kind: 'resetPassword' | 'verifyEmail', link, createdAt }`.
 
 ### `passwordHashes/{personId}`
 Server-only fingerprints for "the new password must differ from the old one" (SECURITY_MODEL.md

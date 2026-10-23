@@ -11,7 +11,7 @@ import type { SessionUser } from '@/lib/session';
 
 // Every action the app writes, grouped. The group key is stored as `category`.
 export const ACTION_GROUPS = [
-  { key: 'gate', label: 'Gate', actions: ['ENTRY_APPROVED', 'ENTRY_DENIED'] },
+  { key: 'gate', label: 'Gate', actions: ['ENTRY_APPROVED', 'ENTRY_DENIED', 'EXIT_RECORDED'] },
   { key: 'access', label: 'Access', actions: ['ACCESS_REQUEST_CREATED', 'ACCESS_REQUEST_APPROVED', 'ACCESS_REQUEST_REJECTED', 'ACCESS_REQUEST_EXPIRED', 'ENTITLEMENT_CREATED', 'ENTITLEMENT_CHANGED', 'ENTITLEMENT_REVOKED', 'ENTITLEMENT_SUPERSEDED'] },
   { key: 'people', label: 'People', actions: ['REGISTRATION_SUBMITTED', 'REGISTRATION_APPROVED', 'REGISTRATION_REJECTED', 'PROFILE_CREATED', 'PROFILE_UPDATED', 'PROFILE_TYPE_CHANGED', 'HIERARCHY_CHANGED', 'PERSON_DEACTIVATED', 'PERSON_REACTIVATED', 'GUARD_CREATED', 'MASTER_PROMOTED', 'MASTER_DEMOTED'] },
   { key: 'events', label: 'Events', actions: ['EVENT_CREATED', 'EVENT_UPDATED', 'EVENT_LINK_CLOSED', 'EVENT_LINK_REOPENED', 'EVENT_LINK_REPLACED'] },

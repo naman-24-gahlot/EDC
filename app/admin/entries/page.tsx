@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import type { Timestamp } from 'firebase-admin/firestore';
 import { listEvents } from '@/lib/events';
+import { onCampusNow } from '@/lib/gate';
+import { todayDateString } from '@/lib/date';
+import { OnCampusPanel } from '@/components/OnCampusPanel';
 import { entryQuery, parseEntryFilter, runPaged } from '@/lib/logs';
 import { formatDateTime } from '@/lib/display';
 import { PAGE_SIZE, fetchedAtNow, parsePage } from '@/lib/paging';
@@ -32,7 +35,7 @@ export default async function AdminEntriesPage({ searchParams }: { searchParams:
 
   // Paged in Firestore: only this page's rows are read (plus a count, billed per 1,000 entries).
   const base = entryQuery(filter);
-  const [{ building, total, docs }, events] = await Promise.all([runPaged(base, page, PAGE_SIZE), listEvents()]);
+  const [{ building, total, docs }, events, onCampus] = await Promise.all([runPaged(base, page, PAGE_SIZE), listEvents(), onCampusNow()]);
   const eventName = new Map(events.map((e) => [e.id, e.name]));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rows = docs.map((d) => ({ ...(d.data() as Omit<EntryRow, 'id'>), id: d.id }));
@@ -45,10 +48,15 @@ export default async function AdminEntriesPage({ searchParams }: { searchParams:
           Gate entries{person && <> for <span className="text-gray-900">{names.get(person) ?? 'this person'}</span> · <Link href="/admin/entries" className="underline">show everyone</Link></>}
         </h2>
       </div>
+      <OnCampusPanel people={onCampus} />
+      <p className="text-xs text-gray-500">
+        Today&apos;s register: <Link href={`/admin/entries?from=${todayDateString()}&to=${todayDateString()}&order=asc`} className="underline">every entry and exit today, in order</Link>
+        {' '}(download it as CSV from there).
+      </p>
       {/* Plain GET form: Apply filters the page; Download sends the same fields to the CSV export. */}
       <form action="/admin/entries" method="get" className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3" aria-label="Filter gate entries">
         {person && <input type="hidden" name="person" value={person} />}
-        {([['result', 'Result', [['', 'All'], ['APPROVED', 'Allowed'], ['DENIED', 'Denied']], filter.result ?? ''], ['order', 'Order', [['desc', 'Newest first'], ['asc', 'Oldest first']], filter.order]] as const).map(([name, label, opts, value]) => (
+        {([['result', 'Result', [['', 'All'], ['APPROVED', 'Entries allowed'], ['DENIED', 'Entries denied'], ['EXITED', 'Exits']], filter.result ?? ''], ['order', 'Order', [['desc', 'Newest first'], ['asc', 'Oldest first']], filter.order]] as const).map(([name, label, opts, value]) => (
           <label key={name} className="space-y-1 text-xs font-semibold uppercase text-gray-500">
             <span className="block">{label}</span>
             <select name={name} defaultValue={value} className="rounded border border-gray-300 px-2 py-1.5 text-sm">

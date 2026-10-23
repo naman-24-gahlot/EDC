@@ -2,6 +2,48 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Html5Qrcode as Html5QrcodeType } from 'html5-qrcode';
+import { ID_TYPES } from '@/lib/idCheck';
+
+type Direction = 'IN' | 'OUT';
+const DIRECTION_KEY = 'edc-gate-direction';
+const readDirection = (): Direction => { try { return localStorage.getItem(DIRECTION_KEY) === 'OUT' ? 'OUT' : 'IN'; } catch { return 'IN'; } };
+
+// After an approved entry: record that a photo ID was seen (type + last 4 only).
+function IdCheckForm({ entryId, onBusy }: { entryId: string; onBusy: (busy: boolean) => void }) {
+  const [type, setType] = useState('');
+  const [last4, setLast4] = useState('');
+  const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [error, setError] = useState<string | null>(null);
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setState('saving');
+    setError(null);
+    try {
+      const res = await fetch('/api/guard/id-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entryId, type, last4 }) });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? 'Could not save');
+      setState('saved');
+      onBusy(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save');
+      setState('idle');
+    }
+  }
+  if (state === 'saved') return <p className="mt-3 text-sm font-semibold">✓ Photo ID recorded</p>;
+  return (
+    <form onSubmit={save} onFocus={() => onBusy(true)} className="mx-auto mt-3 flex max-w-sm flex-wrap items-center justify-center gap-2 rounded bg-white/15 p-2 text-sm" aria-label="Record photo ID seen">
+      <span className="w-full text-xs">No photo ID checked yet — check one and record it:</span>
+      <select value={type} onChange={(e) => setType(e.target.value)} required aria-label="Kind of ID" className="min-h-10 rounded px-2 text-gray-900">
+        <option value="">Kind of ID…</option>
+        {ID_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <input value={last4} onChange={(e) => setLast4(e.target.value.slice(0, 4))} placeholder="last 4" aria-label="Last 4 characters (optional)" inputMode="text" autoComplete="off"
+        className="min-h-10 w-20 rounded px-2 font-mono uppercase text-gray-900" />
+      <button type="submit" disabled={state === 'saving' || !type} className="min-h-10 rounded bg-white px-3 font-semibold text-green-800 disabled:opacity-60">{state === 'saving' ? 'Saving…' : 'Record'}</button>
+      {error && <span className="w-full text-xs">{error}</span>}
+    </form>
+  );
+}
 
 // What the guard should do next, for each reason the gate can give.
 const GUIDANCE: Record<string, string> = {
@@ -23,6 +65,9 @@ type Verdict = {
   kind: 'verdict';
   approved: boolean;
   reason: string | null;
+  exit?: boolean;
+  entryId?: string | null;
+  idCheck?: { type: string; last4: string | null; at: string | null } | null;
   person: { name: string; profileType: string | null; photoDataUrl: string | null; eventName?: string | null } | null;
 };
 // Anything that is not an explicit verdict from the server. Never green, never "approved".
@@ -53,6 +98,18 @@ export function GuardScanner() {
   const [verifying, setVerifying] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [direction, setDirectionState] = useState<Direction>('IN');
+  const [holdResult, setHoldResult] = useState(false); // guard is filling in the ID form
+  const directionRef = useRef<Direction>('IN');
+  const manualRef = useRef<HTMLInputElement>(null);
+  // The saved choice lives in this browser only, so it can only be read after hydration (the server always renders "Entry").
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- one read of browser storage on mount
+  useEffect(() => { const d = readDirection(); directionRef.current = d; setDirectionState(d); }, []);
+  const setDirection = (d: Direction) => {
+    directionRef.current = d;
+    setDirectionState(d);
+    try { localStorage.setItem(DIRECTION_KEY, d); } catch { /* private mode: just this session */ }
+  };
   const scannerRef = useRef<Html5QrcodeType | null>(null);
   const lastScanRef = useRef<{ text: string; at: number } | null>(null);
 
@@ -65,7 +122,7 @@ export function GuardScanner() {
       const response = await fetch('/api/guard/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, direction: directionRef.current }),
         signal: controller.signal,
       });
       const data: unknown = await response.json().catch(() => null);
@@ -79,10 +136,12 @@ export function GuardScanner() {
   }, []);
 
   useEffect(() => {
-    if (!result) return;
-    const timer = setTimeout(() => setResult(null), RESULT_VISIBLE_MS);
+    if (!result || holdResult) return;
+    // Longer when the guard may want to record a photo ID.
+    const needsId = result.kind === 'verdict' && result.approved && !result.exit && !result.idCheck;
+    const timer = setTimeout(() => setResult(null), needsId ? 12_000 : RESULT_VISIBLE_MS);
     return () => clearTimeout(timer);
-  }, [result]);
+  }, [result, holdResult]);
 
   useEffect(() => {
     if (mode !== 'camera') return;
@@ -158,10 +217,19 @@ export function GuardScanner() {
     if (!value) return;
     verify(CODE_RE.test(value) ? { code: value.toUpperCase() } : { token: value });
     setManualValue('');
+    manualRef.current?.focus(); // ready for the next scan from a USB / Bluetooth scanner
   }
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2" role="group" aria-label="Recording">
+        {(['IN', 'OUT'] as const).map((d) => (
+          <button key={d} type="button" onClick={() => setDirection(d)} aria-pressed={direction === d} data-testid={`direction-${d}`}
+            className={`min-h-12 rounded-lg text-base font-bold ${direction === d ? (d === 'IN' ? 'bg-green-700 text-white' : 'bg-sky-700 text-white') : 'bg-gray-100 text-gray-600'}`}>
+            {d === 'IN' ? 'Entry →' : '← Exit'}
+          </button>
+        ))}
+      </div>
       <div className="flex gap-1 border-b border-gray-200">
         {(['camera', 'manual'] as const).map((m) => (
           <button
@@ -171,7 +239,7 @@ export function GuardScanner() {
               mode === m ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {m === 'camera' ? 'Camera scan' : 'Type a code'}
+            {m === 'camera' ? 'Camera scan' : 'Type a code / USB scanner'}
           </button>
         ))}
       </div>
@@ -180,7 +248,7 @@ export function GuardScanner() {
         <div className="space-y-2">
           <div id={SCANNER_ELEMENT_ID} className="mx-auto w-full max-w-sm overflow-hidden rounded border border-gray-200" />
           {cameraError && (
-            <p className="text-sm text-red-600">Camera error: {cameraError}. Use “Type a code” instead.</p>
+            <p className="text-sm text-red-600">Camera error: {cameraError}. Use “Type a code / USB scanner” instead.</p>
           )}
         </div>
       )}
@@ -188,6 +256,8 @@ export function GuardScanner() {
       {mode === 'manual' && (
         <form onSubmit={handleManualSubmit} className="flex gap-2">
           <input
+            ref={manualRef}
+            autoFocus
             value={manualValue}
             onChange={(e) => setManualValue(e.target.value)}
             placeholder="Access code (e.g. EDC25166) or pasted pass token"
@@ -219,9 +289,10 @@ export function GuardScanner() {
         <div
           role="alert"
           data-testid="verdict"
-          className={`rounded-lg p-6 text-center ${result.approved ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
+          className={`rounded-lg p-6 text-center ${result.exit ? 'bg-sky-700 text-white' : result.approved ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
         >
-          <p className="text-3xl font-extrabold tracking-wide">{result.approved ? 'ENTRY APPROVED' : 'ENTRY DENIED'}</p>
+          <p className="text-3xl font-extrabold tracking-wide">{result.exit ? 'EXIT RECORDED' : result.approved ? 'ENTRY APPROVED' : 'ENTRY DENIED'}</p>
+          {!result.approved && direction === 'OUT' && <p className="mt-1 text-sm">Couldn&apos;t tell who this is, so no exit was recorded.</p>}
           {!result.approved && result.reason && <p className="mt-1 text-lg font-semibold">{result.reason}</p>}
           {!result.approved && result.reason && GUIDANCE[result.reason] && <p className="mx-auto mt-1 max-w-sm text-sm text-red-50" data-testid="guidance">{GUIDANCE[result.reason]}</p>}
           {result.person && (
@@ -245,6 +316,9 @@ export function GuardScanner() {
               </div>
             </div>
           )}
+          {result.approved && !result.exit && (result.idCheck
+            ? <p className="mt-3 text-sm" data-testid="id-checked">Photo ID checked: {result.idCheck.type}{result.idCheck.last4 ? ` ending ${result.idCheck.last4}` : ''}</p>
+            : result.entryId ? <IdCheckForm key={result.entryId} entryId={result.entryId} onBusy={setHoldResult} /> : null)}
         </div>
       )}
     </div>

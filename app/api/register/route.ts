@@ -2,6 +2,8 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { assertGoodPassword } from '@/lib/auth/passwordPolicy';
 import { sendEmailVerification } from '@/lib/auth/emailActions';
 import { siteOrigin } from '@/lib/origin';
+import { humanCheckPassed } from '@/lib/turnstile';
+import { clientIpFrom } from '@/lib/rateLimit';
 import { errorResponse } from '@/lib/hierarchy/authorize';
 import { createPerson, PersonCreateError } from '@/lib/people/create';
 import { resolveEmployeeParent } from '@/lib/people/resolveParent';
@@ -34,6 +36,9 @@ export async function POST(request: NextRequest) {
     typeof body.parentIdentifier === 'string' ? body.parentIdentifier.trim() : '';
   const photoDataUrl = typeof body.photoDataUrl === 'string' ? body.photoDataUrl : null;
 
+  if (!(await humanCheckPassed(body.humanToken, clientIpFrom(request.headers)))) {
+    return NextResponse.json({ error: 'Please complete the “I’m human” check and try again.' }, { status: 400 });
+  }
   if (!firstName || !lastName || !mobile || !purpose) {
     return NextResponse.json({ error: 'All fields are required.' }, { status: 400 });
   }

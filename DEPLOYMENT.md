@@ -147,3 +147,23 @@ context-discipline rules).
   decision there and the API and bulk bar support it).
 - `npm run test:live` probes with `rahul` by default; `MEMBER=neha npm run test:live` uses another
   member (e.g. while rahul is mid password reset).
+
+## Sign-in, sign-up and the gate (free features, on `develop`)
+
+- **Forgot password / email confirmation** use Firebase Auth's own emails (free). One console
+  step makes their links open our page, so our password rules apply: Firebase console →
+  Authentication → Templates → Password reset → edit → **Customize action URL** →
+  `https://edc-gib-24.vercel.app/auth/action` (the same setting covers email confirmation). Until
+  then real-inbox links open Firebase's own page, which works but skips "not your old password".
+  Firebase also limits how many of these emails a free project sends per day.
+- **Test addresses**: any email ending in `.test` (e.g. `qa1@example.test`) never sends — the link
+  appears on /admin/outbox ("Test outbox" under the admin menu). Use them for repeated testing.
+- **Turnstile** (optional, free): create a widget at dash.cloudflare.com → Turnstile, add the site
+  key as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and the secret as `TURNSTILE_SECRET_KEY` in Vercel.
+  With either missing it stays off.
+- **Gate**: Entry / Exit switch, "photo ID seen" (type + last 4), "on campus now" on the guard page
+  and Entries page, today's register link; a USB/Bluetooth QR scanner works in the "Type a code /
+  USB scanner" tab. The site is installable (manifest + generated icons): browser menu → "Add to
+  home screen" / "Install app".
+- **Tests**: `tests/live/signup.mts` and `tests/live/gate.mts` (run with `BASE=…`), plus
+  `npm run test:data -- checkpoint | report | clean --yes` around them.

@@ -31,7 +31,7 @@ export interface LogFilter {
   order: 'desc' | 'asc';
 }
 export interface AuditFilter extends LogFilter { actions: string[] }
-export interface EntryFilter extends LogFilter { result: 'APPROVED' | 'DENIED' | null }
+export interface EntryFilter extends LogFilter { result: 'APPROVED' | 'DENIED' | 'EXITED' | null }
 
 function base(raw: Raw): LogFilter {
   const person = one(raw.person);
@@ -53,7 +53,7 @@ export function parseAuditFilter(raw: Raw): AuditFilter {
 
 export function parseEntryFilter(raw: Raw): EntryFilter {
   const r = one(raw.result);
-  return { ...base(raw), result: r === 'APPROVED' || r === 'DENIED' ? r : null };
+  return { ...base(raw), result: r === 'APPROVED' || r === 'DENIED' || r === 'EXITED' ? r : null };
 }
 
 // Day boundaries in IST, as the office reads them.

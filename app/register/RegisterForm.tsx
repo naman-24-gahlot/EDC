@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { PasswordField } from '@/components/PasswordField';
 import { PhotoInput } from '@/components/PhotoInput';
+import { HumanCheck, humanCheckOn } from '@/components/HumanCheck';
 import { passwordProblem } from '@/lib/passwordStrength';
 
 type Verdict = { ok: boolean; message: string | null };
@@ -99,6 +100,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   const [taken, setTaken] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [humanToken, setHumanToken] = useState('');
 
   const needsParent = SUBORDINATE_TYPES.has(profileType);
   const usernameCheck = useLiveCheck('username', username, 3);
@@ -128,6 +130,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           profileType,
           parentIdentifier: needsParent && parentIdentifier.trim() ? parentIdentifier : undefined,
           ...(event ? { eventToken: event.token, source: event.source } : {}),
+          humanToken,
           photoDataUrl,
         }),
       });
@@ -259,9 +262,11 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           </p>
         )}
 
+        <HumanCheck onToken={setHumanToken} />
+
         <button
           type="submit"
-          disabled={loading || blocking}
+          disabled={loading || blocking || (humanCheckOn && !humanToken)}
           className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {loading ? 'Submitting…' : 'Submit registration'}

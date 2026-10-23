@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Send exactly one of { token } or { code }.' }, { status: 400 });
   }
   const method = token ? 'QR' : 'CODE';
+  // Exits are recorded, never refused: we identify who is leaving, but nobody is kept in.
+  const direction: 'IN' | 'OUT' = body?.direction === 'OUT' ? 'OUT' : 'IN';
 
   try {
     const { person, denial, entitlement } = token ? await resolveToken(token) : await resolveCode(code!);
@@ -81,7 +83,12 @@ export async function POST(request: NextRequest) {
     let approved = false;
     let reason: Reason | null = denial;
     let entitlementId: string | null = null;
-    if (person && !denial) {
+    // An exit only needs to know who it is: a replaced-QR or superseded-code still identifies them.
+    const exit = direction === 'OUT' && !!person;
+    if (exit) {
+      approved = true;
+      reason = null;
+    } else if (person && !denial) {
       const decision = decideAccess(person, entitlement, nowInIST());
       approved = decision.allowed;
       reason = decision.reason;
@@ -96,23 +103,31 @@ export async function POST(request: NextRequest) {
       entitlementId,
       guardUid: user.personId,
       method,
-      result: approved ? 'APPROVED' : 'DENIED',
+      direction,
+      result: exit ? 'EXITED' : approved ? 'APPROVED' : 'DENIED',
       reason,
       presentedCode: method === 'CODE' ? code : null, // the QR token itself is never stored
       eventId: eventOf(person),
       timestamp: now,
     });
     // "Recently at the gate" sorting on the people lists reads this instead of scanning entries.
-    if (approved && person) batch.update(adminDb.collection('people').doc(person.personId), { lastEntryAt: now });
+    // lastEntryAt / lastExitAt drive "Recently at the gate" and "On campus now" without scanning entries.
+    if (approved && person) batch.update(adminDb.collection('people').doc(person.personId), exit ? { lastExitAt: now } : { lastEntryAt: now });
     audit(batch, {
-      action: approved ? 'ENTRY_APPROVED' : 'ENTRY_DENIED', actor: user, targetPersonId: person?.personId ?? null,
+      action: exit ? 'EXIT_RECORDED' : approved ? 'ENTRY_APPROVED' : 'ENTRY_DENIED', actor: user, targetPersonId: person?.personId ?? null,
       subjectId: eventRef.id, eventId: eventOf(person), at: now, details: reason ? `${method}: ${reason}` : method,
     });
     await batch.commit();
 
+    const idCheck = person?.idCheck as { type?: string; last4?: string | null; at?: Timestamp } | undefined;
     return NextResponse.json({
       approved,
       reason,
+      direction,
+      exit,
+      // The guard may record "photo ID seen" against THIS gate record (POST /api/guard/id-check).
+      entryId: approved && !exit ? eventRef.id : null,
+      idCheck: person ? (idCheck?.type ? { type: idCheck.type, last4: idCheck.last4 ?? null, at: idCheck.at?.toDate().toISOString() ?? null } : null) : null,
       person: person
         ? {
             name: `${person.firstName} ${person.lastName}`,

@@ -70,12 +70,23 @@ Docs (read only what the current phase needs):
 - No new dependencies or patterns beyond this file without asking first.
 
 ## Out of scope — do not build, do not prepare for
-Aadhaar/government-ID/external identity verification, biometrics, facial recognition,
-RFID/gate hardware, offline verification, analytics dashboards, payments, ERP, WhatsApp/SMS/
-email notifications, self-service password reset by email, i18n, dark mode.
+Aadhaar/government-ID/external identity verification (storing ID numbers or images), biometrics,
+facial recognition, RFID/gate hardware, offline verification, analytics dashboards, payments, ERP,
+WhatsApp/SMS messaging, **anything paid** (the user is a solo developer on free tiers), i18n, dark mode.
 (Built later at the user's request: in-app password change and Master reset, paging of long
-lists with `lib/paging.ts` + `components/Pager.tsx`, and a client page cache — see
-DEPLOYMENT.md "Caching and paging".)
+lists with `lib/paging.ts` + `components/Pager.tsx`, a client page cache — DEPLOYMENT.md
+"Caching and paging"; and, free only: forgot-password and email confirmation through Firebase's own
+emails, live sign-up checks, Have I Been Pwned password check, camera photos with quality checks,
+a guard's "photo ID seen" record (type + last 4 only), entry/exit with "on campus now", an
+installable web app, optional Cloudflare Turnstile — DEPLOYMENT.md "Sign-in, sign-up and the gate".)
+
+## Versions and test data
+- `main` = production (edc-gib-24.vercel.app); `v1-stable` tags the version before the sign-in
+  work. New work goes on `develop` (its own Vercel preview URL, same Firebase project); merge to
+  `main` only when the user has tried the preview and says so.
+- One database for both. Before a round of testing: `npm run test:data -- checkpoint`; afterwards
+  `report`, then `clean --yes` (deletes what testing added, puts edited records back).
+- Test addresses end in `.test` (e.g. `qa1@example.test`): their emails go to /admin/outbox.
 
 ## Testing expectations
 Every implementation phase ends with `npm run lint`, `npx tsc --noEmit` and `npm run build`

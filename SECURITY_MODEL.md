@@ -264,6 +264,33 @@ item runs through the same function as a single click (`assertCanActOn` and ever
 item), so bulk grants no extra authority; an item that fails (not yours, already decided) is
 reported and the rest continue.
 
+## Forgot password and email confirmation (`lib/auth/emailActions.ts`)
+- **Forgot password** (`POST /api/auth/forgot`): the answer is fixed and sent before any lookup —
+  the email goes out afterwards (`after()`), so neither the words nor the timing show whether an
+  account exists. Only approved, active accounts get a link. Rate limited per IP.
+- The link carries Firebase's one-time code. `/auth/action` checks it **without using it up**
+  (bots that pre-open links can't burn it); the new password must pass the same rules as any
+  other (below) and differ from the current and previous one; then every session is revoked, a
+  pending forced change is cleared, and the email counts as confirmed.
+- **Email confirmation**: a link at sign-up (and "Send the link again" on My account). Firebase
+  only sends these for a signed-in user, so the server signs in as them with a one-off custom
+  token — no password involved. Approvers see "email confirmed / not confirmed".
+- **Test addresses** (`*.test`) never reach Firebase's mailer; links go to the Master-only outbox.
+- **Password rules** everywhere a password is chosen (`lib/auth/passwordPolicy.ts`): 8–128
+  characters, not a well-known password, not containing the name/username/email, and not in a
+  known breach (Have I Been Pwned range API: only the first 5 hex characters of the SHA-1 leave our
+  server or the browser; fails open if the service is down).
+- **Live sign-up checks** (`GET /api/register/check`) say whether a username/email is taken —
+  the same thing submitting already says — and are rate limited per IP.
+- **Turnstile** (optional): registration and forgot-password require it when its keys are set.
+
+## Gate additions
+- **Exits** are recorded, never refused (nobody is kept in): the scan must still identify a real
+  person; result `EXITED`, `people.lastExitAt`. "On campus now" = entered today, no exit since.
+- **Photo ID seen** (`POST /api/guard/id-check`): guard only, and only against an entry *that
+  guard approved in the last 10 minutes* — a guard can't mark someone who isn't in front of them.
+  Stores the ID type and at most its last 4 characters; never a number, never an image.
+
 ## Password reset (Master) — forced change
 - **Reset** (`resetPassword`): one-time password set, sessions revoked, custom claim
   `mustChangePassword: true` set (claim first, so a failure later still forces the change).

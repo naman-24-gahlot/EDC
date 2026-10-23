@@ -61,6 +61,7 @@ export const STATUS_STYLE: Record<string, string> = {
   ONGOING: 'bg-emerald-100 text-emerald-800 ring-emerald-300',
   UPCOMING: 'bg-sky-100 text-sky-800 ring-sky-300',
   PAST: 'bg-gray-100 text-gray-600 ring-gray-300',
+  EXITED: 'bg-sky-100 text-sky-800 ring-sky-300',
   'LINK OPEN': 'bg-emerald-100 text-emerald-800 ring-emerald-300',
   'LINK CLOSED': 'bg-gray-100 text-gray-700 ring-gray-300',
   'LINK EXPIRED': 'bg-amber-100 text-amber-800 ring-amber-300',
