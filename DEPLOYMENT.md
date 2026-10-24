@@ -158,8 +158,9 @@ context-discipline rules).
   Firebase also limits how many of these emails a free project sends per day.
 - **Confirm-before-registering** needs two more console settings (both free): Authentication →
   Sign-in method → Email/Password → turn on **Email link (passwordless sign-in)**; and
-  Authentication → Settings → **Authorized domains** → add `edc-gib-24.vercel.app` (the link's
-  return address must be allowed). Until then real addresses get "Email confirmation isn't switched
+  Authentication → Settings → **Authorized domains** → add **both** live addresses,
+  `edc-neon.vercel.app` (the project's own domain) and `edc-gib-24.vercel.app` (the team alias) —
+  the link returns to whichever address the person used. (Both done 2026-10-24.) Until then real addresses get "Email confirmation isn't switched
   on yet"; `.test` addresses work regardless.
 - **Test addresses**: any email ending in `.test` (e.g. `qa1@example.test`) never sends — the link
   appears on /admin/outbox ("Test outbox" under the admin menu). Use them for repeated testing.
