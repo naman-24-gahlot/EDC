@@ -19,7 +19,7 @@ export default async function ConfirmEmailPage({ searchParams }: { searchParams:
         {r.ok ? (
           <>
             <h1 className="text-lg font-semibold text-emerald-800">✓ Email confirmed</h1>
-            <p className="text-sm text-gray-600"><b className="break-all">{r.email}</b> is confirmed for the next {CONFIRMED_FOR_MS / 3_600_000} hours.</p>
+            <p className="text-sm text-gray-600"><b className="break-all">{r.email}</b> is confirmed. Submit your registration within {CONFIRMED_FOR_MS / 3_600_000} hours — once it&apos;s submitted, your email stays confirmed for good.</p>
             <p className="text-sm text-gray-600">Go back to the registration form — it updates by itself — and submit. If you closed it, <Link href="/register" className="underline">open the form again</Link> and use the same email.</p>
           </>
         ) : (

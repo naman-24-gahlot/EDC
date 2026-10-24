@@ -11,6 +11,7 @@ import { StatusPill } from '@/components/StatusPill';
 import { Pager } from '@/components/Pager';
 import { DataStamp } from '@/components/DataStamp';
 import { namesFor, requireMasterPage } from './data';
+import { ApplicantProfile } from '@/components/ApplicantProfile';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,7 +86,8 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
             cells: [
               <div key="p"><Link href={`/admin/people/${r.personId}`} className="font-medium underline-offset-2 hover:underline">{names.get(r.personId) ?? r.personId}</Link>
                 <span className="ml-1 text-xs text-gray-500 md:ml-0 md:block">{p?.profileType ? PROFILE_LABEL[p.profileType] : '—'}</span>
-                {p?.eventId && <span className="mt-0.5 block"><EventTag id={p.eventId} name={p.eventName ?? 'Event'} /></span>}</div>,
+                {p?.eventId && <span className="mt-0.5 block"><EventTag id={p.eventId} name={p.eventName ?? 'Event'} /></span>}
+                {r.status === 'PENDING' && <ApplicantProfile personId={r.personId} />}</div>,
               <span key="b" className="text-xs">{r.requestedBy === r.personId ? 'self' : names.get(r.requestedBy) ?? r.requestedBy}</span>,
               <span key="c" className="text-xs">{p?.parentId ? names.get(p.parentId) : 'Master'}</span>,
               <span key="u" className="text-xs"><span className="block text-sm">{r.purpose}</span>

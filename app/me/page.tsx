@@ -28,6 +28,7 @@ import { AccountSettings } from './AccountSettings';
 import { ApprovalNotice } from './ApprovalNotice';
 import { VerifyEmailBanner } from './VerifyEmailBanner';
 import { adminAuth } from '@/lib/firebase/admin';
+import { ApplicantProfile } from '@/components/ApplicantProfile';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,6 +106,7 @@ async function PeopleSection({ user, me, params }: { user: SessionUser; me: Pers
                   expires {formatDateTime(r.actionableUntil.toDate())}
                 </p>
                 <DecisionButtons base={`/api/requests/${r.id}`} what={`access request for ${nameOf.get(r.personId) ?? 'person'}`} />
+                <div className="mt-2"><ApplicantProfile personId={r.personId} /></div>
               </li>
             ))}
           </ul>
@@ -118,6 +120,7 @@ async function PeopleSection({ user, me, params }: { user: SessionUser; me: Pers
             {pendingRegistrations.map((p) => (
               <li key={p.personId} className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">
                 <p className="mb-2"><span className="font-semibold">{p.firstName} {p.lastName}</span> <span className="text-[#7C8C9B]">@{p.username} · {p.profileType ? PROFILE_LABEL[p.profileType] : '—'}</span></p>
+                <div className="mb-2"><ApplicantProfile personId={p.personId} label="View their details before deciding" /></div>
                 {p.profileType && <RegistrationDecision personId={p.personId} name={`${p.firstName} ${p.lastName}`} status={p.registrationStatus} appliedAs={p.profileType} options={approveOptions(user)} />}
               </li>
             ))}

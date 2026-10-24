@@ -15,6 +15,7 @@ import { RegistrationDecision } from '@/components/RegistrationDecision';
 import { istInput, requireMasterPage, siteOrigin } from '../../data';
 import { EventForm } from '../EventForm';
 import { LinkPanel } from '../LinkPanel';
+import { ApplicantProfile } from '@/components/ApplicantProfile';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,7 +56,7 @@ export default async function AdminEventPage({ params, searchParams }: { params:
     label: `${p.firstName} ${p.lastName}`,
     selectable: p.registrationStatus === 'PENDING',
     cells: [
-      <div key="n"><Link href={`/admin/people/${p.personId}`} className="font-medium hover:underline">{p.firstName} {p.lastName}</Link><span className="block text-xs text-gray-500">@{p.username} · {String(p.mobile ?? '')}</span></div>,
+      <div key="n"><Link href={`/admin/people/${p.personId}`} className="font-medium hover:underline">{p.firstName} {p.lastName}</Link><span className="block text-xs text-gray-500">@{p.username} · {String(p.mobile ?? '')}</span>{p.registrationStatus === 'PENDING' && <ApplicantProfile personId={p.personId} />}</div>,
       <span key="t" className="text-xs">{p.profileType ? PROFILE_LABEL[p.profileType] : '—'}</span>,
       <span key="c" className="text-xs text-gray-600">{channel(p.registrationSource as Source)}</span>,
       <span key="w" className="whitespace-nowrap text-xs text-gray-500">{millis(p.createdAt) ? formatDateTime(new Date(millis(p.createdAt))) : '—'}</span>,

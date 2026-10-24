@@ -13,6 +13,7 @@ import { Chips } from '@/components/Chips';
 import { DecisionTable, type DecisionRow } from '@/components/DecisionTable';
 import { RegistrationDecision } from '@/components/RegistrationDecision';
 import { namesFor, requireMasterPage } from '../data';
+import { ApplicantProfile } from '@/components/ApplicantProfile';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +55,7 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
       label: `${p.firstName} ${p.lastName}`,
       selectable: p.registrationStatus === 'PENDING',
       cells: [
-        <div key="n"><Link href={`/admin/people/${p.personId}`} className="font-medium hover:underline">{p.firstName} {p.lastName}</Link><span className="block text-xs text-gray-500">@{p.username} · {p.emailVerified === true ? <span className="text-emerald-700">✓ email confirmed</span> : <span className="text-amber-700">email not confirmed</span>}</span></div>,
+        <div key="n"><Link href={`/admin/people/${p.personId}`} className="font-medium hover:underline">{p.firstName} {p.lastName}</Link><span className="block text-xs text-gray-500">@{p.username} · {p.emailVerified === true ? <span className="text-emerald-700">✓ email confirmed</span> : <span className="text-amber-700">email not confirmed</span>}</span><ApplicantProfile personId={p.personId} /></div>,
         <span key="t" className="text-xs">{p.profileType ? PROFILE_LABEL[p.profileType] : '—'}{p.parentId ? ` · under ${names.get(p.parentId) ?? '—'}` : ''}</span>,
         <span key="e" className="text-xs">{typeof p.eventId === 'string' ? <Link href={`/admin/events/${p.eventId}`} className="underline">{String(p.eventName ?? 'Event')}</Link> : <span className="text-gray-400">General</span>}</span>,
         <span key="w" className="whitespace-nowrap text-xs text-gray-500">{created ? formatDateTime(new Date(created)) : '—'}</span>,
