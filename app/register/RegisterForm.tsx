@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { PasswordField } from '@/components/PasswordField';
 import { PhotoInput } from '@/components/PhotoInput';
 import { HumanCheck, humanCheckOn } from '@/components/HumanCheck';
-import { passwordProblem } from '@/lib/passwordStrength';
+import { checkMobile } from '@/lib/phone';
+import { EmailConfirm } from './EmailConfirm';
+import type { PasswordVerdict } from '@/components/PasswordField';
 
 type Verdict = { ok: boolean; message: string | null };
 
@@ -25,14 +27,8 @@ function useLiveCheck(field: 'username' | 'email', value: string, minLength: num
   return result && result.for === value.trim() ? result.v : null;
 }
 
-// Indian numbers (+91 / 0 optional, 10 digits starting 6–9), or any international number with +.
-const mobileHint = (m: string): Verdict | null => {
-  const digits = m.replace(/[\s-]/g, '');
-  if (!digits) return null;
-  if (/^(\+91|0)?[6-9]\d{9}$/.test(digits)) return { ok: true, message: null };
-  if (/^\+[1-9]\d{7,14}$/.test(digits)) return { ok: true, message: 'International number.' };
-  return { ok: false, message: 'Enter a 10-digit Indian mobile number (or +country code for others).' };
-};
+// The same mobile rule the server enforces (lib/phone.ts).
+const mobileHint = (m: string): Verdict | null => (m.trim() ? checkMobile(m) : null);
 
 const PROFILE_OPTIONS = [
   { value: 'employee', label: 'Employee' },
@@ -106,9 +102,12 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   const usernameCheck = useLiveCheck('username', username, 3);
   const emailCheck = useLiveCheck('email', commEmail, 6);
   const mobileCheck = mobileHint(mobile);
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
+  const [pwVerdict, setPwVerdict] = useState<PasswordVerdict>('blocked');
   const pwCtx = { username, email: commEmail, name: `${firstName} ${lastName}` };
   // Block only on what we know is wrong; the server has the final word on everything.
-  const blocking = [usernameCheck, emailCheck, mobileCheck].some((v) => v && !v.ok) || (password.length > 0 && !!passwordProblem(password, pwCtx));
+  // Submit only when nothing known is wrong: confirmed email, a valid mobile, an allowed password.
+  const blocking = [usernameCheck, emailCheck, mobileCheck].some((v) => v && !v.ok) || !emailConfirmed || !(mobileCheck?.ok) || pwVerdict !== 'ok';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -154,7 +153,6 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           {event ? <>Your registration for <b>{event.name}</b> is waiting for approval. Once approved, you can sign in and show your entry pass at the gate during the event.</> : <>Your registration is pending approval. You&apos;ll be able to sign in once an
           authorized approver approves it.</>}
         </p>
-        <p className="text-sm text-gray-500">We&apos;ve emailed <b>{commEmail}</b> a link to confirm the address is yours — please open it. (Check spam if it&apos;s not there in a few minutes.)</p>
         <Link href="/login" className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white">
           Go to sign in
         </Link>
@@ -194,17 +192,9 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           autoComplete="username"
           hint={usernameCheck}
         />
-        <Field
-          label="Communication email"
-          type="email"
-          value={commEmail}
-          onChange={setCommEmail}
-          required
-          autoComplete="email"
-          hint={emailCheck}
-        />
+        <EmailConfirm value={commEmail} onChange={setCommEmail} hint={emailCheck} humanToken={humanToken} onConfirmed={setEmailConfirmed} />
         <Field label="Mobile number" type="tel" value={mobile} onChange={setMobile} required autoComplete="tel" placeholder="98765 43210" hint={mobileCheck} />
-        <PasswordField id="reg-password" label="Password" value={password} onChange={setPassword} ctx={pwCtx} />
+        <PasswordField id="reg-password" label="Password" value={password} onChange={setPassword} ctx={pwCtx} onVerdict={setPwVerdict} />
 
         <div className="space-y-1">
           <label htmlFor="reg-purpose" className="text-sm font-medium">Profile / Purpose</label>
@@ -271,6 +261,11 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
         >
           {loading ? 'Submitting…' : 'Submit registration'}
         </button>
+        {!loading && blocking && (
+          <p className="text-center text-xs text-gray-500" aria-live="polite">
+            {!emailConfirmed ? 'Confirm your email to submit.' : !(mobileCheck?.ok) ? 'Enter a valid mobile number.' : pwVerdict === 'checking' ? 'Checking your password…' : pwVerdict !== 'ok' ? 'Choose an allowed password.' : 'Fix the fields marked in red.'}
+          </p>
+        )}
       </form>
     </main>
   );

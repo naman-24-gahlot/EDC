@@ -7,7 +7,7 @@ import { requireMasterPage } from '../data';
 
 export const dynamic = 'force-dynamic';
 
-const KIND = { resetPassword: 'Password reset', verifyEmail: 'Confirm email' } as const;
+const KIND = { resetPassword: 'Password reset', verifyEmail: 'Confirm email', confirmEmail: 'Confirm email (before registering)' } as const;
 
 // Emails for test addresses (…@anything.test) are never sent — they land here instead, so
 // sign-up, verification and forgot-password can be tested without real inboxes.

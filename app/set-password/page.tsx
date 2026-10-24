@@ -14,5 +14,5 @@ export default async function SetPasswordPage() {
     redirect(normal ? ROLE_HOME_PATH[normal.systemRole] : '/login');
   }
   const person = await loadPerson(user.personId);
-  return <SetPasswordForm username={person?.username ?? ''} name={person ? person.firstName : ''} />;
+  return <SetPasswordForm username={person?.username ?? ''} name={person ? person.firstName : ''} fullName={person ? `${person.firstName} ${person.lastName}` : ''} email={user.email ?? ''} />;
 }

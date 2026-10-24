@@ -16,7 +16,12 @@ const login = async (u: string) => (await post('/api/auth/session', { identifier
 
 const master = await login('master'); const guard = await login('guard1');
 const tag = Date.now().toString(36); const u = `qa.g${tag}`;
-const reg = await post('/api/register', { firstName: 'QA', lastName: `Gate${tag}`, username: u, commEmail: `${u}@qa.test`, mobile: '9876543210', password: `Qa-${randomBytes(9).toString('base64url')}`, purpose: 'gate test', profileType: 'event_guest', eventToken: undefined, parentIdentifier: 'rahul' });
+// confirm the email first (test addresses: link from the outbox)
+await post('/api/register/email-check', { email: `${u}@qa.test` });
+await new Promise((r) => setTimeout(r, 800));
+const confirmLink = (await adminDb.collection('testOutbox').where('to', '==', `${u}@qa.test`).get()).docs[0]?.data().link as string;
+await fetch(confirmLink.replace(/^https?:\/\/[^/]+/, B));
+const reg = await post('/api/register', { firstName: 'QA', lastName: `Gate${tag}`, username: u, commEmail: `${u}@qa.test`, mobile: '9812345670', password: `Qa-${randomBytes(9).toString('base64url')}`, purpose: 'gate test', profileType: 'event_guest', eventToken: undefined, parentIdentifier: 'rahul' });
 const id = reg.data?.personId as string;
 await post(`/api/registrations/${id}/approve`, {}, master);
 const person = (await adminDb.collection('people').doc(id).get()).data()!;

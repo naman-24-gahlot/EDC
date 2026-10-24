@@ -37,26 +37,42 @@ check('domain that cannot receive mail', (await check1('email=x%40zz-not-a-real-
 check('real domain accepted', (await check1('email=someone.new%40gmail.com')).email.ok === true);
 check('test address accepted', (await check1(`email=qa${tag}%40qa.test`)).email.ok === true);
 
-// ---- registration rules
-const reg = (u: string, password: string) => post('/api/register', { firstName: 'QA', lastName: 'Signup', username: u, commEmail: `${u}@qa.test`, mobile: '9876543210', password, purpose: 'sign-up test', profileType: 'incubee' });
-let r = await reg(`qa.w${tag}`, 'password123');
-check('common password refused', r.status === 400, r.data?.error);
-r = await reg(`qa.w${tag}`, 'correcthorsebatterystaple');
-check('breached password refused', r.status === 400 && /breach/.test(r.data?.error), r.data?.error);
-r = await reg(`qa.w${tag}`, `qa.w${tag}-pass`);
-check('password containing the username refused', r.status === 400, r.data?.error);
+// ---- confirm the email BEFORE registering
 const u = `qa.s${tag}`; const email = `${u}@qa.test`; const pw1 = strong();
-r = await reg(u, pw1);
-check('registration with a good password', r.status === 201, r.data);
-const id = r.data?.personId as string;
-
-// ---- email confirmation via the outbox
-let link = await outbox(email, 'verifyEmail');
-check('confirmation email lands in the test outbox', !!link && link.includes('/auth/action?mode=verifyEmail'));
+const MOBILE = '9812345670';
+let r = await post('/api/register', { firstName: 'QA', lastName: 'Signup', username: u, commEmail: email, mobile: MOBILE, password: pw1, purpose: 'sign-up test', profileType: 'incubee' });
+check('registration refused until the email is confirmed', r.status === 400 && /Confirm your email/.test(r.data?.error), r.data?.error);
+check('form status: not confirmed yet', (await (await fetch(`${B}/api/register/email-check?email=${encodeURIComponent(email)}`)).json()).confirmed === false);
+r = await post('/api/register/email-check', { email });
+check('confirmation link sent', r.status === 200, r.data);
+check('a second send straight away is refused politely', (await post('/api/register/email-check', { email })).status === 429);
+check('can’t request a link for an already-registered email', (await post('/api/register/email-check', { email: 'rahul@gmail.com' })).status === 400);
+let link = await outbox(email, 'confirmEmail');
+check('link lands in the test outbox', !!link && link.includes('/register/confirm'));
 let page = await get(pathOf(link!));
-check('opening the link confirms the email', page.text.includes('Email confirmed'));
-check('…recorded on the person and the account', (await adminDb.collection('people').doc(id).get()).data()?.emailVerified === true && (await adminAuth.getUser(id)).emailVerified);
-check('a used link says so', (await get(pathOf(link!))).text.includes('doesn’t work'));
+check('opening it confirms the email', page.text.includes('Email confirmed'));
+check('form status flips to confirmed', (await (await fetch(`${B}/api/register/email-check?email=${encodeURIComponent(email)}`)).json()).confirmed === true);
+check('a tampered link is refused', (await get(pathOf(link!).replace(/token=[^&]+/, 'token=nope'))).text.includes('didn’t work'));
+
+// ---- phone and password rules (email confirmed, so only these can fail)
+const reg = (password: string, mobile = MOBILE) => post('/api/register', { firstName: 'QA', lastName: 'Signup', username: u, commEmail: email, mobile, password, purpose: 'sign-up test', profileType: 'incubee' });
+for (const [m, why] of [['9876543210', 'placeholder'], ['5123456789', 'starts with 5'], ['99999 99999', 'one digit repeated'], ['12345', 'too short'], ['+0123456789', 'bad country code']]) {
+  r = await reg(pw1, m);
+  check(`mobile refused: ${why}`, r.status === 400, r.data?.error);
+}
+r = await reg('password123');
+check('common password refused', r.status === 400, r.data?.error);
+r = await reg('correcthorsebatterystaple');
+check('breached password refused', r.status === 400 && /breach/.test(r.data?.error), r.data?.error);
+r = await reg(`${u}-pass`);
+check('password containing the username refused', r.status === 400, r.data?.error);
+r = await reg(pw1, '+91 98123 45670');
+check('registration with confirmed email, valid mobile, good password', r.status === 201, r.data);
+const id = r.data?.personId as string;
+const saved = (await adminDb.collection('people').doc(id).get()).data()!;
+check('account starts with the email confirmed', saved.emailVerified === true && (await adminAuth.getUser(id)).emailVerified);
+check('mobile stored in one form (+91…)', saved.mobile === '+919812345670', saved.mobile);
+check('the confirmation is used up', (await (await fetch(`${B}/api/register/email-check?email=${encodeURIComponent(email)}`)).json()).confirmed === false);
 
 // ---- forgot password
 const master = (await post('/api/auth/session', { identifier: 'master', password: creds.master })).cookie;
@@ -84,7 +100,10 @@ check('the reset link can’t be used twice', (await post('/api/auth/reset', { o
 check('reset audited', (await adminDb.collection('auditLogs').where('targetPersonId', '==', id).get()).docs.some((d) => d.data().action === 'PASSWORD_CHANGED' && /email link/.test(d.data().details)));
 
 // ---- My account banner, outbox page
-const u2 = `qa.n${tag}`; r = await reg(u2, strong());
+const u2 = `qa.n${tag}`;
+await post('/api/register/email-check', { email: `${u2}@qa.test` });
+await get(pathOf((await outbox(`${u2}@qa.test`, 'confirmEmail'))!));
+r = await post('/api/register', { firstName: 'QA', lastName: 'Second', username: u2, commEmail: `${u2}@qa.test`, mobile: MOBILE, password: strong(), purpose: 'sign-up test', profileType: 'incubee' });
 await post(`/api/registrations/${r.data.personId}/approve`, {}, master);
 check('Master test outbox lists both', (await get('/admin/outbox', master)).text.includes(email));
 check('outbox is Master-only', (await get('/admin/outbox')).status === 307);

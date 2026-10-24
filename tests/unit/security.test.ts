@@ -45,7 +45,7 @@ test('rate limiter keys: per session when signed in, per IP otherwise, with an I
 });
 
 test('profile edits: only known fields, validated', () => {
-  assert.deepEqual(parseProfilePatch({ firstName: ' Asha ', mobile: '+91 90000 12345', systemRole: 'master', username: 'x' }), { firstName: 'Asha', mobile: '+91 90000 12345' });
+  assert.deepEqual(parseProfilePatch({ firstName: ' Asha ', mobile: '+91 90000 12345', systemRole: 'master', username: 'x' }), { firstName: 'Asha', mobile: '+919000012345' }, 'mobile stored in one form');
   for (const bad of [{}, { firstName: '' }, { firstName: '<script>' }, { mobile: '12' }, { purpose: 'x'.repeat(201) }, { photoDataUrl: 'data:image/png;base64,AAAA' }]) {
     assert.throws(() => parseProfilePatch(bad), Error, JSON.stringify(bad));
   }

@@ -10,6 +10,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
 import { HttpError, assertCanActOn, loadPerson, requireMaster } from '@/lib/hierarchy/authorize';
 import { validatePhoto } from './create';
+import { checkMobile } from '@/lib/phone';
 import { hashPassword, matches, readHashes, writeHashes } from '@/lib/auth/passwordHashes';
 import { audit, eventIdOf, lookupEventId } from '@/lib/audit';
 import { assertGoodPassword } from '@/lib/auth/passwordPolicy';
@@ -24,7 +25,6 @@ export interface ProfilePatch {
 }
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]{0,59}$/u;
-const MOBILE_RE = /^\+?[0-9][0-9 -]{5,19}$/;
 
 /** Validates untrusted input; only known fields survive. Throws 400. */
 export function parseProfilePatch(input: unknown): ProfilePatch {
@@ -39,9 +39,9 @@ export function parseProfilePatch(input: unknown): ProfilePatch {
     }
   }
   if ('mobile' in raw) {
-    const v = typeof raw.mobile === 'string' ? raw.mobile.trim() : '';
-    if (!MOBILE_RE.test(v)) throw new HttpError(400, 'Mobile number must be 6–20 digits (spaces, dashes and a leading + allowed).');
-    out.mobile = v;
+    const m = checkMobile(typeof raw.mobile === 'string' ? raw.mobile : '');
+    if (!m.ok) throw new HttpError(400, m.message ?? 'Enter a valid mobile number.');
+    out.mobile = m.value!;
   }
   if ('purpose' in raw) {
     const v = typeof raw.purpose === 'string' ? raw.purpose.trim() : '';
@@ -200,12 +200,16 @@ export async function requestPasswordReset(identifier: unknown, origin: string):
 }
 
 /** Who a reset link is for (masked email), without using it up. Throws HttpError 400 if invalid/expired. */
-export async function inspectResetCode(oobCode: unknown): Promise<{ email: string }> {
+export async function inspectResetCode(oobCode: unknown): Promise<{ email: string; ctx: { email: string; username?: string; name?: string } }> {
   if (typeof oobCode !== 'string' || !oobCode || oobCode.length > 512) throw new HttpError(400, 'This link is not valid.');
   try {
     const { email } = await identityToolkit<{ email: string }>('accounts:resetPassword', { oobCode });
     const [user, domain] = email.split('@');
-    return { email: `${user.slice(0, 2)}${'•'.repeat(Math.max(1, user.length - 2))}@${domain}` };
+    const person = await adminAuth.getUserByEmail(email).then((u) => loadPerson(u.uid)).catch(() => null);
+    return {
+      email: `${user.slice(0, 2)}${'•'.repeat(Math.max(1, user.length - 2))}@${domain}`,
+      ctx: { email, username: person?.username, name: person ? `${person.firstName} ${person.lastName}` : undefined },
+    };
   } catch (err) {
     throw new HttpError(400, actionErrorMessage(err));
   }

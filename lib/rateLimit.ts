@@ -100,9 +100,9 @@ export function bucketsFor(r: RequestFacts): { rule: LimitRule; key: string }[] 
   const out = [{ rule: RULES.anyPerIp, key: r.ip }];
   if (r.method === 'POST' && r.pathname === '/api/auth/session') {
     out.push({ rule: RULES.loginPerIp, key: r.ip }); // per-account budget: see the login route
-  } else if (r.method === 'POST' && (r.pathname === '/api/auth/forgot' || r.pathname === '/api/me/verify-email')) {
+  } else if (r.method === 'POST' && (r.pathname === '/api/auth/forgot' || r.pathname === '/api/me/verify-email' || r.pathname === '/api/register/email-check')) {
     out.push({ rule: RULES.emailPerIp, key: r.ip });
-  } else if (r.pathname === '/api/register/check') {
+  } else if (r.pathname === '/api/register/check' || r.pathname === '/api/register/email-check') {
     out.push({ rule: RULES.checkPerIp, key: r.ip });
   } else if (r.method === 'POST' && r.pathname === '/api/register') {
     out.push({ rule: RULES.registerPerIp, key: r.ip });

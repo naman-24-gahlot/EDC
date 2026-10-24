@@ -48,3 +48,13 @@ test('log filters: only known values survive; all ticked = no filter', () => {
   assert.equal(parseEntryFilter({ result: 'MAYBE' }).result, null);
   assert.deepEqual(filterParams(parseAuditFilter({ action: 'PASSWORD_RESET,PASSWORD_CHANGED', order: 'desc' })), { action: 'PASSWORD_RESET,PASSWORD_CHANGED' });
 });
+
+test('mobile numbers: one rule for form and server', async () => {
+  const { checkMobile } = await import('@/lib/phone');
+  for (const [raw, stored] of [['98123 45670', '+919812345670'], ['+91-98123-45670', '+919812345670'], ['09812345670', '+919812345670'], ['919812345670', '+919812345670'], ['+14155550123', '+14155550123']]) {
+    assert.equal(checkMobile(raw).value, stored, raw);
+  }
+  for (const bad of ['9876543210', '1234567890', '9999999999', '5123456789', '12345', '+0123456789', 'abc', '', '+11111111111']) {
+    assert.equal(checkMobile(bad).ok, false, bad);
+  }
+});

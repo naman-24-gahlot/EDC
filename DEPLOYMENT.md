@@ -156,6 +156,11 @@ context-discipline rules).
   `https://edc-gib-24.vercel.app/auth/action` (the same setting covers email confirmation). Until
   then real-inbox links open Firebase's own page, which works but skips "not your old password".
   Firebase also limits how many of these emails a free project sends per day.
+- **Confirm-before-registering** needs two more console settings (both free): Authentication →
+  Sign-in method → Email/Password → turn on **Email link (passwordless sign-in)**; and
+  Authentication → Settings → **Authorized domains** → add `edc-gib-24.vercel.app` (the link's
+  return address must be allowed). Until then real addresses get "Email confirmation isn't switched
+  on yet"; `.test` addresses work regardless.
 - **Test addresses**: any email ending in `.test` (e.g. `qa1@example.test`) never sends — the link
   appears on /admin/outbox ("Test outbox" under the admin menu). Use them for repeated testing.
 - **Turnstile** (optional, free): create a widget at dash.cloudflare.com → Turnstile, add the site

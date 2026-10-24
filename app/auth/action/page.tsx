@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { HttpError } from '@/lib/hierarchy/authorize';
 import { applyEmailVerification, inspectResetCode } from '@/lib/people/profile';
 import { ResetForm } from './ResetForm';
@@ -10,7 +11,7 @@ const message = (err: unknown) => (err instanceof HttpError ? err.message : 'Som
 /** What a link turned out to be — worked out first, rendered after. */
 async function resolve(mode: string | undefined, oobCode: string | undefined) {
   if (mode === 'resetPassword') {
-    try { return { kind: 'reset' as const, email: (await inspectResetCode(oobCode)).email }; } catch (err) { return { kind: 'reset-bad' as const, error: message(err) }; }
+    try { const r = await inspectResetCode(oobCode); return { kind: 'reset' as const, email: r.email, ctx: r.ctx }; } catch (err) { return { kind: 'reset-bad' as const, error: message(err) }; }
   }
   if (mode === 'verifyEmail') {
     try { await applyEmailVerification(oobCode); return { kind: 'verified' as const }; } catch (err) { return { kind: 'verify-bad' as const, error: message(err) }; }
@@ -32,11 +33,16 @@ function Box({ title, ok = false, children }: { title: string; ok?: boolean; chi
 // Where email links land (Firebase "action URL": DEPLOYMENT.md, and test-outbox links).
 //  ?mode=resetPassword&oobCode=…  → checks the link (without using it up), then the form
 //  ?mode=verifyEmail&oobCode=…    → confirms the email address
-export default async function EmailActionPage({ searchParams }: { searchParams: Promise<{ mode?: string; oobCode?: string }> }) {
-  const { mode, oobCode } = await searchParams;
+export default async function EmailActionPage({ searchParams }: { searchParams: Promise<{ mode?: string; oobCode?: string; continueUrl?: string }> }) {
+  const { mode, oobCode, continueUrl } = await searchParams;
+  // "Confirm your email" links (Firebase email-link sign-in) carry the address in continueUrl.
+  if (mode === 'signIn' && oobCode && continueUrl) {
+    const email = (() => { try { return new URL(continueUrl).searchParams.get('email'); } catch { return null; } })();
+    if (email) redirect(`/register/confirm?email=${encodeURIComponent(email)}&oobCode=${encodeURIComponent(oobCode)}`);
+  }
   const r = await resolve(mode, oobCode);
   switch (r.kind) {
-    case 'reset': return <ResetForm oobCode={oobCode!} email={r.email} />;
+    case 'reset': return <ResetForm oobCode={oobCode!} email={r.email} ctx={r.ctx} />;
     case 'reset-bad': return <Box title="This reset link doesn’t work">{r.error} <Link href="/forgot" className="underline">Get a new link</Link></Box>;
     case 'verified': return <Box title="Email confirmed" ok>Thanks — your email address is verified. <Link href="/login" className="underline">Go to sign in</Link></Box>;
     case 'verify-bad': return <Box title="This confirmation link doesn’t work">{r.error} Sign in and use “Send the link again” on My account.</Box>;

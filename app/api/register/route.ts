@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse, after } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { assertGoodPassword } from '@/lib/auth/passwordPolicy';
-import { sendEmailVerification } from '@/lib/auth/emailActions';
-import { siteOrigin } from '@/lib/origin';
+import { consumeEmailCheck, isEmailConfirmed } from '@/lib/emailCheck';
+import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import { humanCheckPassed } from '@/lib/turnstile';
 import { clientIpFrom } from '@/lib/rateLimit';
 import { errorResponse } from '@/lib/hierarchy/authorize';
@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // The email must have been confirmed from the form first (lib/emailCheck.ts).
+  if (!(await isEmailConfirmed(commEmail))) {
+    return NextResponse.json({ error: 'Confirm your email first: press “Send confirmation link” next to the email box and open the link we send.' }, { status: 400 });
+  }
   try {
     await assertGoodPassword(password, { username, email: commEmail, name: `${firstName} ${lastName}` });
   } catch (err) {
@@ -103,8 +107,11 @@ export async function POST(request: NextRequest) {
     details: `profileType=${profileType}${event ? `; event: ${event.name}` : ''}`,
   });
 
-  // Email check link (or test outbox entry) — after the reply; a failure never blocks registration.
-  const origin = await siteOrigin();
-  after(() => sendEmailVerification(created.personId, origin).catch((err) => console.error('Verification email failed', err)));
+  // Confirmed before registering: the account starts confirmed, and the confirmation is used up.
+  await Promise.all([
+    adminAuth.updateUser(created.personId, { emailVerified: true }),
+    adminDb.collection('people').doc(created.personId).update({ emailVerified: true }),
+    consumeEmailCheck(commEmail),
+  ]);
   return NextResponse.json({ personId: created.personId }, { status: 201 });
 }

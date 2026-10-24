@@ -12,6 +12,7 @@ import { type ProfileType, accessCodeFor, issueAccessNumber } from '@/lib/access
 import { HttpError, computeAncestorIds, loadPerson } from '@/lib/hierarchy/authorize';
 import { hashPassword, writeHashes } from '@/lib/auth/passwordHashes';
 import { audit } from '@/lib/audit';
+import { checkMobile } from '@/lib/phone';
 
 export const PersonCreateError = HttpError;
 
@@ -124,6 +125,8 @@ export async function createPerson(
     throw new PersonCreateError(400, 'Password must be at least 8 characters.');
   }
   const photoDataUrl = validatePhoto(input.photoDataUrl);
+  const mobile = checkMobile(input.mobile ?? '');
+  if (!mobile.ok) throw new PersonCreateError(400, mobile.message ?? 'Enter a valid mobile number.');
 
   let ancestorIds: string[] = [];
   if (options.parentId) {
@@ -176,7 +179,7 @@ export async function createPerson(
       username,
       commEmail: commEmailRaw,
       edcEmail,
-      mobile: input.mobile.trim(),
+      mobile: mobile.value, // one stored form: +91XXXXXXXXXX or +<country><number>
       photoDataUrl,
       purpose: input.purpose.trim(),
       profileType: input.profileType,

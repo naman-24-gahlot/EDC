@@ -189,6 +189,13 @@ Link state is computed: CLOSED if `closedAt`, EXPIRED if past `linkExpiresAt`, e
 People who registered through it carry `eventId`, `eventName` and
 `registrationSource: { source, medium, campaign }` (utm tags or null) on their `people` doc.
 
+### `emailChecks/{email}`
+"Confirm your email before registering" (`lib/emailCheck.ts`). Doc id = the lower-cased email.
+`{ email, requestedAt, verifiedAt | null, expiresAt | null, tokenHash?, tokenExpiresAt? }` —
+confirmed for 24 h after the link is opened; `/api/register` requires it and deletes it once the
+person is created (the account then starts with `emailVerified: true`). Test addresses use a hashed
+one-off token (link in the outbox, valid 24 h); real addresses use Firebase's email-link sign-in.
+
 ### `testOutbox/{id}`
 Emails for test addresses (domain ending `.test`) are never sent; they're filed here for the
 Master's Test outbox page: `{ personId, to, kind: 'resetPassword' | 'verifyEmail', link, createdAt }`.

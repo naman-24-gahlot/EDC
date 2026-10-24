@@ -272,9 +272,18 @@ reported and the rest continue.
   (bots that pre-open links can't burn it); the new password must pass the same rules as any
   other (below) and differ from the current and previous one; then every session is revoked, a
   pending forced change is cleared, and the email counts as confirmed.
-- **Email confirmation**: a link at sign-up (and "Send the link again" on My account). Firebase
-  only sends these for a signed-in user, so the server signs in as them with a one-off custom
-  token — no password involved. Approvers see "email confirmed / not confirmed".
+- **Email confirmation happens before registering**: "Send confirmation link" beside the email
+  box; `/api/register` refuses an unconfirmed email. Nobody has an account yet and Firebase's
+  verify email only goes to accounts, so the link is Firebase's free **email-link sign-in**: opening
+  it signs in a throwaway account (proving the inbox), which is deleted at once if it has no
+  profile. The form polls `GET /api/register/email-check` and unlocks Submit. A confirmation lasts
+  24 h and is used up by the registration. Requests are refused for emails that are already
+  registered, throwaway, mistyped or can't receive mail, at most one per 45 s per address, and
+  rate limited per IP. Older accounts still get "Send the link again" on My account (custom-token
+  sign-in to send Firebase's verify email). Approvers see "email confirmed / not confirmed".
+- **Mobile numbers** (`lib/phone.ts`, enforced in `createPerson` and profile edits): Indian
+  10-digit numbers starting 6–9 (with or without +91/0) or + country code and 8–15 digits;
+  placeholders (1234567890, 9876543210, one digit repeated) refused; stored as +91XXXXXXXXXX.
 - **Test addresses** (`*.test`) never reach Firebase's mailer; links go to the Master-only outbox.
 - **Password rules** everywhere a password is chosen (`lib/auth/passwordPolicy.ts`): 8–128
   characters, not a well-known password, not containing the name/username/email, and not in a

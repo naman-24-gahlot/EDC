@@ -4,9 +4,10 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ROLE_HOME_PATH, isSystemRole } from '@/lib/roles';
 import { RequestError, sendJson } from '@/lib/clientFetch';
-import { PasswordField } from '@/components/PasswordField';
+import { PasswordField, type PasswordVerdict } from '@/components/PasswordField';
 
-export function SetPasswordForm({ username, name }: { username: string; name: string }) {
+export function SetPasswordForm({ username, name, fullName, email }: { username: string; name: string; fullName: string; email: string }) {
+  const [verdict, setVerdict] = useState<PasswordVerdict>('blocked');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -50,7 +51,7 @@ export function SetPasswordForm({ username, name }: { username: string; name: st
             {name ? `${name}, you` : 'You'} signed in with a one-time password. Choose your own before continuing — it can&apos;t be the one-time password or your previous password.
           </p>
         </div>
-        <PasswordField id="sp-new" label="New password" value={next} onChange={setNext} ctx={{ username }} />
+        <PasswordField id="sp-new" label="New password" value={next} onChange={setNext} ctx={{ username, email, name: fullName }} onVerdict={setVerdict} />
         <div className="space-y-1">
           <label htmlFor="sp-confirm" className="text-sm font-medium">Repeat new password</label>
           <input id="sp-confirm" type="password" autoComplete="new-password" minLength={8} maxLength={128} required value={confirm} onChange={(e) => setConfirm(e.target.value)} className="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
@@ -61,7 +62,7 @@ export function SetPasswordForm({ username, name }: { username: string; name: st
             {error.text}{error.signIn && <> <Link href="/login" className="font-medium underline">Go to sign in</Link></>}
           </p>
         )}
-        <button type="submit" disabled={busy || mismatch || next.length < 8} className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+        <button type="submit" disabled={busy || mismatch || verdict !== 'ok' || next !== confirm} className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
           {busy ? 'Saving…' : 'Save and continue'}
         </button>
         <button type="button" onClick={signOut} className="w-full text-xs text-gray-500 underline">Sign out instead</button>

@@ -19,7 +19,7 @@ import { Timestamp, type DocumentData } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 
 const FILE = '.test-checkpoint.local.json';
-const COLLECTIONS = ['people', 'identifiers', 'accessNumbers', 'entitlements', 'accessRequests', 'entryEvents', 'auditLogs', 'events', 'passwordHashes', 'testOutbox'] as const;
+const COLLECTIONS = ['people', 'identifiers', 'accessNumbers', 'entitlements', 'accessRequests', 'entryEvents', 'auditLogs', 'events', 'passwordHashes', 'testOutbox', 'emailChecks'] as const;
 const SUB = 'profileHistory'; // people/{id}/profileHistory/{id}
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
