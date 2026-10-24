@@ -8,12 +8,16 @@ if (typeof window !== 'undefined') {
 import { Timestamp, type Transaction, type WriteBatch } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
+import { after } from 'next/server';
+import { sealAll } from '@/lib/auditChain';
 
 // Every action the app writes, grouped. The group key is stored as `category`.
 export const ACTION_GROUPS = [
   { key: 'gate', label: 'Gate', actions: ['ENTRY_APPROVED', 'ENTRY_DENIED', 'EXIT_RECORDED'] },
+  { key: 'stays', label: 'Stays', actions: ['LATE_EXIT', 'OVERNIGHT_STAY', 'MISSED_EXIT_SCAN', 'STAY_FLAG_SEEN'] },
   { key: 'access', label: 'Access', actions: ['ACCESS_REQUEST_CREATED', 'ACCESS_REQUEST_APPROVED', 'ACCESS_REQUEST_REJECTED', 'ACCESS_REQUEST_EXPIRED', 'ENTITLEMENT_CREATED', 'ENTITLEMENT_CHANGED', 'ENTITLEMENT_REVOKED', 'ENTITLEMENT_SUPERSEDED'] },
-  { key: 'people', label: 'People', actions: ['REGISTRATION_SUBMITTED', 'REGISTRATION_APPROVED', 'REGISTRATION_REJECTED', 'PROFILE_CREATED', 'PROFILE_UPDATED', 'PROFILE_TYPE_CHANGED', 'HIERARCHY_CHANGED', 'PERSON_DEACTIVATED', 'PERSON_REACTIVATED', 'GUARD_CREATED', 'MASTER_PROMOTED', 'MASTER_DEMOTED'] },
+  { key: 'people', label: 'People', actions: ['REGISTRATION_SUBMITTED', 'REGISTRATION_APPROVED', 'REGISTRATION_REJECTED', 'PROFILE_CREATED', 'PROFILE_UPDATED', 'PROFILE_TYPE_CHANGED', 'HIERARCHY_CHANGED', 'PERSON_DEACTIVATED', 'PERSON_REACTIVATED', 'GUARD_CREATED', 'MASTER_PROMOTED', 'MASTER_DEMOTED', 'VISITOR_PASS_CREATED'] },
+  { key: 'leave', label: 'Leave & holidays', actions: ['LEAVE_REQUESTED', 'LEAVE_APPROVED', 'LEAVE_REJECTED', 'LEAVE_CANCELLED', 'HOLIDAY_ADDED', 'HOLIDAY_REMOVED'] },
   { key: 'events', label: 'Events', actions: ['EVENT_CREATED', 'EVENT_UPDATED', 'EVENT_LINK_CLOSED', 'EVENT_LINK_REOPENED', 'EVENT_LINK_REPLACED'] },
   { key: 'security', label: 'Passwords & passes', actions: ['PASSWORD_CHANGED', 'PASSWORD_RESET', 'PASSWORD_RESET_EMAIL_SENT', 'EMAIL_VERIFIED', 'ID_CHECKED', 'SESSIONS_REVOKED', 'CREDENTIAL_REISSUED', 'ORPHAN_AUTH_ACCOUNT_REMOVED'] },
 ] as const;
@@ -54,12 +58,30 @@ export function auditDoc(e: AuditInput) {
     eventId: e.eventId ?? null,
     timestamp: e.at ?? Timestamp.now(),
     details: e.details ?? null,
+    // Sealed into the tamper-evident chain shortly after (lib/auditChain.ts).
+    sealed: false,
   };
+}
+
+// After the response (the entry is committed by then), seal what's waiting. Calls that arrive
+// while a seal is running just ask for one more pass, so a request writing several entries costs
+// at most two passes. Outside a request (scripts) after() isn't available: the entry is sealed by
+// the next request that seals.
+let running: Promise<void> | null = null;
+let again = false;
+function runSeal(): Promise<void> {
+  if (running) { again = true; return running; }
+  running = (async () => { do { again = false; await sealAll(); } while (again); })().finally(() => { running = null; });
+  return running;
+}
+function sealSoon() {
+  try { after(runSeal); } catch { /* not in a request */ }
 }
 
 /** Adds the entry to a transaction or batch (committed with it), or writes it now. */
 export function audit(writer: Transaction | WriteBatch | null, e: AuditInput): Promise<unknown> | void {
   const ref = adminDb.collection('auditLogs').doc();
+  sealSoon();
   if (!writer) return ref.set(auditDoc(e));
   (writer as WriteBatch).set(ref, auditDoc(e));
 }

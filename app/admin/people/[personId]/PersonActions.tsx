@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { sendJson } from '@/lib/clientFetch';
 import { InfoTip } from '@/components/InfoTip';
 
-interface Window { startDate: string; endDate: string | null; weekdays: number[]; startTime: string; endTime: string }
+interface Window { startDate: string; endDate: string | null; weekdays: number[]; startTime: string; endTime: string; allowOvernight?: boolean }
 type Details = { firstName: string; lastName: string; mobile: string; purpose: string };
 type Msg = { ok: boolean; text: string } | null;
 
@@ -21,6 +21,8 @@ interface Props {
     active: boolean;
     registrationStatus: string;
     hasDescendants: boolean;
+    /** false for visitors: no sign-in account, so no password. */
+    hasAccount: boolean;
   };
   eligibleParents: { id: string; name: string }[];
   /** Default access period per profile type, starting today. */
@@ -46,11 +48,11 @@ const input = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm';
 
 const sameWindow = (a: Window, b: Window) =>
   a.startDate === b.startDate && a.endDate === b.endDate && a.startTime === b.startTime &&
-  a.endTime === b.endTime && a.weekdays.join() === b.weekdays.join();
+  a.endTime === b.endTime && a.weekdays.join() === b.weekdays.join() && !!a.allowOvernight === !!b.allowOvernight;
 
 function describe(w: Window) {
   const days = w.weekdays.length === 7 ? 'every day' : w.weekdays.map((d) => DAYS[d]).join(' ');
-  return `${w.endDate ? `${w.startDate} → ${w.endDate}` : `from ${w.startDate}, open-ended`} · ${days} · ${w.startTime}–${w.endTime}`;
+  return `${w.endDate ? `${w.startDate} → ${w.endDate}` : `from ${w.startDate}, open-ended`} · ${days} · ${w.startTime}–${w.endTime}${w.allowOvernight ? ' · overnight OK' : ''}`;
 }
 
 // Plain-language failures for offline / timeouts / an ended session (lib/clientFetch.ts).
@@ -81,6 +83,10 @@ function WindowFields({ value, onChange }: { value: Window; onChange: (w: Window
           );
         })}
       </div>
+      <label className="flex min-h-10 items-center gap-2 text-sm md:min-h-0">
+        <input type="checkbox" checked={!!value.allowOvernight} onChange={(e) => onChange({ ...value, allowOvernight: e.target.checked })} />
+        May stay overnight <InfoTip label="About overnight stays">Without this, anyone still inside after the gate closes is flagged when they leave late, and their parent (or Master) is told if they stay overnight or never scan out.</InfoTip>
+      </label>
     </div>
   );
 }
@@ -342,7 +348,7 @@ Every QR they've shown or screenshotted stops working. Their pass shows the new 
             </button>
           </ActionRow>
         )}
-        <ActionRow label="Password" state="Only they know it" action="Reset password"
+        {person.hasAccount && <ActionRow label="Password" state="Only they know it" action="Reset password"
           help="Gives you a one-time password to hand over. They are signed out everywhere, and must choose a new password (not the one-time one, not their old one) when they sign in with it.">
           <button className={`${btn} border-gray-400`} disabled={busy}
             onClick={async () => { const d = await act(`${base}/reset-password`, `Reset ${person.name}'s password?
@@ -350,7 +356,7 @@ Every QR they've shown or screenshotted stops working. Their pass shows the new 
 They are signed out everywhere. You'll get a one-time password to give them.`, `Password reset for ${person.name}. Give them the one-time password below.`); if (d?.password) setOneTimePassword(d.password); }}>
             Reset password
           </button>
-        </ActionRow>
+        </ActionRow>}
         {(person.systemRole === 'master' || (person.systemRole === 'member' && person.profileType === 'employee' && approved && person.active)) && (
           <ActionRow label="Role" state={person.systemRole === 'master' ? 'Master — full control of everyone' : 'Member'} action={person.systemRole === 'master' ? 'Remove Master' : 'Make Master'}
             help={person.systemRole === 'master'

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Timestamp } from 'firebase-admin/firestore';
-import { ACTION_GROUPS, auditQuery, parseAuditFilter, runPaged } from '@/lib/logs';
+import { ACTION_GROUPS, auditQuery, filterParams, parseAuditFilter, runPaged } from '@/lib/logs';
 import { AuditFilterForm } from './AuditFilterForm';
 import { listEvents } from '@/lib/events';
 import { formatDateTime } from '@/lib/display';
@@ -8,6 +8,8 @@ import { PAGE_SIZE, fetchedAtNow, parsePage } from '@/lib/paging';
 import { Pager } from '@/components/Pager';
 import { DataStamp } from '@/components/DataStamp';
 import { namesFor, requireMasterPage } from '../data';
+import { sealAll, verifyChain } from '@/lib/auditChain';
+import { InfoTip } from '@/components/InfoTip';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +39,13 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
   const person = filter.person;
   const page = parsePage(params.page);
 
+  // Anything not yet sealed into the chain is sealed before it's shown (lib/auditChain.ts).
+  await sealAll();
+  const check = params.verify === '1' ? await verifyChain() : null;
+
   // Paged in Firestore (lib/logs.ts; indexes in firestore.indexes.json).
   const base = auditQuery(filter);
-  const [{ building, total, docs }, events] = await Promise.all([runPaged(base, page, PAGE_SIZE), listEvents()]);
+  const [{ building, total, docs }, events] = await Promise.all([runPaged(base, page, PAGE_SIZE, filter.order), listEvents()]);
   const eventName = new Map(events.map((e) => [e.id, e.name]));
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rows = docs.map((d) => ({ ...(d.data() as Omit<AuditRow, 'id'>), id: d.id }));
@@ -52,6 +58,16 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
         <h2 className="text-sm font-medium text-gray-500">
           Audit log{person && <> for <span className="text-gray-900">{names.get(person) ?? 'this person'}</span> · <Link href="/admin/audit" className="underline">show everyone</Link></>}
         </h2>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="chain">
+        <span className="inline-flex items-center gap-1 text-gray-500">
+          Tamper-evident log
+          <InfoTip label="About the tamper-evident log">Every entry is numbered and carries a fingerprint of itself plus the entry before it, made with a server-only key. If anyone edits, deletes or reorders an entry in the database, the chain breaks at that point. “Check integrity” re-checks every entry (it reads the whole log, so use it when you need it, not every visit).</InfoTip>
+        </span>
+        {check ? (check.broken
+          ? <span className="rounded bg-red-100 px-2 py-1 font-semibold text-red-800" role="alert" data-testid="chain-broken">Chain broken at entry #{check.broken.seq}{check.broken.entryId ? ` (${check.broken.entryId})` : ''}: {check.broken.problem}. {check.checked} entries before it are intact.</span>
+          : <span className="rounded bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" role="status" data-testid="chain-ok">✓ All {check.checked} entries intact{check.unsealed ? ` (${check.unsealed} just written, not sealed yet)` : ''}.</span>)
+          : <Link href={{ pathname: '/admin/audit', query: { ...filterParams(filter), verify: '1' } }} className="inline-flex min-h-10 items-center rounded border border-gray-300 px-2 font-medium md:min-h-7">Check integrity</Link>}
       </div>
       <AuditFilterForm key={JSON.stringify(filter)} groups={ACTION_GROUPS} selected={filter.actions} from={filter.from} to={filter.to} order={filter.order} person={person}
         event={filter.event} events={events.map((e) => ({ id: e.id, name: e.name }))} />

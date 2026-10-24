@@ -5,7 +5,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import { getSessionUser } from '@/lib/session';
 import { createPerson, PersonCreateError } from '@/lib/people/create';
 import { accessCodeFor, isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
-import { listDescendants, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
+import { LIST_FIELDS, listDescendants, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { templateWindow } from '@/lib/access/entitlements';
 import { todayDateString } from '@/lib/date';
 import { audit } from '@/lib/audit';
@@ -22,7 +22,7 @@ export async function GET() {
 
   const people: PersonRecord[] =
     user.systemRole === 'master'
-      ? (await adminDb.collection('people').get()).docs.map((doc) => toPerson(doc)!)
+      ? (await adminDb.collection('people').select(...LIST_FIELDS).get()).docs.map((doc) => toPerson(doc)!)
       : await listDescendants(user.personId);
 
   return NextResponse.json({

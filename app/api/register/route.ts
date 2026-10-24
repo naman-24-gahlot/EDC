@@ -10,6 +10,7 @@ import { resolveEmployeeParent } from '@/lib/people/resolveParent';
 import { isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
 import { eventByToken, linkState, parseSource } from '@/lib/events';
 import { audit } from '@/lib/audit';
+import { parseBackupEmail } from '@/lib/people/profile';
 
 // Public, unauthenticated. Can only ever create a PENDING person — approval is the
 // real gate, so the general link needs no invite token. See SECURITY_MODEL.md
@@ -35,6 +36,11 @@ export async function POST(request: NextRequest) {
   const parentIdentifier =
     typeof body.parentIdentifier === 'string' ? body.parentIdentifier.trim() : '';
   const photoDataUrl = typeof body.photoDataUrl === 'string' ? body.photoDataUrl : null;
+  let backupEmail: string | null;
+  try { backupEmail = parseBackupEmail(body.backupEmail); } catch (err) { return errorResponse(err); }
+  if (backupEmail && backupEmail === commEmail.toLowerCase()) {
+    return NextResponse.json({ error: 'The backup email must be different from your main email.' }, { status: 400 });
+  }
 
   if (!(await humanCheckPassed(body.humanToken, clientIpFrom(request.headers)))) {
     return NextResponse.json({ error: 'Please complete the “I’m human” check and try again.' }, { status: 400 });
@@ -110,7 +116,7 @@ export async function POST(request: NextRequest) {
   // Confirmed before registering: the account starts confirmed, and the confirmation is used up.
   await Promise.all([
     adminAuth.updateUser(created.personId, { emailVerified: true }),
-    adminDb.collection('people').doc(created.personId).update({ emailVerified: true }),
+    adminDb.collection('people').doc(created.personId).update({ emailVerified: true, ...(backupEmail ? { backupEmail } : {}) }),
     consumeEmailCheck(commEmail),
   ]);
   return NextResponse.json({ personId: created.personId }, { status: 201 });

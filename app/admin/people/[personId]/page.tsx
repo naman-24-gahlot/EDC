@@ -179,7 +179,7 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
         person={{
           personId, name: `${person.firstName} ${person.lastName}`, isSelf: personId === user.personId,
           systemRole: person.systemRole, profileType: person.profileType, parentId: person.parentId,
-          active: person.active, registrationStatus: person.registrationStatus, hasDescendants: descendantIds.size > 0,
+          active: person.active, registrationStatus: person.registrationStatus, hasDescendants: descendantIds.size > 0, hasAccount: person.hasAccount !== false,
         }}
         eligibleParents={eligibleParents}
         templates={Object.fromEntries(PROFILE_TYPES.map((t) => [t, templateWindow(t, today)]))}
@@ -187,7 +187,7 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
           : !person.active ? 'Reactivate them first — then you can grant access here.' : null}
         current={activeEnt ? {
           id: activeEnt.id, status: effectiveStatus(activeEnt, today),
-          window: { startDate: activeEnt.startDate, endDate: activeEnt.endDate, weekdays: activeEnt.weekdays, startTime: activeEnt.startTime, endTime: activeEnt.endTime },
+          window: { startDate: activeEnt.startDate, endDate: activeEnt.endDate, weekdays: activeEnt.weekdays, startTime: activeEnt.startTime, endTime: activeEnt.endTime, allowOvernight: activeEnt.allowOvernight === true },
         } : null}
         details={{ firstName: person.firstName, lastName: person.lastName, mobile: String(person.mobile ?? ''), purpose: String(person.purpose ?? '') }}
       />

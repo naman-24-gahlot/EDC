@@ -11,7 +11,7 @@ type Panel = 'details' | 'password' | null;
 const input = 'w-full rounded border border-gray-300 px-3 py-2 text-sm';
 const btn = 'rounded px-3 py-2 text-sm font-medium disabled:opacity-50';
 
-export function AccountSettings({ initial, username }: { initial: { firstName: string; lastName: string; mobile: string; purpose: string }; username: string }) {
+export function AccountSettings({ initial, username }: { initial: { firstName: string; lastName: string; mobile: string; purpose: string; backupEmail: string }; username: string }) {
   const router = useRouter();
   const [panel, setPanel] = useState<Panel>(null);
   const [busy, setBusy] = useState(false);
@@ -95,6 +95,7 @@ export function AccountSettings({ initial, username }: { initial: { firstName: s
           </div>
           <div className="space-y-1"><label htmlFor="as-mobile" className="text-sm font-medium">Mobile</label><input id="as-mobile" value={details.mobile} onChange={(e) => setDetails({ ...details, mobile: e.target.value })} required className={input} /></div>
           <div className="space-y-1"><label htmlFor="as-purpose" className="text-sm font-medium">Profile / Purpose</label><input id="as-purpose" value={details.purpose} onChange={(e) => setDetails({ ...details, purpose: e.target.value })} required className={input} /></div>
+          <div className="space-y-1"><label htmlFor="as-backup" className="text-sm font-medium">Backup email <span className="font-normal text-gray-500">(optional — also gets password-reset links and approval emails; leave empty to remove)</span></label><input id="as-backup" type="email" value={details.backupEmail} onChange={(e) => setDetails({ ...details, backupEmail: e.target.value })} className={input} /></div>
           <div className="space-y-1">
             <label htmlFor="as-photo" className="text-sm font-medium">Photo</label>
             <input id="as-photo" type="file" accept="image/*" onChange={onPhoto} className="text-sm" />

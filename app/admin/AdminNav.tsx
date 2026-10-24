@@ -9,12 +9,16 @@ const LINKS = [
   { href: '/admin/events', label: 'Events' },
   { href: '/admin/people', label: 'People' },
   { href: '/admin/hierarchy', label: 'Hierarchy' },
+  { href: '/admin/visitors', label: 'Visitors' },
   { href: '/admin/entries', label: 'Entries' },
+  { href: '/admin/stays', label: 'Stay alerts', count: 'stays' },
+  { href: '/admin/leave', label: 'Leave', count: 'leave' },
+  { href: '/admin/holidays', label: 'Holidays' },
   { href: '/admin/audit', label: 'Audit log' },
   { href: '/admin/guards', label: 'Guards' },
 ] as const;
 
-export function AdminNav({ counts }: { counts: { requests: number; registrations: number } }) {
+export function AdminNav({ counts }: { counts: { requests: number; registrations: number; stays: number; leave: number } }) {
   const pathname = usePathname();
 
   return (

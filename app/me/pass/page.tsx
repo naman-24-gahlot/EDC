@@ -13,6 +13,7 @@ import { PassQr } from './PassQr';
 import { fetchedAtNow } from '@/lib/paging';
 import { DataStamp } from '@/components/DataStamp';
 import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate } from '@/lib/display';
+import { holidayOn } from '@/lib/holidays';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ export default async function PassPage() {
 
   // The pass describes the entitlement; this line is the live time-of-day verdict from the
   // single evaluator, so the person sees exactly what the gate would say right now.
-  const verdict = decideAccess(person, entitlement, now);
+  const verdict = decideAccess(person, entitlement, now, await holidayOn(now.date));
   const accessCode = accessCodeFor(person.profileType, person.accessNumber);
   const showQr = status === 'ACTIVE';
   const qrSvg = showQr

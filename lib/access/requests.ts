@@ -10,6 +10,9 @@ import type { SessionUser } from '@/lib/session';
 import { HttpError, assertCanActOn, listDescendants, loadPerson, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { parseWindowPatch, planGrant, type EntitlementWindow } from './entitlements';
 import { audit, eventIdOf } from '@/lib/audit';
+import { after } from 'next/server';
+import { siteOrigin } from '@/lib/origin';
+import { notifyAccessApproved } from '@/lib/notify';
 
 export const ACTIONABLE_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -251,6 +254,11 @@ async function decide(
     return { kind: 'done', requestId, status: approve ? 'APPROVED' : 'REJECTED', entitlementId: plan?.entitlementId ?? null };
   });
 
+  if (result.kind === 'done' && result.entitlementId) {
+    const origin = await siteOrigin();
+    const id = result.entitlementId;
+    after(() => notifyAccessApproved(id, origin).catch((e) => console.error('Access email failed', e)));
+  }
   // Thrown after the transaction so the EXPIRED status it wrote is committed, not rolled back.
   if (result.kind === 'expired') {
     throw new HttpError(409, 'This request expired — it was not decided within 3 days.');

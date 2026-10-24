@@ -22,12 +22,17 @@ export interface ProfilePatch {
   mobile?: string;
   purpose?: string;
   photoDataUrl?: string | null;
+  /** Optional second address for password resets and approval emails. Only the person sets it. */
+  backupEmail?: string | null;
 }
+
+// Same shape rule as the main email (lib/people/create.ts); not verified, not a login identifier.
+const BACKUP_EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]{0,59}$/u;
 
 /** Validates untrusted input; only known fields survive. Throws 400. */
-export function parseProfilePatch(input: unknown): ProfilePatch {
+export function parseProfilePatch(input: unknown, opts: { self?: boolean } = {}): ProfilePatch {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new HttpError(400, 'Invalid profile fields.');
   const raw = input as Record<string, unknown>;
   const out: ProfilePatch = {};
@@ -52,8 +57,21 @@ export function parseProfilePatch(input: unknown): ProfilePatch {
     if (raw.photoDataUrl !== null && typeof raw.photoDataUrl !== 'string') throw new HttpError(400, 'Invalid photo.');
     out.photoDataUrl = validatePhoto(raw.photoDataUrl as string | null);
   }
+  if ('backupEmail' in raw) {
+    // Someone else setting it could route password resets to themselves.
+    if (!opts.self) throw new HttpError(403, 'Only the person can set their backup email.');
+    out.backupEmail = parseBackupEmail(raw.backupEmail);
+  }
   if (Object.keys(out).length === 0) throw new HttpError(400, 'Nothing to change.');
   return out;
+}
+
+/** null/'' clears it. Throws 400 for anything that isn't an email address. */
+export function parseBackupEmail(v: unknown): string | null {
+  if (v === null || v === undefined || (typeof v === 'string' && !v.trim())) return null;
+  const s = typeof v === 'string' ? v.trim().toLowerCase() : '';
+  if (!BACKUP_EMAIL_RE.test(s) || s.length > 254) throw new HttpError(400, 'Enter a valid backup email, or leave it empty.');
+  return s;
 }
 
 /** Self, Master, or an ancestor. */
@@ -61,6 +79,9 @@ export async function updateProfile(actor: SessionUser, personId: string, patch:
   if (personId !== actor.personId) await assertCanActOn(actor, personId);
   const person = await loadPerson(personId);
   if (!person) throw new HttpError(404, 'Person not found.');
+  if (patch.backupEmail && patch.backupEmail === String(person.commEmail ?? '').toLowerCase()) {
+    throw new HttpError(400, 'Your backup email must be different from your main email.');
+  }
 
   const batch = adminDb.batch();
   batch.update(adminDb.collection('people').doc(personId), { ...patch });
@@ -124,6 +145,7 @@ export async function resetPassword(actor: SessionUser, personId: string): Promi
   if (personId === actor.personId) throw new HttpError(400, 'Change your own password from your account page.');
   const person = await loadPerson(personId);
   if (!person) throw new HttpError(404, 'Person not found.');
+  if (person.hasAccount === false) throw new HttpError(400, 'Visitors have no sign-in account, so there’s no password to reset.');
   const password = randomBytes(9).toString('base64url');
   // The password they had stays on record as "previous" (a fingerprint, not the password) so the
   // one they must now choose can't be the same. A second reset before they finish keeps it.

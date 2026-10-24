@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { adminDb } from '@/lib/firebase/admin';
 import { requirePageRole, type SessionUser } from '@/lib/session';
 import { todayDateString } from '@/lib/date';
-import { listDescendants, loadPerson, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
+import { LIST_FIELDS, listDescendants, loadPerson, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { accessCodeFor, isProfileType } from '@/lib/access/codes';
 import { currentEntitlementsFor, effectiveStatus, getCurrentEntitlement, templateWindow } from '@/lib/access/entitlements';
 import { listApprovalQueue, listRequestsFor } from '@/lib/access/requests';
@@ -29,6 +29,14 @@ import { ApprovalNotice } from './ApprovalNotice';
 import { VerifyEmailBanner } from './VerifyEmailBanner';
 import { adminAuth } from '@/lib/firebase/admin';
 import { ApplicantProfile } from '@/components/ApplicantProfile';
+import { listMyLeave, leaveRange } from '@/lib/leave';
+import { STAY_LABEL, listFlags } from '@/lib/stays';
+import { listVisitors, visitorPassUrl } from '@/lib/visitors';
+import { siteOrigin } from '@/lib/origin';
+import { LeaveSection } from './LeaveSection';
+import { StayFlagList } from '@/components/StayFlagList';
+import { VisitorForm } from '@/components/VisitorForm';
+import { VisitorList } from '@/components/VisitorList';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +74,7 @@ type MeParams = { people?: string; requests?: string; pcat?: string; psort?: str
 async function PeopleSection({ user, me, params }: { user: SessionUser; me: PersonRecord; params: MeParams }) {
   const isMaster = user.systemRole === 'master';
   const people = isMaster
-    ? (await adminDb.collection('people').get()).docs.map((d) => toPerson(d)!).filter((p) => p.personId !== user.personId)
+    ? (await adminDb.collection('people').select(...LIST_FIELDS).get()).docs.map((d) => toPerson(d)!).filter((p) => p.personId !== user.personId)
     : await listDescendants(user.personId);
   // Scope above is the server's; category / sort / view below only arrange what's in scope.
   const cat = parseCategory(params.pcat);
@@ -211,6 +219,14 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
 
   const today = todayDateString();
   const canManage = isMaster || (me.profileType === 'employee' && me.registrationStatus === 'APPROVED' && me.active);
+  const isEmployee = me.profileType === 'employee' && me.registrationStatus === 'APPROVED';
+  const [myLeave, flags, visitors, origin] = await Promise.all([
+    isEmployee ? listMyLeave(user.personId) : Promise.resolve([]),
+    canManage && !isMaster ? listFlags(user) : Promise.resolve([]),
+    canManage ? listVisitors(user, 20) : Promise.resolve([]),
+    siteOrigin(),
+  ]);
+  const unseenFlags = flags.filter((fl) => !fl.seenAt);
   const myEffective = current ? effectiveStatus(current, today) : null;
   const myStatus = accessStatus(me, myEffective);
   const period = current && myEffective !== 'SUPERSEDED' ? current : null;
@@ -253,12 +269,13 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
           <Row label="EDC email" value={typeof me.edcEmail === 'string' && me.edcEmail ? me.edcEmail : <span className="text-[#7C8C9B]">not assigned</span>} />
           <Row label="Communication email" value={<span className="break-all">{String(me.commEmail ?? '—')}</span>} />
           <Row label="Mobile" value={String(me.mobile ?? '—')} />
+          {typeof me.backupEmail === 'string' && me.backupEmail && <Row label="Backup email" value={me.backupEmail} />}
           <Row label="Profile type" value={me.profileType ? PROFILE_LABEL[me.profileType] : '—'} />
           <Row label="Registration" value={<Pill status={me.registrationStatus} />} />
         </dl>
         <AccountSettings
           username={me.username}
-          initial={{ firstName: me.firstName, lastName: me.lastName, mobile: String(me.mobile ?? ''), purpose: String(me.purpose ?? '') }}
+          initial={{ firstName: me.firstName, lastName: me.lastName, mobile: String(me.mobile ?? ''), purpose: String(me.purpose ?? ''), backupEmail: String(me.backupEmail ?? '') }}
         />
       </Section>
 
@@ -310,6 +327,31 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
           </>
         )}
       </Section>
+
+      {isEmployee && (
+        <Section title="My leave" id="leave">
+          <LeaveSection leave={myLeave.map((l) => ({ id: l.id, range: leaveRange(l), reason: l.reason, status: l.status, note: l.decisionNote, cancellable: (l.status === 'PENDING' || l.status === 'APPROVED') && l.endDate >= today }))} />
+        </Section>
+      )}
+
+      {canManage && !isMaster && flags.length > 0 && (
+        <Section title={`Stay alerts${unseenFlags.length ? ` (${unseenFlags.length} new)` : ''}`} id="stays">
+          <StayFlagList flags={flags.slice(0, 20).map((fl) => ({ id: fl.id, kind: fl.kind, label: STAY_LABEL[fl.kind], personId: fl.personId, personName: fl.personName, detail: fl.detail, createdAt: fl.createdAt.toDate().toISOString(), seen: !!fl.seenAt }))} />
+        </Section>
+      )}
+      {isMaster && <p className="text-sm"><Link href="/admin/stays" className="underline">Stay alerts</Link> · <Link href="/admin/leave" className="underline">Leave requests</Link> · <Link href="/admin/holidays" className="underline">Holidays</Link> are in the admin dashboard.</p>}
+
+      {canManage && (
+        <Section title="Visitor passes" id="visitors">
+          <VisitorForm />
+          <VisitorList rows={visitors.map((v) => ({
+            personId: v.personId, name: `${v.firstName} ${v.lastName}`, vvip: v.vvip === true, code: accessCodeFor('visitor', v.accessNumber as string),
+            host: null, createdAt: (v.createdAt as { toDate: () => Date } | undefined)?.toDate() ?? null,
+            passUrl: visitorPassUrl(origin, { personId: v.personId, credentialVersion: Number(v.credentialVersion ?? 1) }),
+            onCampus: v.onCampus === true, lastEntryAt: (v.lastEntryAt as { toDate: () => Date } | undefined)?.toDate() ?? null, active: v.active === true,
+          }))} />
+        </Section>
+      )}
 
       {canManage && (
         <Suspense fallback={<Section title={isMaster ? 'Everyone' : 'People under me'} id="people"><SkeletonBlock className="h-10 w-48" /><SkeletonBlock className="h-40 w-full" /></Section>}>

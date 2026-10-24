@@ -4,7 +4,8 @@ import { getSessionUser } from '@/lib/session';
 import { todayDateString } from '@/lib/date';
 import { listEvents } from '@/lib/events';
 import { categoryOf } from '@/lib/audit';
-import { auditQuery, entryQuery, parseAuditFilter, parseEntryFilter } from '@/lib/logs';
+import { auditQuery, entryQuery, fetchMerged, parseAuditFilter, parseEntryFilter } from '@/lib/logs';
+import type { QueryDocumentSnapshot } from 'firebase-admin/firestore';
 
 // Master only: download gate entries or the audit log as CSV for the office — filtered exactly
 // like the page (lib/logs.ts): ?action=…&person=…&from=…&to=…&order=… / ?result=…
@@ -30,18 +31,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const sp = request.nextUrl.searchParams;
   const raw = Object.fromEntries([...new Set(sp.keys())].map((k) => [k, sp.getAll(k)]));
-  let rows, people;
+  let rows: QueryDocumentSnapshot[];
   try {
-    [rows, people] = await Promise.all([
-      (kind === 'entries' ? entryQuery(parseEntryFilter(raw)) : auditQuery(parseAuditFilter(raw))).limit(LIMIT).get(),
-      adminDb.collection('people').select('firstName', 'lastName', 'username').get(),
-    ]);
+    const audit = parseAuditFilter(raw);
+    const q = kind === 'entries' ? entryQuery(parseEntryFilter(raw)) : auditQuery(audit);
+    rows = Array.isArray(q) ? await fetchMerged(q, LIMIT, audit.order) : (await q.limit(LIMIT).get()).docs;
   } catch (err) {
     // FAILED_PRECONDITION: the index for this filter is still building after a deploy.
     if ((err as { code?: number }).code === 9) return NextResponse.json({ error: 'This filter is still being prepared by the database — try again in a few minutes.' }, { status: 503 });
     throw err;
   }
-  const name = new Map(people.docs.map((d) => [d.id, `${d.data().firstName} ${d.data().lastName} (@${d.data().username})`]));
+  // Names for just the people in these rows (three fields each), not the whole table.
+  const ids = [...new Set(rows.flatMap((d) => [d.get('personId'), d.get('guardUid'), d.get('actorId'), d.get('targetPersonId')]).filter((x): x is string => typeof x === 'string' && /^[A-Za-z0-9]{1,128}$/.test(x)))];
+  const snaps = ids.length ? await adminDb.getAll(...ids.map((id) => adminDb.collection('people').doc(id)), { fieldMask: ['firstName', 'lastName', 'username'] }) : [];
+  const name = new Map(snaps.filter((s) => s.exists).map((s) => [s.id, `${s.get('firstName')} ${s.get('lastName')} (@${s.get('username')})`]));
   const who = (id: unknown) => (typeof id === 'string' ? name.get(id) ?? id : '');
   const eventName = new Map((await listEvents()).map((e) => [e.id, e.name]));
   const ev = (id: unknown) => (typeof id === 'string' ? eventName.get(id) ?? id : '');
@@ -50,11 +53,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     kind === 'entries'
       ? [
           ['time (UTC)', 'person', 'method', 'result', 'reason', 'code typed', 'event', 'guard'],
-          ...rows.docs.map((d) => { const e = d.data(); return [iso(e.timestamp), who(e.personId), e.method, e.result, e.reason, e.presentedCode, ev(e.eventId), who(e.guardUid)]; }),
+          ...rows.map((d) => { const e = d.data(); return [iso(e.timestamp), who(e.personId), e.method, e.result, e.reason, e.presentedCode, ev(e.eventId), who(e.guardUid)]; }),
         ]
       : [
           ['time (UTC)', 'action', 'category', 'by', 'by role', 'person', 'event', 'subject id', 'details'],
-          ...rows.docs.map((d) => { const a = d.data(); return [iso(a.timestamp), a.action, a.category ?? categoryOf(a.action), who(a.actorId), a.actorRole, who(a.targetPersonId), ev(a.eventId), a.subjectId, a.details]; }),
+          ...rows.map((d) => { const a = d.data(); return [iso(a.timestamp), a.action, a.category ?? categoryOf(a.action), who(a.actorId), a.actorRole, who(a.targetPersonId), ev(a.eventId), a.subjectId, a.details]; }),
         ];
   const csv = '﻿' + lines.map((l) => l.map(cell).join(',')).join('\r\n') + '\r\n';
   return new NextResponse(csv, {

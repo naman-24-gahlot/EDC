@@ -16,6 +16,9 @@ import { todayDateString } from '@/lib/date';
 import { PROFILE_LABEL, windowSummary } from '@/lib/display';
 import { eventWindow, loadEvent } from '@/lib/events';
 import { audit, eventIdOf } from '@/lib/audit';
+import { after } from 'next/server';
+import { siteOrigin } from '@/lib/origin';
+import { notifyRegistrationApproved, notifyRegistrationRejected } from '@/lib/notify';
 
 /** Types this approver may approve someone as. A parent employee keeps them a dependant. */
 export function approvableTypes(actor: SessionUser): readonly ProfileType[] {
@@ -64,7 +67,7 @@ export async function approveRegistration(actor: SessionUser, personId: string, 
   const today = todayDateString();
   const window = event ? (event.accessTo >= today ? eventWindow(event, today) : null) : templateWindow(approvedAs, today);
 
-  return adminDb.runTransaction(async (tx) => {
+  const result = await adminDb.runTransaction(async (tx) => {
     const fresh = toPerson(await tx.get(personRef));
     if (!fresh) throw new HttpError(404, 'Person not found.');
     if (fresh.registrationStatus === 'APPROVED') throw new HttpError(409, 'Already approved.');
@@ -94,6 +97,9 @@ export async function approveRegistration(actor: SessionUser, personId: string, 
 
     return { personId, accessCode: code, profileType: approvedAs, appliedAs, access: window };
   });
+  const origin = await siteOrigin();
+  after(() => notifyRegistrationApproved(personId, origin, window).catch((e) => console.error('Approval email failed', e)));
+  return result;
 }
 
 /** PENDING → REJECTED, by Master or the person's ancestor. The person and identifiers are kept. */
@@ -108,5 +114,6 @@ export async function rejectRegistration(actor: SessionUser, personId: string, n
   });
   audit(batch, { action: 'REGISTRATION_REJECTED', actor, targetPersonId: personId, eventId: eventIdOf(person), at: now, details: note });
   await batch.commit();
+  after(() => notifyRegistrationRejected(personId, note).catch((e) => console.error('Rejection email failed', e)));
   return { personId };
 }

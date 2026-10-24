@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import { getSessionUser } from '@/lib/session';
@@ -9,6 +9,12 @@ import { PREFIX } from '@/lib/access/codes';
 import { decideAccess, type AccessDenialReason } from '@/lib/access/evaluate';
 import { getCurrentEntitlement, type Entitlement } from '@/lib/access/entitlements';
 import { audit } from '@/lib/audit';
+import { afterGateScan, stayMinutesAt } from '@/lib/stays';
+import { siteOrigin } from '@/lib/origin';
+import { notifyVisitorArrived } from '@/lib/notify';
+import { holidayOn } from '@/lib/holidays';
+import { leaveOn } from '@/lib/leave';
+import { formatDate } from '@/lib/display';
 
 // The gate. ONE path for QR and typed code — see SECURITY_MODEL.md "Verification".
 // Every verdict is recorded (entryEvent + audit) BEFORE it is returned: if recording
@@ -77,8 +83,9 @@ export async function POST(request: NextRequest) {
   // Exits are recorded, never refused: we identify who is leaving, but nobody is kept in.
   const direction: 'IN' | 'OUT' = body?.direction === 'OUT' ? 'OUT' : 'IN';
 
+  const today = nowInIST();
   try {
-    const { person, denial, entitlement } = token ? await resolveToken(token) : await resolveCode(code!);
+    const [{ person, denial, entitlement }, holiday] = await Promise.all([token ? resolveToken(token) : resolveCode(code!), holidayOn(today.date)]);
 
     let approved = false;
     let reason: Reason | null = denial;
@@ -89,7 +96,7 @@ export async function POST(request: NextRequest) {
       approved = true;
       reason = null;
     } else if (person && !denial) {
-      const decision = decideAccess(person, entitlement, nowInIST());
+      const decision = decideAccess(person, entitlement, today, holiday);
       approved = decision.allowed;
       reason = decision.reason;
       entitlementId = decision.entitlement?.id ?? null;
@@ -109,15 +116,34 @@ export async function POST(request: NextRequest) {
       presentedCode: method === 'CODE' ? code : null, // the QR token itself is never stored
       eventId: eventOf(person),
       timestamp: now,
+      // Exits: minutes since their entry, when we have one (event reports, stay alerts).
+      ...(exit ? { stayMinutes: stayMinutesAt(person!, now) } : {}),
     });
-    // "Recently at the gate" sorting on the people lists reads this instead of scanning entries.
-    // lastEntryAt / lastExitAt drive "Recently at the gate" and "On campus now" without scanning entries.
-    if (approved && person) batch.update(adminDb.collection('people').doc(person.personId), exit ? { lastExitAt: now } : { lastEntryAt: now });
+    // lastEntryAt / lastExitAt / onCampus drive "Recently at the gate" and "On campus now" without scanning entries.
+    if (approved && person) batch.update(adminDb.collection('people').doc(person.personId), exit ? { lastExitAt: now, onCampus: false } : { lastEntryAt: now, onCampus: true });
     audit(batch, {
       action: exit ? 'EXIT_RECORDED' : approved ? 'ENTRY_APPROVED' : 'ENTRY_DENIED', actor: user, targetPersonId: person?.personId ?? null,
       subjectId: eventRef.id, eventId: eventOf(person), at: now, details: reason ? `${method}: ${reason}` : method,
     });
     await batch.commit();
+
+    // After the answer: late / overnight / missed-exit checks, and "your VVIP visitor has arrived".
+    if (approved && person) {
+      afterGateScan(person, entitlement, direction, now, await siteOrigin());
+      if (!exit && person.profileType === 'visitor' && person.vvip === true) after(() => notifyVisitorArrived(person.personId).then(() => {}, (e) => console.error('Arrival email failed', e)));
+    }
+
+    // Things the guard should know about who's in front of them (never change the verdict).
+    const notes: string[] = [];
+    if (person && reason === 'Campus holiday' && holiday) notes.push(`Holiday: ${holiday.name}`);
+    if (person?.profileType === 'visitor') {
+      const host = typeof person.hostId === 'string' ? await loadPerson(person.hostId) : null;
+      notes.push(`${person.vvip ? 'VVIP visitor' : 'Visitor'}${host ? ` of ${host.firstName} ${host.lastName}` : ''}${person.vvip ? ' — escort them; their host has been told' : ''}`);
+    }
+    if (approved && !exit && person?.profileType === 'employee') {
+      const leave = await leaveOn(person.personId, today.date).catch(() => null);
+      if (leave) notes.push(`On approved leave until ${formatDate(leave.endDate)}`);
+    }
 
     const idCheck = person?.idCheck as { type?: string; last4?: string | null; at?: Timestamp } | undefined;
     return NextResponse.json({
@@ -127,6 +153,7 @@ export async function POST(request: NextRequest) {
       exit,
       // The guard may record "photo ID seen" against THIS gate record (POST /api/guard/id-check).
       entryId: approved && !exit ? eventRef.id : null,
+      notes,
       idCheck: person ? (idCheck?.type ? { type: idCheck.type, last4: idCheck.last4 ?? null, at: idCheck.at?.toDate().toISOString() ?? null } : null) : null,
       person: person
         ? {
@@ -135,6 +162,7 @@ export async function POST(request: NextRequest) {
             photoDataUrl: typeof person.photoDataUrl === 'string' ? person.photoDataUrl : null,
             // Event guests: the guard sees which event they are here for.
             eventName: eventOf(person) ? String(person.eventName ?? 'Event') : null,
+            vvip: person.vvip === true,
           }
         : null,
     });

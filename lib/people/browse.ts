@@ -3,7 +3,7 @@
 import type { PersonRecord } from '@/lib/hierarchy/authorize';
 
 export const CATEGORIES = [
-  ['all', 'All'], ['employee', 'Employees'], ['incubee', 'Incubees'], ['guest', 'Event guests'],
+  ['all', 'All'], ['employee', 'Employees'], ['incubee', 'Incubees'], ['guest', 'Guests & visitors'],
   ['dependant', 'Drivers, relatives & bodyguards'], ['master', 'Masters'], ['guard', 'Guards'],
 ] as const;
 export type Category = (typeof CATEGORIES)[number][0];

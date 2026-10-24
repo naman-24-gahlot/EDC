@@ -16,7 +16,8 @@ export type ProfileType =
   | 'event_guest'
   | 'driver'
   | 'relative'
-  | 'bodyguard';
+  | 'bodyguard'
+  | 'visitor';
 
 export const PROFILE_TYPES: readonly ProfileType[] = [
   'employee',
@@ -25,6 +26,7 @@ export const PROFILE_TYPES: readonly ProfileType[] = [
   'driver',
   'relative',
   'bodyguard',
+  'visitor',
 ] as const;
 
 export function isProfileType(value: unknown): value is ProfileType {
@@ -38,6 +40,7 @@ export const PREFIX: Record<ProfileType, string> = {
   driver: 'DRV',
   relative: 'REL',
   bodyguard: 'BDG',
+  visitor: 'VIS',
 };
 
 /** Only employees (and Master) may be a parent — see DATABASE_SCHEMA.md "Hierarchy rules". */

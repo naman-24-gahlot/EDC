@@ -59,6 +59,7 @@ const GUIDANCE: Record<string, string> = {
   'Access not yet active': 'Their access starts on a later date (shown on their pass).',
   'Outside permitted days': 'Their access does not cover today.',
   'Outside permitted hours': 'Their access does not cover this time of day.',
+  'Campus holiday': 'The campus is closed today for their group. Send them to the EDC office if they must come in.',
 };
 
 type Verdict = {
@@ -68,7 +69,8 @@ type Verdict = {
   exit?: boolean;
   entryId?: string | null;
   idCheck?: { type: string; last4: string | null; at: string | null } | null;
-  person: { name: string; profileType: string | null; photoDataUrl: string | null; eventName?: string | null } | null;
+  person: { name: string; profileType: string | null; photoDataUrl: string | null; eventName?: string | null; vvip?: boolean } | null;
+  notes?: string[];
 };
 // Anything that is not an explicit verdict from the server. Never green, never "approved".
 type Unavailable = { kind: 'unavailable' };
@@ -85,7 +87,7 @@ const SAME_CODE_IGNORE_MS = 8000;
 
 const PROFILE_LABEL: Record<string, string> = {
   employee: 'Employee', incubee: 'Incubee', event_guest: 'Event Guest',
-  driver: 'Driver', relative: 'Relative', bodyguard: 'Bodyguard',
+  driver: 'Driver', relative: 'Relative', bodyguard: 'Bodyguard', visitor: 'Visitor',
 };
 
 function isVerdict(data: unknown): data is Omit<Verdict, 'kind'> {
@@ -310,11 +312,17 @@ export function GuardScanner() {
                 {result.person.profileType && (
                   <p className="text-sm opacity-90">{PROFILE_LABEL[result.person.profileType] ?? result.person.profileType}</p>
                 )}
+                {result.person.vvip && <p className="mt-1 inline-block rounded-full bg-purple-200 px-2.5 py-0.5 text-sm font-extrabold text-purple-950" data-testid="verdict-vvip">VVIP</p>}
                 {result.person.eventName && (
                   <p className="mt-1 inline-block rounded-full bg-white/20 px-2.5 py-0.5 text-sm font-semibold" data-testid="verdict-event">Event: {result.person.eventName}</p>
                 )}
               </div>
             </div>
+          )}
+          {!!result.notes?.length && (
+            <ul className="mx-auto mt-3 max-w-sm space-y-1 text-sm font-semibold" data-testid="verdict-notes">
+              {result.notes.map((n) => <li key={n} className="rounded bg-white/20 px-2 py-1">{n}</li>)}
+            </ul>
           )}
           {result.approved && !result.exit && (result.idCheck
             ? <p className="mt-3 text-sm" data-testid="id-checked">Photo ID checked: {result.idCheck.type}{result.idCheck.last4 ? ` ending ${result.idCheck.last4}` : ''}</p>

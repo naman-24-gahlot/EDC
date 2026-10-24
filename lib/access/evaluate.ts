@@ -8,6 +8,7 @@ if (typeof window !== 'undefined') {
 import { nowInIST, type IstNow } from '@/lib/date';
 import type { PersonRecord } from '@/lib/hierarchy/authorize';
 import { effectiveStatus, getCurrentEntitlement, type Entitlement } from './entitlements';
+import { holidayOn, type Holiday } from '@/lib/holidays';
 
 export type AccessDenialReason =
   | 'Account deactivated'
@@ -17,7 +18,8 @@ export type AccessDenialReason =
   | 'Access expired'
   | 'Access not yet active'
   | 'Outside permitted days'
-  | 'Outside permitted hours';
+  | 'Outside permitted hours'
+  | 'Campus holiday';
 
 export interface AccessDecision {
   allowed: boolean;
@@ -27,9 +29,11 @@ export interface AccessDecision {
 
 /** Pure decision over already-loaded state. */
 export function decideAccess(
-  person: Pick<PersonRecord, 'active' | 'registrationStatus'>,
+  person: Pick<PersonRecord, 'active' | 'registrationStatus'> & { profileType?: PersonRecord['profileType'] },
   entitlement: Entitlement | null,
-  now: IstNow
+  now: IstNow,
+  /** Today's campus holiday, if any (lib/holidays.ts). */
+  holiday: Pick<Holiday, 'appliesTo'> | null = null
 ): AccessDecision {
   const deny = (reason: AccessDenialReason): AccessDecision => ({ allowed: false, reason, entitlement });
 
@@ -44,6 +48,8 @@ export function decideAccess(
     case 'EXPIRED': return deny('Access expired');
     case 'SCHEDULED': return deny('Access not yet active');
   }
+  // A holiday closes the campus for the groups the Master picked, whatever their usual days say.
+  if (holiday && person.profileType && holiday.appliesTo.includes(person.profileType)) return deny('Campus holiday'); // 5b
   if (!entitlement.weekdays.includes(now.weekday)) return deny('Outside permitted days'); // 6
   // [startTime, endTime): start inclusive, end exclusive. HH:MM compares correctly as text.
   if (now.time < entitlement.startTime || now.time >= entitlement.endTime) return deny('Outside permitted hours'); // 7
@@ -52,5 +58,6 @@ export function decideAccess(
 }
 
 export async function evaluateAccess(person: PersonRecord, now: IstNow = nowInIST()): Promise<AccessDecision> {
-  return decideAccess(person, await getCurrentEntitlement(person.personId), now);
+  const [entitlement, holiday] = await Promise.all([getCurrentEntitlement(person.personId), holidayOn(now.date)]);
+  return decideAccess(person, entitlement, now, holiday);
 }

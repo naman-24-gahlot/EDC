@@ -87,6 +87,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   const [username, setUsername] = useState('');
   const [commEmail, setCommEmail] = useState('');
   const [mobile, setMobile] = useState('');
+  const [backupEmail, setBackupEmail] = useState('');
   const [password, setPassword] = useState('');
   const [purpose, setPurpose] = useState('');
   const [profileType, setProfileType] = useState<string>(event ? 'event_guest' : 'employee');
@@ -124,6 +125,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           username,
           commEmail,
           mobile,
+          backupEmail: backupEmail.trim() || undefined,
           password,
           purpose,
           profileType,
@@ -194,6 +196,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
         />
         <EmailConfirm value={commEmail} onChange={setCommEmail} hint={emailCheck} humanToken={humanToken} onConfirmed={setEmailConfirmed} />
         <Field label="Mobile number" type="tel" value={mobile} onChange={setMobile} required autoComplete="tel" placeholder="98765 43210" hint={mobileCheck} />
+        <Field label="Backup email (optional) — a second place for password resets and approval emails" type="email" value={backupEmail} onChange={setBackupEmail} autoComplete="off" />
         <PasswordField id="reg-password" label="Password" value={password} onChange={setPassword} ctx={pwCtx} onVerdict={setPwVerdict} />
 
         <div className="space-y-1">

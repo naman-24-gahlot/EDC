@@ -5,7 +5,7 @@ if (typeof window !== 'undefined') {
   throw new Error('lib/logs.ts must never be imported into client code.');
 }
 
-import { Timestamp, type Query } from 'firebase-admin/firestore';
+import { Timestamp, type Query, type QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 
 // The action list and groups live with the writer (lib/audit.ts), so they can't drift apart.
@@ -16,6 +16,7 @@ export const ACTIONS: readonly string[] = ALL_ACTIONS;
 const ID_RE = /^[A-Za-z0-9]{1,128}$/;
 // Firestore allows at most 30 values in an "in" filter and 10 in "not-in".
 const IN_LIMIT = 30;
+const NOT_IN_LIMIT = 10;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 type Raw = Record<string, string | string[] | undefined>;
 const list = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? v.split(',') : []);
@@ -72,14 +73,28 @@ function withDates(q: Query, f: LogFilter): Query {
   return q.orderBy('timestamp', f.order);
 }
 
-export function auditQuery(f: AuditFilter): Query {
+/** One query, or (many ticked, many unticked) several disjoint ones to merge — see runPaged. */
+export function auditQuery(f: AuditFilter): Query | Query[] {
   let q: Query = adminDb.collection('auditLogs');
   if (f.person) q = q.where('targetPersonId', '==', f.person);
   q = withEvent(q, f);
+  const unticked = ACTIONS.filter((x) => !f.actions.includes(x));
   if (f.actions.length === 1) q = q.where('action', '==', f.actions[0]);
-  else if (f.actions.length > IN_LIMIT) q = q.where('action', 'not-in', ACTIONS.filter((x) => !f.actions.includes(x))); // nearly all ticked: exclude the few that aren't
-  else if (f.actions.length > 1) q = q.where('action', 'in', f.actions);
+  else if (f.actions.length > 1 && f.actions.length <= IN_LIMIT) q = q.where('action', 'in', f.actions);
+  else if (f.actions.length > IN_LIMIT && unticked.length <= NOT_IN_LIMIT) q = q.where('action', 'not-in', unticked); // nearly all ticked: exclude the few that aren't
+  else if (f.actions.length > IN_LIMIT) {
+    const parts: Query[] = [];
+    for (let i = 0; i < f.actions.length; i += IN_LIMIT) parts.push(withDates(q.where('action', 'in', f.actions.slice(i, i + IN_LIMIT)), f));
+    return parts;
+  }
   return withDates(q, f);
+}
+
+/** The first `n` documents across disjoint queries, in timestamp order. */
+export async function fetchMerged(qs: Query[], n: number, order: 'asc' | 'desc') {
+  const snaps = await Promise.all(qs.map((q) => q.limit(n).get()));
+  const ms = (d: QueryDocumentSnapshot) => (d.get('timestamp') as Timestamp).toMillis();
+  return snaps.flatMap((s) => s.docs).sort((a, b) => (order === 'asc' ? ms(a) - ms(b) : ms(b) - ms(a))).slice(0, n);
 }
 
 export function entryQuery(f: EntryFilter): Query {
@@ -107,8 +122,12 @@ export function filterParams(f: Partial<AuditFilter & EntryFilter>): Record<stri
  * One page of a filtered log, plus the total. `building` = Firestore is still creating the
  * index this filter needs (minutes after an index deploy) — pages say so instead of crashing.
  */
-export async function runPaged(q: Query, page: number, size: number) {
+export async function runPaged(q: Query | Query[], page: number, size: number, order: 'asc' | 'desc' = 'desc') {
   try {
+    if (Array.isArray(q)) {
+      const [counts, docs] = await Promise.all([Promise.all(q.map((x) => x.count().get())), fetchMerged(q, page * size, order)]);
+      return { building: false as const, total: counts.reduce((s, c) => s + c.data().count, 0), docs: docs.slice((page - 1) * size) };
+    }
     const [count, snap] = await Promise.all([q.count().get(), q.offset((page - 1) * size).limit(size).get()]);
     return { building: false as const, total: count.data().count, docs: snap.docs };
   } catch (err) {

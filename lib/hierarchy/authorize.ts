@@ -94,7 +94,18 @@ export async function assertCanActOn(actor: SessionUser, targetPersonId: string)
 }
 
 /** Everyone below personId, at any depth — a server-side array-contains query. */
+/**
+ * Every person field a LIST needs — all but the photo (up to 150 KB each, shown only on single-person
+ * screens). Loading a list with this mask costs the same reads but a fraction of the data.
+ */
+export const LIST_FIELDS = [
+  'personId', 'firstName', 'lastName', 'username', 'commEmail', 'edcEmail', 'mobile', 'purpose', 'profileType', 'systemRole',
+  'parentId', 'ancestorIds', 'createdAt', 'createdBy', 'eventId', 'eventName', 'registrationSource', 'registrationStatus',
+  'registrationDecision', 'accessNumber', 'lastRequestAt', 'active', 'credentialVersion', 'emailVerified', 'approvalNotice',
+  'lastEntryAt', 'lastExitAt', 'onCampus', 'idCheck', 'backupEmail', 'hasAccount', 'hostId', 'vvip',
+] as const;
+
 export async function listDescendants(personId: string): Promise<PersonRecord[]> {
-  const snap = await adminDb.collection('people').where('ancestorIds', 'array-contains', personId).get();
+  const snap = await adminDb.collection('people').where('ancestorIds', 'array-contains', personId).select(...LIST_FIELDS).get();
   return snap.docs.map((doc) => toPerson(doc)!);
 }

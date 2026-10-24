@@ -5,7 +5,7 @@ if (typeof window !== 'undefined') {
 
 import { adminDb } from '@/lib/firebase/admin';
 import { requirePageRole, type SessionUser } from '@/lib/session';
-import { toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
+import { LIST_FIELDS, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 
 /**
  * Every admin PAGE must call this first. The layout's check is not enough: on client-side
@@ -17,19 +17,23 @@ export function requireMasterPage(): Promise<SessionUser> {
 }
 
 export async function allPeople(): Promise<PersonRecord[]> {
-  return (await adminDb.collection('people').get()).docs.map((d) => toPerson(d)!);
+  return (await adminDb.collection('people').select(...LIST_FIELDS).get()).docs.map((d) => toPerson(d)!);
 }
 
 /** Nav badges: actionable PENDING requests (past-deadline ones excluded) and PENDING registrations. */
-export async function pendingCounts(): Promise<{ requests: number; registrations: number }> {
+export async function pendingCounts(): Promise<{ requests: number; registrations: number; stays: number; leave: number }> {
   const nowMs = Date.now();
-  const [pendingRequests, pendingRegistrations] = await Promise.all([
+  const [pendingRequests, pendingRegistrations, unseenStays, pendingLeave] = await Promise.all([
     adminDb.collection('accessRequests').where('status', '==', 'PENDING').select('actionableUntil').get(),
     adminDb.collection('people').where('registrationStatus', '==', 'PENDING').count().get(),
+    adminDb.collection('stayFlags').where('seenAt', '==', null).count().get(),
+    adminDb.collection('leaveRequests').where('status', '==', 'PENDING').count().get(),
   ]);
   return {
     requests: pendingRequests.docs.filter((d) => (d.data().actionableUntil?.toMillis?.() ?? 0) > nowMs).length,
     registrations: pendingRegistrations.data().count,
+    stays: unseenStays.data().count,
+    leave: pendingLeave.data().count,
   };
 }
 

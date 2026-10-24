@@ -11,6 +11,8 @@ if (typeof window !== 'undefined') {
 
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { toPerson } from '@/lib/hierarchy/authorize';
+import { sendResetToBackup } from '@/lib/notify';
 
 const API = 'https://identitytoolkit.googleapis.com/v1';
 const key = () => {
@@ -48,6 +50,11 @@ async function toOutbox(personId: string, to: string, kind: Kind, link: string) 
 export async function sendPasswordReset(personId: string, origin: string): Promise<void> {
   const { email } = await adminAuth.getUser(personId);
   if (!email) return;
+  const person = toPerson(await adminDb.collection('people').doc(personId).get());
+  // A second copy for the backup email, if they added one (a fresh link of its own).
+  if (person && typeof person.backupEmail === 'string' && person.backupEmail) {
+    await sendResetToBackup(person, ourLink(await adminAuth.generatePasswordResetLink(email), origin, 'resetPassword'));
+  }
   if (isTestAddress(email)) return toOutbox(personId, email, 'resetPassword', ourLink(await adminAuth.generatePasswordResetLink(email), origin, 'resetPassword'));
   await identityToolkit('accounts:sendOobCode', { requestType: 'PASSWORD_RESET', email });
 }

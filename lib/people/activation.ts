@@ -29,8 +29,10 @@ export async function setActive(
 
   // Auth first: on a partial failure deactivation fails closed, and a retry still works
   // because the Firestore flag hasn't flipped yet.
-  await adminAuth.updateUser(personId, { disabled: !active });
-  if (!active) await adminAuth.revokeRefreshTokens(personId);
+  if (person.hasAccount !== false) { // visitors have no sign-in account
+    await adminAuth.updateUser(personId, { disabled: !active });
+    if (!active) await adminAuth.revokeRefreshTokens(personId);
+  }
 
   const batch = adminDb.batch();
   batch.update(adminDb.collection('people').doc(personId), {

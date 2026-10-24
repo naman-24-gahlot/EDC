@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { adminDb } from '@/lib/firebase/admin';
-import { toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
+import { LIST_FIELDS, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { eventWindow, linkState, loadEvent } from '@/lib/events';
 import { approveOptions } from '@/lib/people/approveRegistration';
 import { PROFILE_LABEL, formatDate, formatDateTime, windowSummary } from '@/lib/display';
@@ -16,6 +16,7 @@ import { istInput, requireMasterPage, siteOrigin } from '../../data';
 import { EventForm } from '../EventForm';
 import { LinkPanel } from '../LinkPanel';
 import { ApplicantProfile } from '@/components/ApplicantProfile';
+import { EventReport } from './EventReport';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,7 @@ export default async function AdminEventPage({ params, searchParams }: { params:
   const { status: rawStatus } = await searchParams;
   const status = STATUS.find(([v]) => v === rawStatus)?.[0] ?? 'PENDING';
 
-  const [snap, origin] = await Promise.all([adminDb.collection('people').where('eventId', '==', eventId).get(), siteOrigin()]);
+  const [snap, origin] = await Promise.all([adminDb.collection('people').where('eventId', '==', eventId).select(...LIST_FIELDS).get(), siteOrigin()]);
   const everyone = snap.docs.map((d) => toPerson(d)!);
   const count = (s: string) => everyone.filter((p) => p.registrationStatus === s).length;
   const shown = everyone
@@ -83,6 +84,8 @@ export default async function AdminEventPage({ params, searchParams }: { params:
         </p>
         <p className="text-sm"><b className={count('PENDING') ? 'text-amber-700' : ''}>{count('PENDING')} waiting</b> · {count('APPROVED')} approved · {count('REJECTED')} rejected</p>
       </div>
+
+      <EventReport event={event} people={everyone} />
 
       <section className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-4">
         <h3 className="text-sm font-semibold">Registration link</h3>

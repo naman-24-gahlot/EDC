@@ -11,6 +11,9 @@ import type { SessionUser } from '@/lib/session';
 import type { ProfileType } from '@/lib/access/codes';
 import { HttpError, assertCanActOn, toPerson } from '@/lib/hierarchy/authorize';
 import { audit, eventIdOf, type AuditAction } from '@/lib/audit';
+import { after } from 'next/server';
+import { siteOrigin } from '@/lib/origin';
+import { notifyAccessApproved } from '@/lib/notify';
 
 export type EntitlementState = 'ACTIVE' | 'REVOKED' | 'SUPERSEDED';
 export type EffectiveStatus = EntitlementState | 'EXPIRED' | 'SCHEDULED';
@@ -32,6 +35,8 @@ export interface Entitlement {
   revokedAt: Timestamp | null;
   revokeReason: string | null;
   createdAt: Timestamp;
+  /** May still be inside after the day ends (no overnight / late-exit alert). Absent = false. */
+  allowOvernight?: boolean;
 }
 
 interface Template {
@@ -49,6 +54,7 @@ export const TEMPLATES: Record<ProfileType, Template> = {
   driver: { weekdays: [1, 2, 3, 4, 5, 6], startTime: '08:00', endTime: '20:00', durationDays: 30 },
   relative: { weekdays: [1, 2, 3, 4, 5, 6], startTime: '08:00', endTime: '20:00', durationDays: 30 },
   bodyguard: { weekdays: [1, 2, 3, 4, 5, 6], startTime: '08:00', endTime: '20:00', durationDays: 30 },
+  visitor: { weekdays: [0, 1, 2, 3, 4, 5, 6], startTime: '09:00', endTime: '18:00', durationDays: 1 },
 };
 
 /** The fields an approver may set on a grant or edit. */
@@ -58,6 +64,7 @@ export interface EntitlementWindow {
   weekdays: number[];
   startTime: string;
   endTime: string;
+  allowOvernight?: boolean;
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -98,6 +105,10 @@ export function parseWindowPatch(input: unknown): Partial<EntitlementWindow> {
       if (typeof raw[key] !== 'string' || !TIME_RE.test(raw[key] as string)) throw new HttpError(400, `${key} must be HH:MM (24h).`);
       patch[key] = raw[key] as string;
     }
+  }
+  if ('allowOvernight' in raw) {
+    if (typeof raw.allowOvernight !== 'boolean') throw new HttpError(400, 'allowOvernight must be true or false.');
+    patch.allowOvernight = raw.allowOvernight;
   }
   return patch;
 }
@@ -228,7 +239,7 @@ export async function planGrant(tx: Transaction, actor: SessionUser, args: Grant
         createdAt: now,
       });
       log(tx, 'ENTITLEMENT_CREATED', actor, args.personId, ref.id, eventIdOf(person),
-        `${window.startDate} → ${window.endDate ?? 'open'}, days ${window.weekdays.join('')}, ${window.startTime}–${window.endTime}`);
+        `${window.startDate} → ${window.endDate ?? 'open'}, days ${window.weekdays.join('')}, ${window.startTime}–${window.endTime}${window.allowOvernight ? ', overnight allowed' : ''}`);
     },
   };
 }
@@ -236,11 +247,14 @@ export async function planGrant(tx: Transaction, actor: SessionUser, args: Grant
 /** Master or an ancestor grants directly. Any ACTIVE entitlement becomes SUPERSEDED. */
 export async function grantEntitlement(actor: SessionUser, args: GrantArgs) {
   await assertCanActOn(actor, args.personId);
-  return adminDb.runTransaction(async (tx) => {
+  const granted = await adminDb.runTransaction(async (tx) => {
     const plan = await planGrant(tx, actor, args);
     plan.write();
     return { entitlementId: plan.entitlementId, ...plan.window };
   });
+  const origin = await siteOrigin();
+  after(() => notifyAccessApproved(granted.entitlementId, origin).catch((e) => console.error('Access email failed', e)));
+  return granted;
 }
 
 async function loadForChange(actor: SessionUser, entitlementId: string): Promise<Entitlement> {
@@ -279,17 +293,18 @@ export async function editEntitlement(actor: SessionUser, entitlementId: string,
     const fresh = toEntitlement(await tx.get(ref));
     const eventId = eventIdOf((await tx.get(adminDb.collection('people').doc(ent.personId))).data());
     if (fresh.state !== 'ACTIVE') throw new HttpError(409, `Cannot edit a ${fresh.state} entitlement.`);
-    const merged: EntitlementWindow = {
+    const before: EntitlementWindow = {
       startDate: fresh.startDate, endDate: fresh.endDate, weekdays: fresh.weekdays,
-      startTime: fresh.startTime, endTime: fresh.endTime, ...patch,
+      startTime: fresh.startTime, endTime: fresh.endTime, allowOvernight: fresh.allowOvernight ?? false,
     };
+    const merged: EntitlementWindow = { ...before, ...patch };
     assertCoherent(merged);
     // The form sends the whole period; record only what actually changed.
-    const changed = keys.filter((k) => JSON.stringify(fresh[k]) !== JSON.stringify(merged[k]));
+    const changed = keys.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(merged[k]));
     if (changed.length === 0) throw new HttpError(400, 'Nothing changed.');
     tx.update(ref, { ...patch });
     log(tx, 'ENTITLEMENT_CHANGED', actor, ent.personId, entitlementId, eventId,
-      changed.map((k) => `${k}: ${JSON.stringify(fresh[k])} → ${JSON.stringify(merged[k])}`).join('; '));
+      changed.map((k) => `${k}: ${JSON.stringify(before[k])} → ${JSON.stringify(merged[k])}`).join('; '));
     return { entitlementId, ...merged };
   });
 }

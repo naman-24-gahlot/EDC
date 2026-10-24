@@ -19,7 +19,7 @@ import { Timestamp, type DocumentData } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 
 const FILE = '.test-checkpoint.local.json';
-const COLLECTIONS = ['people', 'identifiers', 'accessNumbers', 'entitlements', 'accessRequests', 'entryEvents', 'auditLogs', 'events', 'passwordHashes', 'testOutbox', 'emailChecks'] as const;
+const COLLECTIONS = ['people', 'identifiers', 'accessNumbers', 'entitlements', 'accessRequests', 'entryEvents', 'auditLogs', 'events', 'passwordHashes', 'testOutbox', 'emailChecks', 'stayFlags', 'holidays', 'leaveRequests', 'emailLog', 'auditChain'] as const;
 const SUB = 'profileHistory'; // people/{id}/profileHistory/{id}
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
@@ -127,10 +127,12 @@ async function main() {
 
   // People who don't look like test accounts may be real sign-ups made during the testing window
   // (the live site shares this database). Never delete them without an explicit second flag.
-  const looksTest = (p: { username?: string; commEmail?: string }) => /^qa\./.test(p.username ?? '') || /\.test$/i.test(p.commEmail ?? '');
-  const realLooking = d.added.filter((a) => a.path === 'people' && !looksTest(a.data as { username?: string; commEmail?: string })).map((a) => label(before, now, a.id));
+  // Visitor passes don't choose a username: a .test email or a first name starting "QA" marks a test one.
+  const looksTest = (p: { username?: string; commEmail?: string | null; profileType?: string; firstName?: string }) =>
+    /^qa\./.test(p.username ?? '') || /\.test$/i.test(p.commEmail ?? '') || (p.profileType === 'visitor' && /^qa/i.test(p.firstName ?? ''));
+  const realLooking = d.added.filter((a) => a.path === 'people' && !looksTest(a.data as { username?: string; commEmail?: string | null; profileType?: string; firstName?: string })).map((a) => label(before, now, a.id));
   // Sign-in accounts too: one without a test person (or a .test email) is not obviously ours.
-  const testIds = new Set(d.added.filter((a) => a.path === 'people' && looksTest(a.data as { username?: string; commEmail?: string })).map((a) => a.id));
+  const testIds = new Set(d.added.filter((a) => a.path === 'people' && looksTest(a.data as { username?: string; commEmail?: string | null; profileType?: string; firstName?: string })).map((a) => a.id));
   for (const uid of d.newAccounts) if (!testIds.has(uid) && !/\.test$/i.test(now.auth[uid].email ?? '') && !d.added.some((a) => a.path === 'people' && a.id === uid)) realLooking.push(`sign-in account ${now.auth[uid].email ?? uid} (no profile)`);
   if (realLooking.length) console.log(`  ⚠ not obviously test data (${realLooking.length}): ${realLooking.join(', ')}`);
 
