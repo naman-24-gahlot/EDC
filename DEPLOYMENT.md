@@ -20,6 +20,7 @@ Project settings → Service accounts → Generate new private key for the Admin
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Server-only — Admin SDK. Paste with real newlines or `\n` escapes; `lib/firebase/admin.ts` converts `\n` → real newlines either way |
 | `QR_TOKEN_SECRET` | Server-only — QR pass HMAC signing (`lib/qr-token.ts`). A long random string; treat exactly like a password |
 | `SMTP_USER` / `SMTP_PASS` | Server-only, **optional** — the app's own emails (DEPLOYMENT.md "Emails"). A Gmail address and its 16-character **app password**. Unset = those emails are skipped (logged), the app works the same |
+| `APP_ORIGIN` / `APP_HOSTS` | Optional — the canonical `https://…` address for links in emails, and extra trusted hostnames (comma-separated). Emailed links only ever use a known host (`lib/origin.ts`); set both when a custom domain is added (LAUNCH.md §3) |
 | `SMTP_HOST` / `SMTP_PORT` / `MAIL_FROM_NAME` | Optional — default `smtp.gmail.com` / `465` / `EDC Access` |
 | `EDC_EMAIL_DOMAIN` | Server-only, **optional, not a secret** — institutional email domain for the EDC login identifier. Empty/unset = that identifier isn't assigned; username and communication-email login still work. Set it in Vercel only if you set it locally. |
 

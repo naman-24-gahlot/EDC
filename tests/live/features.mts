@@ -146,6 +146,11 @@ const me = (await post('/api/auth/session', { identifier: u, password: pw })).co
 check('they can change their own', (await call('PATCH', '/api/me/profile', { backupEmail: `${u}.second@qa.test` }, me)).status === 200);
 await post('/api/auth/forgot', { identifier: u });
 await sleep(3000);
+// Reset-link poisoning: a forged host header must not change where the emailed link points.
+await fetch(`${B}/api/auth/forgot`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: B, 'X-Forwarded-Host': 'evil.example' }, body: JSON.stringify({ identifier: u }) });
+await sleep(3000);
+const resetLinks = (await adminDb.collection('testOutbox').where('to', '==', `${u}@qa.test`).where('kind', '==', 'resetPassword').get()).docs.map((d) => String(d.data().link));
+check('reset links never point at a forged host', resetLinks.length > 0 && resetLinks.every((l) => !l.includes('evil.example')), resetLinks.map((l) => new URL(l).host));
 check('forgot password: a reset link goes to the backup email too', !(await adminDb.collection('testOutbox').where('to', '==', `${u}.second@qa.test`).where('kind', '==', 'PASSWORD_RESET_BACKUP').get()).empty);
 
 // ——— Pages, event report, audit filter split, audit chain

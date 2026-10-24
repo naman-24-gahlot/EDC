@@ -322,6 +322,26 @@ reported and the rest continue.
   could route resets to themselves. Forgot-password sends a fresh reset link to it as well; it's
   never a login identifier. Risk accepted: a mistyped backup address would receive reset links.
 
+## Every change is audited
+Every state change goes through `audit()` (`lib/audit.ts`) in the same batch/transaction, or right
+after it — including sign-in and sign-out (successful sign-ins only: logging failures would let anyone
+spend the free write quota), the one-time approval notice being seen, email confirmation before
+registering, stay alerts, and the local tools (`set-test-password`, `test-data clean` writes
+TEST_DATA_CLEANED). Nothing else writes `auditLogs` (the seed script writes entries the chain then
+seals). Not audit entries: outgoing emails (`emailLog`), rate-limit counters (memory), and the gate's
+`entryEvents` (each has a matching ENTRY_*/EXIT audit entry).
+
+## Links in emails (`lib/origin.ts`)
+Emailed links (password reset, approval, visitor pass) are built from the request's host **only if it
+is a known host** (`APP_HOSTS`, the built-in two, this deployment's own Vercel URLs, or localhost in
+development); otherwise `APP_ORIGIN`. A forged `Host`/`X-Forwarded-Host` can't make a reset email
+point at another site ("reset-link poisoning"; covered by tests/live/features.mts).
+
+## Dependencies
+2026-10-24: Next.js 16.3.5 → 16.4.3 (critical: remote code execution in `next/og` ImageResponse, which
+the app icons use; plus high-severity fixes in transitive packages via `npm audit fix`). Remaining:
+2 moderate advisories inside Google's libraries under firebase-admin.
+
 ## Audit integrity (`lib/auditChain.ts`)
 Entries are chained with HMAC-SHA256 (key derived from `QR_TOKEN_SECRET`, so database access alone
 can't forge fingerprints). Detects edits, deletions and reordering of sealed entries. Not detected

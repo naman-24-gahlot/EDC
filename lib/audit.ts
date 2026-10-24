@@ -16,10 +16,10 @@ export const ACTION_GROUPS = [
   { key: 'gate', label: 'Gate', actions: ['ENTRY_APPROVED', 'ENTRY_DENIED', 'EXIT_RECORDED'] },
   { key: 'stays', label: 'Stays', actions: ['LATE_EXIT', 'OVERNIGHT_STAY', 'MISSED_EXIT_SCAN', 'STAY_FLAG_SEEN'] },
   { key: 'access', label: 'Access', actions: ['ACCESS_REQUEST_CREATED', 'ACCESS_REQUEST_APPROVED', 'ACCESS_REQUEST_REJECTED', 'ACCESS_REQUEST_EXPIRED', 'ENTITLEMENT_CREATED', 'ENTITLEMENT_CHANGED', 'ENTITLEMENT_REVOKED', 'ENTITLEMENT_SUPERSEDED'] },
-  { key: 'people', label: 'People', actions: ['REGISTRATION_SUBMITTED', 'REGISTRATION_APPROVED', 'REGISTRATION_REJECTED', 'PROFILE_CREATED', 'PROFILE_UPDATED', 'PROFILE_TYPE_CHANGED', 'HIERARCHY_CHANGED', 'PERSON_DEACTIVATED', 'PERSON_REACTIVATED', 'GUARD_CREATED', 'MASTER_PROMOTED', 'MASTER_DEMOTED', 'VISITOR_PASS_CREATED'] },
+  { key: 'people', label: 'People', actions: ['REGISTRATION_SUBMITTED', 'REGISTRATION_APPROVED', 'REGISTRATION_REJECTED', 'PROFILE_CREATED', 'PROFILE_UPDATED', 'PROFILE_TYPE_CHANGED', 'HIERARCHY_CHANGED', 'PERSON_DEACTIVATED', 'PERSON_REACTIVATED', 'GUARD_CREATED', 'MASTER_PROMOTED', 'MASTER_DEMOTED', 'VISITOR_PASS_CREATED', 'APPROVAL_NOTICE_SEEN'] },
   { key: 'leave', label: 'Leave & holidays', actions: ['LEAVE_REQUESTED', 'LEAVE_APPROVED', 'LEAVE_REJECTED', 'LEAVE_CANCELLED', 'HOLIDAY_ADDED', 'HOLIDAY_REMOVED'] },
   { key: 'events', label: 'Events', actions: ['EVENT_CREATED', 'EVENT_UPDATED', 'EVENT_LINK_CLOSED', 'EVENT_LINK_REOPENED', 'EVENT_LINK_REPLACED'] },
-  { key: 'security', label: 'Passwords & passes', actions: ['PASSWORD_CHANGED', 'PASSWORD_RESET', 'PASSWORD_RESET_EMAIL_SENT', 'EMAIL_VERIFIED', 'ID_CHECKED', 'SESSIONS_REVOKED', 'CREDENTIAL_REISSUED', 'ORPHAN_AUTH_ACCOUNT_REMOVED'] },
+  { key: 'security', label: 'Passwords & passes', actions: ['PASSWORD_CHANGED', 'PASSWORD_RESET', 'PASSWORD_RESET_EMAIL_SENT', 'EMAIL_VERIFIED', 'REGISTRATION_EMAIL_CONFIRMED', 'SIGNED_IN', 'SIGNED_OUT', 'TEST_DATA_CLEANED', 'ID_CHECKED', 'SESSIONS_REVOKED', 'CREDENTIAL_REISSUED', 'ORPHAN_AUTH_ACCOUNT_REMOVED'] },
 ] as const;
 export type AuditAction = (typeof ACTION_GROUPS)[number]['actions'][number];
 export type AuditCategory = (typeof ACTION_GROUPS)[number]['key'];
@@ -79,6 +79,8 @@ function sealSoon() {
 }
 
 /** Adds the entry to a transaction or batch (committed with it), or writes it now. */
+export function audit(writer: null, e: AuditInput): Promise<unknown>;
+export function audit(writer: Transaction | WriteBatch, e: AuditInput): void;
 export function audit(writer: Transaction | WriteBatch | null, e: AuditInput): Promise<unknown> | void {
   const ref = adminDb.collection('auditLogs').doc();
   sealSoon();

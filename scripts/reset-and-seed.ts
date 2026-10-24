@@ -66,6 +66,15 @@ const NEW_COLLECTIONS = [
   'accessRequests',
   'entryEvents',
   'auditLogs',
+  'auditChain',
+  'events',
+  'passwordHashes',
+  'testOutbox',
+  'emailChecks',
+  'emailLog',
+  'stayFlags',
+  'holidays',
+  'leaveRequests',
 ];
 
 function requireEnv(name: string): string {
@@ -185,7 +194,9 @@ async function main() {
     timestamp: Timestamp = now
   ) => {
     const ref = db.collection('auditLogs').doc();
-    await ref.set({ action, actorId, actorRole, targetPersonId, subjectId, timestamp, details });
+    // Same shape lib/audit.ts writes; sealed into the chain by the app's next audit write.
+    const category = action.startsWith('ENTRY') ? 'gate' : /^(ACCESS|ENTITLEMENT)/.test(action) ? 'access' : 'people';
+    await ref.set({ action, category, actorId, actorRole, targetPersonId, subjectId, eventId: null, timestamp, details, sealed: false });
   };
 
   const nextAccessNumber = (fixed?: string): string => {

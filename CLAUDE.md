@@ -17,6 +17,7 @@ Docs (read only what the current phase needs):
 - [EXPANSION_PLAN.md](EXPANSION_PLAN.md) — the phase prompts for this expansion
 - [PROGRESS.md](PROGRESS.md) — per-session status log
 - [DEPLOYMENT.md](DEPLOYMENT.md), [DEMO_SCRIPT.md](DEMO_SCRIPT.md)
+- [LAUNCH.md](LAUNCH.md) — setup still pending, moving to new accounts, custom domain, pre-launch must-dos
 
 ## Architecture (locked — do not re-evaluate)
 - Next.js App Router + TypeScript + Tailwind; Turbopack build; `jose` pinned via `overrides`

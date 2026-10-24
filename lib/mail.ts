@@ -34,13 +34,16 @@ export interface Mail {
   text: string;
 }
 
+// Same rule as sign-up: nothing that could break out of an SMTP command or header (<, >, commas, spaces).
+const ADDRESS_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
+
 export type Delivery = 'sent' | 'outbox' | 'skipped' | 'failed';
 
 export const mailConfigured = () => !!(process.env.SMTP_USER && process.env.SMTP_PASS);
 
 /** Sends to each distinct address; returns what happened per address. Never throws. */
 export async function sendMail(mail: Mail): Promise<Record<string, Delivery>> {
-  const to = [...new Set(mail.to.filter((x): x is string => !!x && /^[^@\s]+@[^@\s]+$/.test(x)).map((x) => x.toLowerCase()))];
+  const to = [...new Set(mail.to.filter((x): x is string => !!x && ADDRESS_RE.test(x) && x.length <= 254).map((x) => x.toLowerCase()))];
   const out: Record<string, Delivery> = {};
   const now = Timestamp.now();
   for (const addr of to) {

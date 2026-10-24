@@ -25,7 +25,8 @@ function Box({ title, children }: { title: string; children: React.ReactNode }) 
 // only someone holding the link can show it. Only visitor passes open here — everyone else uses
 // their own account's pass. A replaced/revoked/ended pass says so instead of showing a QR.
 export default async function VisitorPassPage({ params }: { params: Promise<{ token: string }> }) {
-  const token = decodeURIComponent((await params).token);
+  const raw = (await params).token;
+  const token = (() => { try { return decodeURIComponent(raw); } catch { return ''; } })(); // a malformed link is just "not a pass"
   const parsed = parsePassToken(token);
   const valid = parsed && verifyPassSignature(parsed.personId, parsed.credentialVersion, parsed.signature);
   const person = valid ? await loadPerson(parsed.personId) : null;

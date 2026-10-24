@@ -15,7 +15,8 @@ export function OnCampusPanel({ people }: { people: OnCampus[] }) {
   const warnings = people.filter((p) => p.overnight || p.afterHours).length;
 
   function download() {
-    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    // Quote, and defuse cells a spreadsheet would run as a formula (= + - @ at the start).
+    const esc = (v: string) => `"${(/^[=+\-@\t\r]/.test(v) ? `'${v}` : v).replace(/"/g, '""')}"`;
     const lines = [['Name', 'Group', 'VVIP', 'In since (IST)', 'Note'].join(','),
       ...shown.map((p) => [esc(p.name), esc(p.group), p.vvip ? 'yes' : '', esc(when(p.since)), esc(note(p))].join(','))];
     const a = document.createElement('a');

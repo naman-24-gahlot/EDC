@@ -17,6 +17,8 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { Timestamp, type DocumentData } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
+import { audit } from '@/lib/audit';
+import { sealAll } from '@/lib/auditChain';
 
 const FILE = '.test-checkpoint.local.json';
 const COLLECTIONS = ['people', 'identifiers', 'accessNumbers', 'entitlements', 'accessRequests', 'entryEvents', 'auditLogs', 'events', 'passwordHashes', 'testOutbox', 'emailChecks', 'stayFlags', 'holidays', 'leaveRequests', 'emailLog', 'auditChain'] as const;
@@ -159,6 +161,9 @@ async function main() {
     await adminAuth.setCustomUserClaims(uid, fromJson(s.claims) as Record<string, unknown>);
     await adminAuth.revokeRefreshTokens(uid); // sessions made during testing carry the test-time role
   }
+  // The audit log and its chain are back at the checkpoint; record that the clean-up happened.
+  await audit(null, { action: 'TEST_DATA_CLEANED', actor: 'system', targetPersonId: null, details: `back to the checkpoint of ${before.at}: removed ${d.added.length} records and ${d.newAccounts.length} sign-in accounts, put back ${d.changed.length + d.removed.length} records` });
+  await sealAll();
   console.log(`\nDone: deleted ${d.added.length} records and ${d.newAccounts.length} sign-in accounts; put back ${d.changed.length + d.removed.length} records and ${d.changedAccounts.length} accounts.`);
   console.log(`The checkpoint is kept, so you can test again and clean again. Delete ${FILE} when you're finished with it.`);
 }

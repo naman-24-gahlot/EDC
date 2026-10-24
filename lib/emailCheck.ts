@@ -16,6 +16,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import { HttpError } from '@/lib/hierarchy/authorize';
 import { identityToolkit, isTestAddress, EmailActionError } from '@/lib/auth/emailActions';
 import { checkEmail } from '@/lib/registrationChecks';
+import { audit } from '@/lib/audit';
 
 export const CONFIRMED_FOR_MS = 24 * 60 * 60 * 1000; // time to finish the form after confirming
 const TEST_LINK_FOR_MS = 24 * 60 * 60 * 1000;
@@ -92,6 +93,7 @@ export async function confirmEmailCheck(params: { email?: string; oobCode?: stri
   }
   const now = Date.now();
   await ref(email).set({ verifiedAt: Timestamp.fromMillis(now), expiresAt: Timestamp.fromMillis(now + CONFIRMED_FOR_MS), tokenHash: null }, { merge: true });
+  await audit(null, { action: 'REGISTRATION_EMAIL_CONFIRMED', actor: 'public', targetPersonId: null, subjectId: email, details: 'confirmed before registering (valid 24 h)' }).catch(() => {});
   return email;
 }
 

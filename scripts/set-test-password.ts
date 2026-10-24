@@ -15,6 +15,8 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import { accessCodeFor } from '@/lib/access/codes';
 import { toPerson } from '@/lib/hierarchy/authorize';
 import { hashPassword, writeHashes } from '@/lib/auth/passwordHashes';
+import { audit } from '@/lib/audit';
+import { sealAll } from '@/lib/auditChain';
 
 const FILE = '.demo-credentials.local.txt';
 const HEADER = 'ROLE    PROFILE      USERNAME        COMM EMAIL                    PASSWORD        CODE';
@@ -35,10 +37,8 @@ async function main() {
   const { mustChangePassword: _pending, ...claims } = (await adminAuth.getUser(personId)).customClaims ?? {}; // eslint-disable-line @typescript-eslint/no-unused-vars -- dropping the flag
   await adminAuth.setCustomUserClaims(personId, claims);
   await adminAuth.revokeRefreshTokens(personId);
-  await adminDb.collection('auditLogs').add({
-    action: 'PASSWORD_RESET', actorId: 'system', actorRole: 'system', targetPersonId: personId, subjectId: null,
-    timestamp: Timestamp.now(), details: 'set by the local test tool (scripts/set-test-password.ts)',
-  });
+  await audit(null, { action: 'PASSWORD_RESET', actor: 'system', targetPersonId: personId, at: Timestamp.now(), details: 'set by the local test tool (scripts/set-test-password.ts)' });
+  await sealAll();
 
   const row = [
     person.systemRole.toUpperCase().padEnd(8), (person.profileType ?? '-').padEnd(13), person.username.padEnd(16),

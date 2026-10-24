@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { loginWithIdentifier, LoginError } from '@/lib/auth/login';
-import { createSessionCookie, SESSION_COOKIE_NAME, SESSION_EXPIRES_IN_MS } from '@/lib/session';
+import { createSessionCookie, getSessionUser, SESSION_COOKIE_NAME, SESSION_EXPIRES_IN_MS } from '@/lib/session';
 import { isSystemRole } from '@/lib/roles';
 import { RULES, clientIpFrom, loginLimiter } from '@/lib/rateLimit';
 import { learnCurrent } from '@/lib/auth/passwordHashes';
+import { audit } from '@/lib/audit';
 
 // Deliberately identical for "unknown identifier" and "wrong password" — no
 // enumeration oracle. See SECURITY_MODEL.md "Identity and login".
@@ -59,6 +60,9 @@ export async function POST(request: NextRequest) {
   // Remember this password's fingerprint for "new must differ from old" (never the password).
   await learnCurrent(personId, password).catch((err) => console.error('Could not record password fingerprint', err));
 
+  await audit(null, { action: 'SIGNED_IN', actor: { personId, email: decoded.email ?? null, systemRole: decoded.systemRole }, targetPersonId: personId, details: decoded.mustChangePassword === true ? 'with a one-time password' : null })
+    .catch((err: unknown) => console.error('Could not record sign-in', err));
+
   // After a reset the session is only good for choosing a new password (lib/session.ts).
   const mustChangePassword = decoded.mustChangePassword === true;
   const response = NextResponse.json({ systemRole: decoded.systemRole, mustChangePassword });
@@ -73,6 +77,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE() {
+  const user = await getSessionUser().catch(() => null);
+  if (user) await audit(null, { action: 'SIGNED_OUT', actor: user, targetPersonId: user.personId }).catch(() => {});
   const response = NextResponse.json({ ok: true });
   response.cookies.delete(SESSION_COOKIE_NAME);
   return response;
