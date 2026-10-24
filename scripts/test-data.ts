@@ -4,6 +4,8 @@
  *   npm run test:data -- checkpoint   save the time and a snapshot of every record (+ sign-in accounts)
  *   npm run test:data -- report       dry run: what was added and changed since the checkpoint
  *   npm run test:data -- clean --yes  delete what was added, put changed records back as they were
+ *                                     (refuses if new people don't look like test accounts — qa.… or
+ *                                     ….test — unless you add --include-real)
  *
  * Works by record id against the snapshot (not by time alone), so nothing created or edited
  * during testing is missed. The snapshot (.test-checkpoint.local.json) stays on this computer
@@ -94,7 +96,8 @@ function label(before: Checkpoint, now: Pick<Checkpoint, 'docs'>, id: string) {
 }
 
 async function main() {
-  const [cmd, flag] = process.argv.slice(2);
+  const [cmd, ...flags] = process.argv.slice(2);
+  const flag = flags.includes('--yes') ? '--yes' : flags.includes('--replace') ? '--replace' : flags[0];
   if (cmd === 'checkpoint') {
     if (existsSync(FILE) && flag !== '--replace') throw new Error(`${FILE} already exists. Run "clean" first, or "checkpoint --replace" to start a new one (the old snapshot is lost).`);
     const state = await readAll();
@@ -122,8 +125,21 @@ async function main() {
   console.log(`  sign-in accounts: ${d.newAccounts.length} new, ${d.changedAccounts.length} changed (role / switched off)`);
   if (d.passwordChanged.length) console.log(`  passwords changed (can't be put back — use test:password): ${d.passwordChanged.map((id) => label(before, now, id)).join(', ')}`);
 
+  // People who don't look like test accounts may be real sign-ups made during the testing window
+  // (the live site shares this database). Never delete them without an explicit second flag.
+  const looksTest = (p: { username?: string; commEmail?: string }) => /^qa\./.test(p.username ?? '') || /\.test$/i.test(p.commEmail ?? '');
+  const realLooking = d.added.filter((a) => a.path === 'people' && !looksTest(a.data as { username?: string; commEmail?: string })).map((a) => label(before, now, a.id));
+  // Sign-in accounts too: one without a test person (or a .test email) is not obviously ours.
+  const testIds = new Set(d.added.filter((a) => a.path === 'people' && looksTest(a.data as { username?: string; commEmail?: string })).map((a) => a.id));
+  for (const uid of d.newAccounts) if (!testIds.has(uid) && !/\.test$/i.test(now.auth[uid].email ?? '') && !d.added.some((a) => a.path === 'people' && a.id === uid)) realLooking.push(`sign-in account ${now.auth[uid].email ?? uid} (no profile)`);
+  if (realLooking.length) console.log(`  ⚠ not obviously test data (${realLooking.length}): ${realLooking.join(', ')}`);
+
   if (cmd === 'report' || flag !== '--yes') {
     if (cmd === 'clean') console.log('\nNothing changed. Run "clean --yes" to delete the added records and put the changed ones back.');
+    return;
+  }
+  if (realLooking.length && !flags.includes('--include-real')) {
+    console.log(`\nStopped: ${realLooking.length} item(s) above don't look like test data (username "qa.…" or email "….test").\nIf they really are test data, run "clean --yes --include-real". Nothing was changed.`);
     return;
   }
 
