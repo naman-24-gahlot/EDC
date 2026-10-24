@@ -81,11 +81,12 @@ a guard's "photo ID seen" record (type + last 4 only), entry/exit with "on campu
 installable web app, optional Cloudflare Turnstile — DEPLOYMENT.md "Sign-in, sign-up and the gate".)
 
 ## Versions and test data
-- `main` = production (edc-gib-24.vercel.app); `v1-stable` tags the version before the sign-in
-  work. New work goes on `develop` (its own Vercel preview URL, same Firebase project); merge to
-  `main` only when the user has tried the preview and says so.
-- One database for both. Before a round of testing: `npm run test:data -- checkpoint`; afterwards
+- One branch: `main` = production (edc-gib-24.vercel.app). The user dropped the separate
+  `develop` branch on 2026-10-24; `v1-stable` still tags the version before the sign-in work.
+- One database. Before a round of testing: `npm run test:data -- checkpoint`; afterwards
   `report`, then `clean --yes` (deletes what testing added, puts edited records back).
+- `clean` refuses people/accounts that don't look like test data (`qa.` username or `.test` email)
+  unless `--include-real` — show the user the report and ask before using it.
 - Test addresses end in `.test` (e.g. `qa1@example.test`): their emails go to /admin/outbox.
 
 ## Testing expectations

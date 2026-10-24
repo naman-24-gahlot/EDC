@@ -148,7 +148,7 @@ context-discipline rules).
 - `npm run test:live` probes with `rahul` by default; `MEMBER=neha npm run test:live` uses another
   member (e.g. while rahul is mid password reset).
 
-## Sign-in, sign-up and the gate (free features, on `develop`)
+## Sign-in, sign-up and the gate (free features)
 
 - **Forgot password / email confirmation** use Firebase Auth's own emails (free). One console
   step makes their links open our page, so our password rules apply: Firebase console →
