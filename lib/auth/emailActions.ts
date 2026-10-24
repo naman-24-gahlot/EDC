@@ -12,7 +12,8 @@ if (typeof window !== 'undefined') {
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import { toPerson } from '@/lib/hierarchy/authorize';
-import { sendResetToBackup } from '@/lib/notify';
+import { sendOwnResetEmail, sendOwnVerifyEmail, sendResetToBackup } from '@/lib/notify';
+import { mailConfigured } from '@/lib/mail';
 
 const API = 'https://identitytoolkit.googleapis.com/v1';
 const key = () => {
@@ -56,6 +57,12 @@ export async function sendPasswordReset(personId: string, origin: string): Promi
     await sendResetToBackup(person, ourLink(await adminAuth.generatePasswordResetLink(email), origin, 'resetPassword'));
   }
   if (isTestAddress(email)) return toOutbox(personId, email, 'resetPassword', ourLink(await adminAuth.generatePasswordResetLink(email), origin, 'resetPassword'));
+  // With our own mailer set up, send it ourselves so the link opens OUR page (/auth/action): Firebase
+  // won't let this project change its template's action URL, and its own page skips our password rules.
+  if (mailConfigured() && person) {
+    await sendOwnResetEmail(person, email, ourLink(await adminAuth.generatePasswordResetLink(email), origin, 'resetPassword'));
+    return;
+  }
   await identityToolkit('accounts:sendOobCode', { requestType: 'PASSWORD_RESET', email });
 }
 
@@ -67,6 +74,10 @@ export async function sendEmailVerification(personId: string, origin: string): P
   const user = await adminAuth.getUser(personId);
   if (!user.email || user.emailVerified) return;
   if (isTestAddress(user.email)) return toOutbox(personId, user.email, 'verifyEmail', ourLink(await adminAuth.generateEmailVerificationLink(user.email), origin, 'verifyEmail'));
+  if (mailConfigured()) {
+    await sendOwnVerifyEmail(personId, user.displayName ?? '', user.email, ourLink(await adminAuth.generateEmailVerificationLink(user.email), origin, 'verifyEmail'));
+    return;
+  }
   const { idToken } = await identityToolkit<{ idToken: string }>('accounts:signInWithCustomToken', { token: await adminAuth.createCustomToken(personId), returnSecureToken: true });
   await identityToolkit('accounts:sendOobCode', { requestType: 'VERIFY_EMAIL', idToken });
 }

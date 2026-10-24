@@ -22,7 +22,7 @@ import { isTestAddress } from '@/lib/auth/emailActions';
 
 export type MailKind =
   | 'REGISTRATION_APPROVED' | 'REGISTRATION_REJECTED' | 'ACCESS_APPROVED' | 'VISITOR_PASS'
-  | 'VISITOR_ARRIVED' | 'STAY_ALERT' | 'LEAVE_DECIDED' | 'PASSWORD_RESET_BACKUP';
+  | 'VISITOR_ARRIVED' | 'STAY_ALERT' | 'LEAVE_DECIDED' | 'PASSWORD_RESET_BACKUP' | 'PASSWORD_RESET' | 'VERIFY_EMAIL';
 
 export interface Mail {
   kind: MailKind;

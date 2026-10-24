@@ -189,5 +189,10 @@ alerts to parents, leave decisions, and a reset-link copy to a backup email — 
 4. Vercel → Project → Settings → Environment Variables: `SMTP_USER` = the address,
    `SMTP_PASS` = the 16 letters (Production). Redeploy. For local runs, the same two in `.env.local`.
 
+With SMTP set up, **password-reset and confirm-email messages are sent by the app too**, so their
+links open our own `/auth/action` page (Firebase won't let this project change its templates'
+action URL — the console says "An error occurred when updating action URL"). Without SMTP, Firebase
+keeps sending those two itself, through its own page.
+
 Until then, real addresses are **skipped** and the Emails page says so; `.test` addresses always
 land in the test outbox with the full text. **Admin → Emails sent** shows the delivery log.

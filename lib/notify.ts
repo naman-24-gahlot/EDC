@@ -116,6 +116,20 @@ export async function notifyLeaveDecided(personId: string, approved: boolean, ra
   ]);
 }
 
+/** Forgot password, sent by us (when SMTP is set up) so the link opens our own reset page. */
+export async function sendOwnResetEmail(p: PersonRecord, email: string, link: string) {
+  return sendMail({ kind: 'PASSWORD_RESET', personId: p.personId, to: [email], subject: 'Reset your EDC password', text: [
+    `Hello ${p.firstName},`, '', 'Someone (hopefully you) asked to reset the password for your EDC account.',
+    '', 'Choose a new password here (the link works once, for about an hour):', link, '', 'If you didn’t ask for this, ignore this email — your password stays the same.', SIGN_OFF,
+  ].join('\n') });
+}
+
+export async function sendOwnVerifyEmail(personId: string, name: string, email: string, link: string) {
+  return sendMail({ kind: 'VERIFY_EMAIL', personId, to: [email], subject: 'Confirm your email for EDC', text: [
+    `Hello${name ? ` ${name.split(' ')[0]}` : ''},`, '', 'Confirm this is your email address by opening this link:', link, '', 'If you didn’t ask for this, ignore this email.', SIGN_OFF,
+  ].join('\n') });
+}
+
 /** Forgot password, second copy: the reset link to the backup email the person added themselves. */
 export async function sendResetToBackup(p: PersonRecord, link: string) {
   if (typeof p.backupEmail !== 'string' || !p.backupEmail) return;

@@ -12,7 +12,7 @@ const KIND: Record<string, string> = {
   resetPassword: 'Password reset', verifyEmail: 'Confirm email', confirmEmail: 'Confirm email (before registering)',
   REGISTRATION_APPROVED: 'Registration approved', REGISTRATION_REJECTED: 'Registration not approved', ACCESS_APPROVED: 'Access approved',
   VISITOR_PASS: 'Visitor pass', VISITOR_ARRIVED: 'VVIP visitor arrived', STAY_ALERT: 'Stay alert', LEAVE_DECIDED: 'Leave decided',
-  PASSWORD_RESET_BACKUP: 'Password reset (backup email)',
+  PASSWORD_RESET_BACKUP: 'Password reset (backup email)', PASSWORD_RESET: 'Password reset', VERIFY_EMAIL: 'Confirm email',
 };
 const STATUS: Record<string, string> = { sent: 'text-emerald-700', outbox: 'text-sky-700', skipped: 'text-amber-700', failed: 'text-red-700' };
 
