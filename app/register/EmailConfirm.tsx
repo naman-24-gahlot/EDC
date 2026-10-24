@@ -23,6 +23,18 @@ export function EmailConfirm({ value, onChange, hint, humanToken, onConfirmed }:
 
   useEffect(() => { onConfirmed(confirmed); }, [confirmed, onConfirmed]);
 
+  // Already confirmed earlier (form closed and reopened, or a second tab)? Ask once typing pauses,
+  // so the person doesn't need to send another link.
+  useEffect(() => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || confirmed) return;
+    let live = true;
+    const t = setTimeout(async () => {
+      const r = await fetch(`/api/register/email-check?email=${encodeURIComponent(email)}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+      if (live && r?.confirmed) setConfirmedFor(email);
+    }, 500);
+    return () => { live = false; clearTimeout(t); };
+  }, [email, confirmed]);
+
   useEffect(() => {
     if (!waiting || !sentTo) return;
     const timer = setInterval(async () => {
