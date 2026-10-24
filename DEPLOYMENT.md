@@ -19,6 +19,8 @@ Project settings → Service accounts → Generate new private key for the Admin
 | `FIREBASE_ADMIN_CLIENT_EMAIL` | Server-only — Admin SDK |
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Server-only — Admin SDK. Paste with real newlines or `\n` escapes; `lib/firebase/admin.ts` converts `\n` → real newlines either way |
 | `QR_TOKEN_SECRET` | Server-only — QR pass HMAC signing (`lib/qr-token.ts`). A long random string; treat exactly like a password |
+| `SMTP_USER` / `SMTP_PASS` | Server-only, **optional** — the app's own emails (DEPLOYMENT.md "Emails"). A Gmail address and its 16-character **app password**. Unset = those emails are skipped (logged), the app works the same |
+| `SMTP_HOST` / `SMTP_PORT` / `MAIL_FROM_NAME` | Optional — default `smtp.gmail.com` / `465` / `EDC Access` |
 | `EDC_EMAIL_DOMAIN` | Server-only, **optional, not a secret** — institutional email domain for the EDC login identifier. Empty/unset = that identifier isn't assigned; username and communication-email login still work. Set it in Vercel only if you set it locally. |
 
 None of the `FIREBASE_ADMIN_*` or `QR_TOKEN_SECRET` values are ever read by client code —
@@ -173,3 +175,19 @@ context-discipline rules).
   home screen" / "Install app".
 - **Tests**: `tests/live/signup.mts` and `tests/live/gate.mts` (run with `BASE=…`), plus
   `npm run test:data -- checkpoint | report | clean --yes` around them.
+
+## Emails
+
+Firebase sends only its own fixed emails (password reset, confirm email). The app's own emails —
+approval summary with profile and access, "access approved", visitor pass, VVIP arrival, stay
+alerts to parents, leave decisions, and a reset-link copy to a backup email — go through
+`lib/mail.ts` over plain SMTP. Free with a Gmail account (~500 emails/day):
+
+1. Use (or create) a Gmail account for sending, e.g. `edc.access.iimj@gmail.com`.
+2. Turn on 2-Step Verification for it (Google Account → Security).
+3. Google Account → Security → **App passwords** → create one named "EDC" → copy the 16 letters.
+4. Vercel → Project → Settings → Environment Variables: `SMTP_USER` = the address,
+   `SMTP_PASS` = the 16 letters (Production). Redeploy. For local runs, the same two in `.env.local`.
+
+Until then, real addresses are **skipped** and the Emails page says so; `.test` addresses always
+land in the test outbox with the full text. **Admin → Emails sent** shows the delivery log.

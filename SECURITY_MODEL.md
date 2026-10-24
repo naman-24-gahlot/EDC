@@ -295,7 +295,38 @@ reported and the rest continue.
 
 ## Gate additions
 - **Exits** are recorded, never refused (nobody is kept in): the scan must still identify a real
-  person; result `EXITED`, `people.lastExitAt`. "On campus now" = entered today, no exit since.
+  person; result `EXITED`, `people.lastExitAt`. "On campus now" = `people.onCampus` (last scan was
+  an entry), so overnight stays and forgotten exit scans stay visible.
+- **Holidays** (`lib/holidays.ts`): Master-only; step 5b of the evaluator — after the status checks,
+  before weekdays — denies "Campus holiday" to the profile types the holiday lists.
+- **Leave** never changes a verdict: the guard just sees "On approved leave until …". Deciding leave
+  is `assertCanActOn` (Master or an ancestor); self is never authority; only the employee cancels.
+- **Stay alerts** are written by the system after the guard has the verdict (never slower, never a
+  different answer). Marking one seen = `assertCanActOn` on the person (not the person themselves).
+
+## Visitor passes (`lib/visitors.ts`)
+- Created by an approved active employee or a Master; placed under the employee (ancestorIds) like
+  any dependant, so every existing rule applies. `hasAccount: false`: no Firebase Auth user, no
+  password — login, password reset and profile-type change refuse them; deactivation skips Auth.
+- **The pass link is the credential**: `/v/<personId.version.HMAC>` — the same token the gate
+  verifies, so nothing about verification changed. The page renders only for visitor-type people,
+  only while the version matches and access is ACTIVE; reissuing or revoking kills the link. It's
+  shown only to the host/Master and emailed only to the visitor's own address.
+- VVIP is display only (guard badge + arrival email to the host); it grants nothing.
+
+## App emails and the backup email (`lib/mail.ts`, `lib/notify.ts`)
+- Sent over SMTP with server-only `SMTP_USER`/`SMTP_PASS` (implicit TLS, certificate checked by
+  Node). `.test` recipients never leave (outbox). A failure is logged, never fails the action.
+- **Backup email** (optional, unverified, by the user's choice): settable **only by the person
+  themselves** (`parseProfilePatch(…, { self: true })`; anyone else gets 403) — otherwise a parent
+  could route resets to themselves. Forgot-password sends a fresh reset link to it as well; it's
+  never a login identifier. Risk accepted: a mistyped backup address would receive reset links.
+
+## Audit integrity (`lib/auditChain.ts`)
+Entries are chained with HMAC-SHA256 (key derived from `QR_TOKEN_SECRET`, so database access alone
+can't forge fingerprints). Detects edits, deletions and reordering of sealed entries. Not detected
+from the data alone: deleting the newest entries *and* rewinding `auditChain/head` together — the
+head's count is shown on the audit page so a drop can be noticed.
 - **Photo ID seen** (`POST /api/guard/id-check`): guard only, and only against an entry *that
   guard approved in the last 10 minutes* — a guard can't mark someone who isn't in front of them.
   Stores the ID type and at most its last 4 characters; never a number, never an image.

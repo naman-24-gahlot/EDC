@@ -1,7 +1,7 @@
 // SERVER-ONLY. Stay tracking — DATABASE_SCHEMA.md "stayFlags". From the gate's IN/OUT scans:
 //   LATE_EXIT    left more than GRACE_MIN after their gate-closing time (same day)
 //   OVERNIGHT    still recorded inside after midnight, or left on a later day
-//   MISSED_EXIT  came in again without an exit scan since the last entry
+//   MISSED_EXIT  came in again, an hour or more after the last entry, with no exit scan between
 // …unless their access says "may stay overnight". No cron: the gate checks at each scan, and
 // "still inside since yesterday" is noticed whenever anyone loads "On campus now" (the guard
 // screen does, all day). Each flag is written once (deterministic id + create()), with its audit
@@ -23,6 +23,7 @@ import { notifyStayAlert } from '@/lib/notify';
 
 export type StayKind = 'LATE_EXIT' | 'OVERNIGHT' | 'MISSED_EXIT';
 export const GRACE_MIN = 15;
+const MISSED_EXIT_AFTER_MIN = 60;
 const ACTION: Record<StayKind, AuditAction> = { LATE_EXIT: 'LATE_EXIT', OVERNIGHT: 'OVERNIGHT_STAY', MISSED_EXIT: 'MISSED_EXIT_SCAN' };
 export const STAY_LABEL: Record<StayKind, string> = { LATE_EXIT: 'Left late', OVERNIGHT: 'Overnight', MISSED_EXIT: 'No exit scan' };
 
@@ -82,6 +83,8 @@ export function afterGateScan(person: PersonRecord, entitlement: Entitlement | n
   after(async () => {
     try {
       if (direction === 'IN') {
+        // A re-scan within the hour (a double scan, or the guard checking again) isn't a missed exit.
+        if (now.toMillis() - entryAt.toMillis() < MISSED_EXIT_AFTER_MIN * 60_000) return;
         await raise('MISSED_EXIT', person, entryAt, { detail: `came in at ${clock(now)} without an exit scan since entering at ${clock(entryAt)}` }, origin);
         return;
       }

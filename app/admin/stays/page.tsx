@@ -19,7 +19,7 @@ export default async function StaysPage({ searchParams }: { searchParams: Promis
         <h2 className="flex items-center gap-1 text-sm font-medium text-gray-500">
           Stay alerts — {all ? 'latest 100' : 'not yet seen'}
           <InfoTip label="About stay alerts">
-            Raised by the gate: <b>left late</b> = exit scan more than {GRACE_MIN} min after their gate-closing time; <b>overnight</b> = still recorded inside after midnight, or left on a later day; <b>no exit scan</b> = came in again without scanning out. People whose access says “may stay overnight” are never flagged. Overnight and no-exit alerts are also emailed to the person’s parent (or to Masters for top-level people).
+            Raised by the gate: <b>left late</b> = exit scan more than {GRACE_MIN} min after their gate-closing time; <b>overnight</b> = still recorded inside after midnight, or left on a later day; <b>no exit scan</b> = came in again (an hour or more later) without scanning out in between. People whose access says “may stay overnight” are never flagged. Overnight and no-exit alerts are also emailed to the person’s parent (or to Masters for top-level people).
           </InfoTip>
         </h2>
         <DataStamp fetchedAt={fetchedAtNow()} />

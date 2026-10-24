@@ -48,6 +48,13 @@ The person: identity, current profile, hierarchy position, credential state.
   idCheck?: { type: 'Aadhaar' | 'PAN card' | 'Driving licence' | 'Passport' | 'Voter ID' | 'College / company ID' | 'Other',
               last4: string | null, by: string, at: Timestamp, entryId: string }, // a guard saw a photo ID; never the number          // last APPROVED gate entry — written by /api/guard/verify; drives "Recently at the gate"
   approvalNotice?: { appliedAs: ProfileType, approvedAs: ProfileType, by: string, at: Timestamp, seenAt: Timestamp | null },
+  onCampus?: boolean,               // last approved gate scan was an entry (entryEvents)
+  lastExitAt?: Timestamp,
+  backupEmail?: string,             // optional, set only by the person; also gets reset links and app emails
+  // Visitor passes only (profileType 'visitor', lib/visitors.ts):
+  hasAccount?: false,               // no Firebase Auth user; username "visitor-<number>" is reserved
+  hostId?: string,                  // who created the pass (notified when a VVIP arrives)
+  vvip?: boolean,
 
   accessNumber: string | null,      // 5 digits, unique across all people, stable for life. Issued at approval.
   credentialVersion: number,        // starts at 1; bump invalidates every previously issued QR
@@ -168,9 +175,47 @@ Append-only. **Every** gate attempt, approved or denied. Entering does not consu
   presentedCode: string | null,     // CODE method only. The QR token is NEVER stored.
   direction: 'IN' | 'OUT',          // entry or exit (exits are recorded, never refused; result 'EXITED')
   eventId: string | null,           // the person's event, if they came through one (shown to the guard)
+  stayMinutes?: number | null,      // exits only: minutes since their last entry (event reports)
   timestamp: Timestamp,
 }
 ```
+An approved IN sets `people.lastEntryAt` and `people.onCampus = true`; an exit sets
+`people.lastExitAt` and `onCampus = false`. "On campus now" is `onCampus == true`, so someone who
+came in yesterday and never scanned out is still listed (and flagged — `stayFlags`).
+
+### `stayFlags/{kind}_{personId}_{entryMillis}`
+Stay alerts (`lib/stays.ts`), one per visit and kind — the deterministic id + `create()` makes a
+second write a no-op. Never deleted; "seen" is a field.
+```
+{
+  kind: 'LATE_EXIT' | 'OVERNIGHT' | 'MISSED_EXIT',
+  personId, personName, ancestorIds: string[],   // copied from the person: parents query by ancestorIds
+  entryAt: Timestamp, exitAt: Timestamp | null, minutesLate: number | null, stayMinutes: number | null,
+  detail: string, eventId: string | null, createdAt: Timestamp,
+  seenBy: string | null, seenAt: Timestamp | null,
+}
+```
+LATE_EXIT = exit more than 15 min after the entitlement's `endTime`, same day. OVERNIGHT = left on
+a later day, or still `onCampus` from an earlier day (noticed whenever "On campus now" loads).
+MISSED_EXIT = an approved IN while still `onCampus`, an hour or more after that entry (a quick re-scan isn't one). None for entitlements with
+`allowOvernight: true`. OVERNIGHT and MISSED_EXIT email the immediate parent (Masters if none).
+
+### `holidays/{YYYY-MM-DD}`
+`{ date, name, appliesTo: ProfileType[], createdBy, createdAt }` — Master only. On that date the
+gate denies "Campus holiday" to the listed profile types (default: all but event_guest and visitor).
+Removing one deletes the doc; the audit log keeps HOLIDAY_ADDED / HOLIDAY_REMOVED.
+
+### `leaveRequests/{id}`
+Employee leave (`lib/leave.ts`). `{ personId, personName, ancestorIds, startDate, endDate, reason,
+status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED', createdAt, decidedBy, decidedAt,
+decisionNote }`. Approved leave never blocks the gate; the guard sees "On approved leave until …".
+
+### `emailLog/{id}`
+Every app email attempt (`lib/mail.ts`): `{ kind, personId, to, subject, status: 'sent' | 'outbox' |
+'skipped' | 'failed', error, at }`. No message bodies (those exist only in `testOutbox` for `.test`).
+
+### `auditChain/head`
+`{ seq, hash, sealedAt }` — the newest sealed audit entry (`lib/auditChain.ts`).
 
 ### `events/{eventId}`
 A campus event with its own time-limited registration link (SECURITY_MODEL.md "Event registration links").
@@ -198,7 +243,8 @@ one-off token (link in the outbox, valid 24 h); real addresses use Firebase's em
 
 ### `testOutbox/{id}`
 Emails for test addresses (domain ending `.test`) are never sent; they're filed here for the
-Master's Test outbox page: `{ personId, to, kind: 'resetPassword' | 'verifyEmail', link, createdAt }`.
+Master's Emails page: `{ personId, to, kind, link, createdAt }` — kind is 'resetPassword' | 'verifyEmail' |
+'confirmEmail', or one of the app's own mail kinds (then also `subject` and `text`, the full email).
 
 ### `passwordHashes/{personId}`
 Server-only fingerprints for "the new password must differ from the old one" (SECURITY_MODEL.md
@@ -224,8 +270,17 @@ too, so filters and writer can't drift). Records from before 2026-10-22 were giv
   eventId: string | null,           // the event the entry is about (the person's, or the event itself)
   timestamp: Timestamp,
   details: string | null,
+  sealed: boolean,                  // false when written; true once chained (below)
+  seq?: number, prevHash?: string, hash?: string,  // set when sealed
 }
 ```
+**Tamper-evident chain** (`lib/auditChain.ts`): shortly after an entry is written (after the
+response, and before the audit page lists anything) it is sealed in a transaction on
+`auditChain/head`: `seq` = next number, `hash` = HMAC-SHA256(key, prevHash | seq | the entry's
+fields), key derived from `QR_TOKEN_SECRET`. "Check integrity" on the audit page recomputes every
+hash. The 331 entries from before 2026-10-24 were given `sealed: false` once (additive) and sealed
+in timestamp order. Categories now also include `'stays' | 'leave'`.
+
 `AuditAction`:
 `REGISTRATION_SUBMITTED | REGISTRATION_APPROVED | REGISTRATION_REJECTED | PROFILE_CREATED |
 PROFILE_TYPE_CHANGED | HIERARCHY_CHANGED | MASTER_PROMOTED | MASTER_DEMOTED | GUARD_CREATED |
@@ -234,7 +289,9 @@ ENTITLEMENT_CREATED | ENTITLEMENT_CHANGED | ENTITLEMENT_REVOKED | ENTITLEMENT_SU
 CREDENTIAL_REISSUED | ENTRY_APPROVED | ENTRY_DENIED | PERSON_DEACTIVATED | PERSON_REACTIVATED |
 ORPHAN_AUTH_ACCOUNT_REMOVED | PROFILE_UPDATED | PASSWORD_CHANGED | PASSWORD_RESET |
 SESSIONS_REVOKED | EVENT_CREATED | EVENT_UPDATED | EVENT_LINK_CLOSED | EVENT_LINK_REOPENED |
-EVENT_LINK_REPLACED`
+EVENT_LINK_REPLACED | EXIT_RECORDED | LATE_EXIT | OVERNIGHT_STAY | MISSED_EXIT_SCAN | STAY_FLAG_SEEN |
+VISITOR_PASS_CREATED | LEAVE_REQUESTED | LEAVE_APPROVED | LEAVE_REJECTED | LEAVE_CANCELLED |
+HOLIDAY_ADDED | HOLIDAY_REMOVED` (the authoritative list is `ACTION_GROUPS` in `lib/audit.ts`)
 
 ## State machines
 
