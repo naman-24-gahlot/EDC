@@ -6,14 +6,15 @@ import { sendJson } from '@/lib/clientFetch';
 import { PhotoInput } from '@/components/PhotoInput';
 import { HumanCheck, humanCheckOn } from '@/components/HumanCheck';
 import { PassReady, type IssuedPass } from '@/components/PassReady';
+import { NextPerson, type KioskNext } from '@/components/NextPerson';
 
 const EMPTY = { firstName: '', lastName: '', mobile: '', email: '', purpose: '', parentIdentifier: '' };
 
 // Quick sign-up for an event link set to "Passwords: not needed" — built for phones and kiosks:
 // big fields, no account, no password. What happens next is the event's setting (server-side):
 // approved on the spot (pass shown / printed / emailed) or waiting for a Master.
-export function QuickRegister({ token, source, emailPass, autoApprove, kiosk, header }: {
-  token: string; source: Record<string, string>; emailPass: boolean; autoApprove: boolean; kiosk: boolean; header: ReactNode;
+export function QuickRegister({ token, source, emailPass, autoApprove, kiosk, kioskNext, kioskSeconds, header }: {
+  token: string; source: Record<string, string>; emailPass: boolean; autoApprove: boolean; kiosk: boolean; kioskNext: KioskNext; kioskSeconds: number; header: ReactNode;
 }) {
   const [f, setF] = useState(EMPTY);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function QuickRegister({ token, source, emailPass, autoApprove, kiosk, he
           <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-5" role="status">
             <p className="text-lg font-bold">Thanks, {done.name} — you’re registered.</p>
             <p className="text-sm text-gray-700">The organisers will approve your registration{emailPass ? '; your pass is emailed to you then (if you gave an email)' : ''}.</p>
-            {kiosk && <button type="button" onClick={() => window.location.replace(self)} className="inline-flex min-h-12 items-center rounded-lg border border-gray-900 px-5 font-semibold">Next person</button>}
+            {kiosk && <NextPerson href={self} mode={kioskNext} seconds={kioskSeconds} />}
           </div>
         )}
       </main>

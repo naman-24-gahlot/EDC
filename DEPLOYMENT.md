@@ -207,7 +207,7 @@ Zebra / Evolis / Fargo, which install as normal printers) or **Download PDF** (e
 Print at **actual size / 100%**, margins **none**; on a card printer choose the CR80 card.
 
 Sizes: CR80 ID card 85.6 × 54 mm (landscape or portrait), CR100 98.5 × 67 mm, event badge 4 × 3 in,
-A6 paper pass, and a CR80 card on A4 with cut marks for ordinary printers.
+the A6 gate pass (the on-screen pass design on paper), and a CR80 card on A4 with cut marks.
 
 **An event kiosk** (a machine people queue at to register and get a printed pass):
 1. Admin → Events → the event → *Edit event details* → *How people register*: Passwords **not
@@ -218,6 +218,9 @@ A6 paper pass, and a CR80 card on A4 with cut marks for ordinary printers.
    bar or Back button:
    `chrome.exe --kiosk --kiosk-printing "https://edc-gib-24.vercel.app/e/<the event's link code>"`
    (create a desktop shortcut with that target; close it with Alt+F4).
-4. Each person fills in the form → their pass prints → the screen returns to an empty form by itself.
+4. Each person fills in the form → their pass prints → then, as set under *After each person*: the
+   screen returns to an empty form by itself after the timer, or the *Next person* button unlocks after
+   the timer, or there's only the button. On a kiosk there's no size picker, no PDF download and no
+   "open my pass" link; Back can't bring a previous person's pass up.
    Leaving a phone-sized form open on a tablet works the same, with a "Print my pass" button instead.
 Kiosk sign-ups are limited to 240 per hour per machine (the normal registration limit is 30).

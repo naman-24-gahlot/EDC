@@ -39,6 +39,21 @@ function jpegSize(b: Buffer): { w: number; h: number } | null {
   return null;
 }
 
+/** A (rounded) rectangle path in points — mm in, PDF's bottom-left origin. Bézier corners. */
+function roundRect(x: number, y: number, w: number, h: number, r: number): string {
+  const R = Math.min(r, w / 2, h / 2);
+  if (R <= 0) return `${n(x * K)} ${n(y * K)} ${n(w * K)} ${n(h * K)} re`;
+  const k = 0.5523 * R;
+  const p = (a: number, b: number) => `${n(a * K)} ${n(b * K)}`;
+  const x2 = x + w, y2 = y + h;
+  return [
+    `${p(x + R, y)} m`, `${p(x2 - R, y)} l`, `${p(x2 - R + k, y)} ${p(x2, y + R - k)} ${p(x2, y + R)} c`,
+    `${p(x2, y2 - R)} l`, `${p(x2, y2 - R + k)} ${p(x2 - R + k, y2)} ${p(x2 - R, y2)} c`,
+    `${p(x + R, y2)} l`, `${p(x + R - k, y2)} ${p(x, y2 - R + k)} ${p(x, y2 - R)} c`,
+    `${p(x, y + R)} l`, `${p(x, y + R - k)} ${p(x + R - k, y)} ${p(x + R, y)} c`, 'h',
+  ].join(' ');
+}
+
 export function passPdf(pages: { w: number; h: number; shapes: Shape[] }[], title = 'EDC entry pass'): Buffer {
   const objects: (string | Buffer)[] = []; // index = object number - 1
   const add = (o: string | Buffer) => { objects.push(o); return objects.length; };
@@ -53,12 +68,18 @@ export function passPdf(pages: { w: number; h: number; shapes: Shape[] }[], titl
     const images: string[] = [];
     let c = '';
     for (const s of page.shapes) {
-      if (s.kind === 'rect') c += `${rgb(s.fill)} rg ${n(s.x * K)} ${n((H - s.y - s.h) * K)} ${n(s.w * K)} ${n(s.h * K)} re f\n`;
-      else if (s.kind === 'line') c += `${rgb(s.color)} RG ${n(s.width * K)} w ${n(s.x1 * K)} ${n((H - s.y1) * K)} m ${n(s.x2 * K)} ${n((H - s.y2) * K)} l S\n`;
-      else if (s.kind === 'text') {
-        const wmm = textWidth(s.text, s.font, s.size);
+      if (s.kind === 'rect') {
+        const path = roundRect(s.x, H - s.y - s.h, s.w, s.h, s.r ?? 0);
+        c += `${rgb(s.fill)} rg ${path} f\n`;
+        if (s.stroke) c += `${rgb(s.stroke)} RG ${n((s.strokeWidth ?? 0.2) * K)} w ${path} S\n`;
+      } else if (s.kind === 'line') {
+        const dash = s.dash ? `[${n(s.width * 4 * K)} ${n(s.width * 3 * K)}] 0 d ` : '';
+        c += `${dash}${rgb(s.color)} RG ${n(s.width * K)} w ${n(s.x1 * K)} ${n((H - s.y1) * K)} m ${n(s.x2 * K)} ${n((H - s.y2) * K)} l S${dash ? ' [] 0 d' : ''}\n`;
+      } else if (s.kind === 'text') {
+        const wmm = textWidth(s.text, s.font, s.size, s.spacing ?? 0);
         const x = s.align === 'center' ? s.x - wmm / 2 : s.align === 'right' ? s.x - wmm : s.x;
-        c += `BT ${FONT_REF[s.font]} ${n(s.size)} Tf ${rgb(s.color)} rg ${n(x * K)} ${n((H - s.y) * K)} Td ${pdfString(s.text)} Tj ET\n`;
+        // Tc = letter spacing (points), as the screen version's letter-spacing.
+        c += `BT ${FONT_REF[s.font]} ${n(s.size)} Tf ${n((s.spacing ?? 0) * K)} Tc ${rgb(s.color)} rg ${n(x * K)} ${n((H - s.y) * K)} Td ${pdfString(s.text)} Tj ET\n`;
       } else if (s.kind === 'qr') {
         const u = s.size / s.modules;
         c += '0 0 0 rg\n';
@@ -76,7 +97,7 @@ export function passPdf(pages: { w: number; h: number; shapes: Shape[] }[], titl
         const scale = Math.max(s.w / dim.w, s.h / dim.h);
         const dw = dim.w * scale, dh = dim.h * scale;
         const dx = s.x + (s.w - dw) / 2, dy = s.y + (s.h - dh) / 2;
-        c += `q ${n(s.x * K)} ${n((H - s.y - s.h) * K)} ${n(s.w * K)} ${n(s.h * K)} re W n ${n(dw * K)} 0 0 ${n(dh * K)} ${n(dx * K)} ${n((H - dy - dh) * K)} cm ${name} Do Q\n`;
+        c += `q ${roundRect(s.x, H - s.y - s.h, s.w, s.h, s.r)} W n ${n(dw * K)} 0 0 ${n(dh * K)} ${n(dx * K)} ${n((H - dy - dh) * K)} cm ${name} Do Q\n`;
       }
     }
     const content = add(`<< /Length ${Buffer.byteLength(c, 'latin1')} >>\nstream\n${c}endstream`);

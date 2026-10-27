@@ -47,7 +47,7 @@ const base = { name: `QA Kiosk ${Date.now().toString(36)}`, details: 'test', ven
 check('kiosk mode with passwords is refused', (await call('POST', '/api/events', { ...base, options: { requirePassword: true, kiosk: true } }, master)).status === 400);
 check('printing without on-the-spot approval is refused', (await call('POST', '/api/events', { ...base, options: { requirePassword: false, print: 'auto' } }, master)).status === 400);
 check('only a Master creates events', (await call('POST', '/api/events', { ...base, options: {} }, rahul)).status === 403);
-r = await call('POST', '/api/events', { ...base, options: { requirePassword: false, autoApprove: true, emailPass: true, print: 'auto', cardSize: 'cr80p', kiosk: true } }, master);
+r = await call('POST', '/api/events', { ...base, options: { requirePassword: false, autoApprove: true, emailPass: true, print: 'auto', cardSize: 'cr80p', kiosk: true, kioskNext: 'unlock', kioskSeconds: 9999 } }, master);
 check('Master creates a kiosk event', r.status === 201 || r.status === 200, r.data);
 const eventId = r.data.id as string;
 const ev = (await adminDb.collection('events').doc(eventId).get()).data()!;
@@ -59,6 +59,7 @@ const guest = { firstName: 'QA', lastName: 'Kiosk', mobile: '98123 45679', email
 r = await call('POST', `/api/e/${ev.linkToken}/register`, guest);
 check('registers with no password, approved on the spot', r.status === 201 && r.data?.status === 'APPROVED' && !!r.data?.passToken && /^GUE\d{5}$/.test(r.data?.accessCode), r.data);
 check('…and the response says print automatically at the chosen size', r.data?.print === 'auto' && r.data?.cardSize === 'cr80p' && r.data?.kiosk === true);
+check('…with the kiosk “next person” setting (timer capped at 300 s)', r.data?.kioskNext === 'unlock' && r.data?.kioskSeconds === 300, [r.data?.kioskNext, r.data?.kioskSeconds]);
 const g = (await adminDb.collection('people').doc(r.data.personId).get()).data()!;
 check('stored: no account, event guest, approved, event access only', g.hasAccount === false && g.profileType === 'event_guest' && g.registrationStatus === 'APPROVED' && g.eventId === eventId);
 const ent = (await adminDb.collection('entitlements').where('personId', '==', r.data.personId).get()).docs[0]?.data();
@@ -66,6 +67,10 @@ check('access = the event’s days and hours', ent?.startDate === today && ent?.
 check('no password stored anywhere', !(await adminDb.collection('passwordHashes').doc(r.data.personId).get()).exists);
 check('the gate lets them in by code', (await call('POST', '/api/guard/verify', { code: r.data.accessCode, direction: 'IN' }, guard)).data?.approved === true);
 check('their pass prints from the link', (await call('GET', `/api/pass/pdf?t=${encodeURIComponent(r.data.passToken)}&size=cr80p`, undefined)).status === 200);
+const kioskPage = await call('GET', `/print/pass?t=${encodeURIComponent(r.data.passToken)}&size=cr80p&next=${encodeURIComponent(`/e/${ev.linkToken}`)}&nm=unlock&ns=5`, undefined);
+check('kiosk print page: no size picker, no PDF download', kioskPage.status === 200 && kioskPage.text.includes('data-testid="pass-preview"') && !kioskPage.text.includes('href="/api/pass/pdf') && !kioskPage.text.includes('aria-label="Card size"') && kioskPage.text.includes('data-testid="next-person"'));
+// A foreign "next" is ignored: no Next-person button that could send the kiosk elsewhere.
+check('“next” only goes back to an event link (no open redirect)', !(await call('GET', `/print/pass?t=${encodeURIComponent(r.data.passToken)}&next=${encodeURIComponent('https://evil.example')}`, undefined)).text.includes('data-testid="next-person"'));
 check('the pass link page opens', (await call('GET', `/v/${encodeURIComponent(r.data.passToken)}`, undefined)).text.includes('EDC EVENT PASS'));
 await sleep(3000);
 const mail = (await adminDb.collection('testOutbox').where('to', '==', guest.email).get()).docs.map((d) => d.data());

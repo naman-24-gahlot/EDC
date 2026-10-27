@@ -12,7 +12,7 @@ export interface EventFields {
   options: Options;
 }
 // Mirrors lib/events.ts EventOptions (the server validates the combination).
-export interface Options { requirePassword: boolean; autoApprove: boolean; emailPass: boolean; print: 'off' | 'button' | 'auto'; cardSize: string; kiosk: boolean }
+export interface Options { requirePassword: boolean; autoApprove: boolean; emailPass: boolean; print: 'off' | 'button' | 'auto'; cardSize: string; kiosk: boolean; kioskNext: 'auto' | 'unlock' | 'button'; kioskSeconds: number }
 const SIZES = [['cr80', 'ID card — landscape (CR80)'], ['cr80p', 'ID card — portrait (CR80)'], ['cr100', 'Large ID card (CR100)'], ['badge', 'Event badge 4×3 in'], ['a6', 'Paper pass (A6)'], ['a4', 'ID card on A4 (cut out)']] as const;
 
 const field = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm';
@@ -87,6 +87,17 @@ export function EventForm({ eventId, initial }: { eventId?: string; initial: Eve
             <select value={f.options.cardSize} onChange={(e) => opt({ cardSize: e.target.value })} className={field}>{SIZES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
         )}
         <label className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" checked={f.options.kiosk} disabled={f.options.requirePassword} onChange={(e) => opt({ kiosk: e.target.checked })} /> Kiosk mode — a shared machine: the form clears itself for the next person {f.options.requirePassword && <span className="text-xs text-gray-500">(needs “Passwords: not needed”)</span>}</label>
+        {f.options.kiosk && (
+          <div className="space-y-2 rounded border border-gray-100 bg-gray-50 p-2">
+            <Choice label="After each person (kiosk)" value={f.options.kioskNext} onChange={(v) => opt({ kioskNext: v as Options['kioskNext'] })}
+              choices={[['auto', 'Go to the next person by itself after the timer (or when “Next person” is tapped)'], ['unlock', '“Next person” unlocks when the timer runs out (time to collect the printout); never moves on by itself'], ['button', 'Only the “Next person” button, no timer']]} />
+            {f.options.kioskNext !== 'button' && (
+              <label className="flex flex-wrap items-center gap-2 text-sm">Timer
+                <input type="number" min={3} max={300} value={f.options.kioskSeconds} onChange={(e) => opt({ kioskSeconds: Math.round(Number(e.target.value) || 20) })} className={`${field} w-24`} /> seconds
+                <span className="text-xs text-gray-500">{f.options.print !== 'off' ? '(counted from when printing finishes)' : ''}</span></label>
+            )}
+          </div>
+        )}
         {f.options.print === 'auto' && <p className="text-xs text-gray-500">For printing with no dialog, start Chrome on the kiosk with <code className="rounded bg-gray-100 px-1">--kiosk --kiosk-printing</code> and set the card printer as the default printer (DEPLOYMENT.md “Event kiosks”).</p>}
       </fieldset>
       {msg && <p role="status" className={`text-sm ${msg.ok ? 'text-emerald-700' : 'text-red-700'}`}>{msg.text}</p>}

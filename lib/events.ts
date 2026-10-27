@@ -43,9 +43,11 @@ export interface EventRecord {
  *  print            after registering: 'off', a 'button' to print the card, or 'auto' (prints at once)
  *  cardSize         the card size printed (lib/passCard.ts)
  *  kiosk            a shared machine: the form clears itself for the next person
+ *  kioskNext        on a kiosk, after each person: 'auto' (next person after kioskSeconds), 'unlock'
+ *                   (the Next button unlocks after kioskSeconds) or 'button' (only the button)
  */
-export interface EventOptions { requirePassword: boolean; autoApprove: boolean; emailPass: boolean; print: 'off' | 'button' | 'auto'; cardSize: CardSizeId; kiosk: boolean }
-export const DEFAULT_EVENT_OPTIONS: EventOptions = { requirePassword: true, autoApprove: false, emailPass: true, print: 'off', cardSize: DEFAULT_CARD_SIZE, kiosk: false };
+export interface EventOptions { requirePassword: boolean; autoApprove: boolean; emailPass: boolean; print: 'off' | 'button' | 'auto'; cardSize: CardSizeId; kiosk: boolean; kioskNext: 'auto' | 'unlock' | 'button'; kioskSeconds: number }
+export const DEFAULT_EVENT_OPTIONS: EventOptions = { requirePassword: true, autoApprove: false, emailPass: true, print: 'off', cardSize: DEFAULT_CARD_SIZE, kiosk: false, kioskNext: 'auto', kioskSeconds: 20 };
 export const eventOptions = (e: Pick<EventRecord, 'options'> | null | undefined): EventOptions => ({ ...DEFAULT_EVENT_OPTIONS, ...(e?.options ?? {}) });
 
 function parseOptions(raw: unknown): EventOptions {
@@ -55,6 +57,8 @@ function parseOptions(raw: unknown): EventOptions {
     requirePassword: bool('requirePassword'), autoApprove: bool('autoApprove'), emailPass: bool('emailPass'), kiosk: bool('kiosk'),
     print: o.print === 'button' || o.print === 'auto' ? o.print : 'off',
     cardSize: isCardSize(o.cardSize) ? o.cardSize : DEFAULT_CARD_SIZE,
+    kioskNext: o.kioskNext === 'unlock' || o.kioskNext === 'button' ? o.kioskNext : 'auto',
+    kioskSeconds: Number.isInteger(o.kioskSeconds) ? Math.min(300, Math.max(3, o.kioskSeconds as number)) : DEFAULT_EVENT_OPTIONS.kioskSeconds,
   };
   if (out.kiosk && out.requirePassword) throw new HttpError(400, 'Kiosk mode needs “Passwords: not needed” — confirming an email and choosing a password at a shared machine doesn’t work.');
   if (out.print !== 'off' && !out.autoApprove) throw new HttpError(400, 'Printing right after registering needs “Approve on the spot” — otherwise there’s no pass to print yet.');

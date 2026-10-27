@@ -74,9 +74,12 @@ export default async function PassPage() {
             )}
           </div>
 
-          <span className={`rounded-full px-4 py-1.5 text-sm font-bold tracking-wide ring-1 ${STATUS_STYLE[status]}`} data-testid="pass-status">
-            {status}
-          </span>
+          {/* Only when something's wrong: an active pass speaks for itself (QR shown). */}
+          {status !== 'ACTIVE' && (
+            <span className={`rounded-full px-4 py-1.5 text-sm font-bold tracking-wide ring-1 ${STATUS_STYLE[status]}`} data-testid="pass-status">
+              {status}
+            </span>
+          )}
 
           {qrSvg ? (
             <PassQr svg={qrSvg} code={accessCode} name={name} />

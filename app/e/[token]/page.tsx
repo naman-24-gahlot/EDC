@@ -58,7 +58,7 @@ export default async function EventRegistrationPage({ params, searchParams }: { 
 
   const sourceTags = { ...(source.source ? { source: source.source } : {}), ...(source.medium ? { medium: source.medium } : {}), ...(source.campaign ? { campaign: source.campaign } : {}) };
   if (!opts.requirePassword) {
-    return <QuickRegister token={token} source={sourceTags} emailPass={opts.emailPass} autoApprove={opts.autoApprove} kiosk={opts.kiosk} header={header} />;
+    return <QuickRegister token={token} source={sourceTags} emailPass={opts.emailPass} autoApprove={opts.autoApprove} kiosk={opts.kiosk} kioskNext={opts.kioskNext} kioskSeconds={opts.kioskSeconds} header={header} />;
   }
   return (
     <RegisterForm header={header} event={{

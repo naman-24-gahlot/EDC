@@ -185,7 +185,9 @@ came in yesterday and never scanned out is still listed (and flagged — `stayFl
 
 ### Event options and no-password guests
 `events/{id}.options` (absent = defaults): `{ requirePassword: true, autoApprove: false, emailPass: true,
-print: 'off' | 'button' | 'auto', cardSize: 'cr80' | 'cr80p' | 'cr100' | 'badge' | 'a6' | 'a4', kiosk: false }`
+print: 'off' | 'button' | 'auto', cardSize: 'cr80' | 'cr80p' | 'cr100' | 'badge' | 'a6' | 'a4', kiosk: false,
+kioskNext: 'auto' | 'unlock' | 'button', kioskSeconds: 20 }` (kioskSeconds 3–300; kioskNext: go on by itself after the
+timer / unlock the Next button after it / button only)
 (kiosk needs requirePassword false; printing needs autoApprove). With `requirePassword: false` the link
 registers **event guests with no account** (`lib/eventGuests.ts`): `hasAccount: false`, username
 `guest-<hex>` (reserved), `commEmail` optional, no Auth user, no password hash. Their pass is `/v/<credential>`

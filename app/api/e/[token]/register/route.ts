@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const opts = eventOptions(event);
     const result = await registerQuickGuest(event, parseQuickInput(body), await siteOrigin());
-    return NextResponse.json({ ...result, print: opts.print, cardSize: opts.cardSize, kiosk: opts.kiosk }, { status: 201 });
+    return NextResponse.json({ ...result, print: opts.print, cardSize: opts.cardSize, kiosk: opts.kiosk, kioskNext: opts.kioskNext, kioskSeconds: opts.kioskSeconds }, { status: 201 });
   } catch (err) {
     return errorResponse(err, 'Could not register you — please try again.');
   }

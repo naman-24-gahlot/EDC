@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
   if (event && eventOptions(event).autoApprove) {
     const opts = eventOptions(event);
     const r = await approveOnTheSpot(created.personId, event, await siteOrigin()).catch((err) => { console.error('On-the-spot approval failed', err); return null; });
-    if (r) return NextResponse.json({ ...r, print: opts.print, cardSize: opts.cardSize, kiosk: opts.kiosk }, { status: 201 });
+    if (r) return NextResponse.json({ ...r, print: opts.print, cardSize: opts.cardSize, kiosk: opts.kiosk, kioskNext: opts.kioskNext, kioskSeconds: opts.kioskSeconds }, { status: 201 });
   }
   return NextResponse.json({ personId: created.personId, status: 'PENDING' }, { status: 201 });
 }

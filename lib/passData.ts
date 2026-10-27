@@ -25,9 +25,10 @@ export async function cardDataFor(person: PersonRecord): Promise<CardData> {
   const ent = await getCurrentEntitlement(person.personId);
   const status = ent ? effectiveStatus(ent, today) : null;
   const live = person.registrationStatus === 'APPROVED' && person.active === true && (status === 'ACTIVE' || status === 'SCHEDULED');
-  const validity = live && ent
-    ? `Valid ${ent.endDate ? `${formatDate(ent.startDate)} – ${formatDate(ent.endDate)}` : `from ${formatDate(ent.startDate)}`} · ${daysLabel(ent.weekdays)} ${ent.startTime}–${ent.endTime}`
-    : 'No access in force — the gate checks live';
+  // Same three facts as the on-screen pass: valid till, days, hours.
+  const access = live && ent
+    ? { till: ent.endDate ? formatDate(ent.endDate) : status === 'SCHEDULED' ? `from ${formatDate(ent.startDate)}` : 'Open-ended', days: daysLabel(ent.weekdays), hours: `${ent.startTime}–${ent.endTime}` }
+    : null;
   // One line under the name: who they're visiting, their event, who they're under, or their role's purpose.
   let sub: string | null = null;
   if (person.profileType === 'visitor') { const h = await name(person.hostId); sub = h ? `Visiting ${h}` : null; }
@@ -47,7 +48,7 @@ export async function cardDataFor(person: PersonRecord): Promise<CardData> {
     role: roleKey({ systemRole: person.systemRole, profileType: person.profileType, vvip: person.vvip === true }),
     subtitle: sub,
     code: accessCodeFor(person.profileType, person.accessNumber),
-    validity,
+    access,
     photo: typeof person.photoDataUrl === 'string' ? person.photoDataUrl : null,
     qr,
     issued: `Issued ${formatDate(today)}`,
