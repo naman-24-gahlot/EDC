@@ -197,3 +197,27 @@ keeps sending those two itself, through its own page.
 
 Until then, real addresses are **skipped** and the Emails page says so; `.test` addresses always
 land in the test outbox with the full text. **Admin → Emails sent** shows the delivery log.
+
+## Printing passes and event kiosks
+
+**Printing a pass** (`/print/pass`, `/api/pass/pdf`): from My account → *Print / PDF ID card*, a
+parent's people list (*Print pass*), a person's admin page, the visitor lists, or a pass link. Pick a
+size, then **Print** (the browser's print dialog — any printer, including ID-card printers such as
+Zebra / Evolis / Fargo, which install as normal printers) or **Download PDF** (exactly the card size).
+Print at **actual size / 100%**, margins **none**; on a card printer choose the CR80 card.
+
+Sizes: CR80 ID card 85.6 × 54 mm (landscape or portrait), CR100 98.5 × 67 mm, event badge 4 × 3 in,
+A6 paper pass, and a CR80 card on A4 with cut marks for ordinary printers.
+
+**An event kiosk** (a machine people queue at to register and get a printed pass):
+1. Admin → Events → the event → *Edit event details* → *How people register*: Passwords **not
+   needed**, Approval **on the spot**, Printing **automatically**, the card size, **Kiosk mode** on.
+2. On the kiosk computer: install the printer and make it the **default printer** with the right paper
+   (card printers: CR80). Set its print preferences to no margins / actual size.
+3. Start Chrome in kiosk mode on the event link, so printing skips the dialog and there's no address
+   bar or Back button:
+   `chrome.exe --kiosk --kiosk-printing "https://edc-gib-24.vercel.app/e/<the event's link code>"`
+   (create a desktop shortcut with that target; close it with Alt+F4).
+4. Each person fills in the form → their pass prints → the screen returns to an empty form by itself.
+   Leaving a phone-sized form open on a tablet works the same, with a "Print my pass" button instead.
+Kiosk sign-ups are limited to 240 per hour per machine (the normal registration limit is 30).

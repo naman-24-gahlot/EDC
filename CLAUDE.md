@@ -82,7 +82,8 @@ a guard's "photo ID seen" record (type + last 4 only), entry/exit with "on campu
 installable web app, optional Cloudflare Turnstile — DEPLOYMENT.md "Sign-in, sign-up and the gate";
 and, 2026-10-24: stay alerts (late / overnight / no exit scan) with on-campus headcount, holidays,
 employee leave, visitor passes (7th profile type `visitor`, no account), app emails over SMTP
-(`lib/mail.ts`, free Gmail) with an optional backup email, event reports, a tamper-evident audit chain.)
+(`lib/mail.ts`, free Gmail) with an optional backup email, event reports, a tamper-evident audit chain; 2026-10-27: printable ID-card passes (`lib/passCard.ts`,
+PDF via `lib/passPdf.ts`, no library) and per-event registration options incl. no-password kiosk sign-up.)
 
 ## Versions and test data
 - One branch: `main` = production (edc-gib-24.vercel.app). The user dropped the separate

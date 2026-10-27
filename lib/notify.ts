@@ -11,6 +11,11 @@ import { accessCodeFor, type ProfileType } from '@/lib/access/codes';
 import { PROFILE_LABEL, formatDate, windowSummary } from '@/lib/display';
 import { loadEvent } from '@/lib/events';
 import { sendMail, type MailKind } from '@/lib/mail';
+import { eventOptions } from '@/lib/events';
+import { passTokenFor } from '@/lib/access/credential';
+import { cardDataFor } from '@/lib/passData';
+import { DEFAULT_CARD_SIZE, passLayout } from '@/lib/passCard';
+import { passPdf } from '@/lib/passPdf';
 
 const SIGN_OFF = '\n— EDC Access, IIM Jammu\nThis is an automatic email; replies aren’t read.';
 
@@ -36,6 +41,10 @@ async function eventBlock(p: PersonRecord): Promise<string[]> {
 export async function notifyRegistrationApproved(personId: string, origin: string, access: Window | null) {
   const p = await load(personId);
   if (!p) return;
+  // Event sign-ups: only if the event says to email passes. No-password guests get their pass link + card.
+  const event = typeof p.eventId === 'string' ? await loadEvent(p.eventId) : null;
+  if (event && !eventOptions(event).emailPass) return;
+  if (p.hasAccount === false) return notifyEventPass(personId, origin, passTokenFor(p));
   const parent = await load(p.parentId);
   const code = accessCodeFor(p.profileType, p.accessNumber);
   const applied = (p.registrationDecision as { appliedProfileType?: string } | undefined)?.appliedProfileType;
@@ -51,6 +60,21 @@ export async function notifyRegistrationApproved(personId: string, origin: strin
     '', 'At the gate, show the QR code from your entry pass, or tell the guard your access code.',
     `Entry pass: ${origin}/me/pass`, `Sign in: ${origin}/login (username: ${p.username})`,
   ]);
+}
+
+/** The pass for someone with no account (quick event sign-up): link + the card as a PDF. */
+export async function notifyEventPass(personId: string, origin: string, passToken: string) {
+  const p = await load(personId);
+  if (!p) return;
+  const event = typeof p.eventId === 'string' ? await loadEvent(p.eventId) : null;
+  const size = event ? eventOptions(event).cardSize : DEFAULT_CARD_SIZE;
+  const pdf = passPdf([passLayout(await cardDataFor(p), size === 'a4' ? 'a4' : size)], `EDC pass — ${name(p)}`);
+  const link = `${origin}/v/${encodeURIComponent(passToken)}`;
+  return sendMail({ kind: 'EVENT_PASS', personId, to: recipients(p), subject: `Your pass${event ? ` for ${event.name}` : ' for EDC'}`, text: [
+    `Hello ${p.firstName},`, '', 'You’re registered and approved. Your entry pass is attached (PDF) and also here:', link,
+    `Access code: ${accessCodeFor(p.profileType, p.accessNumber) ?? '—'}`, ...(await eventBlock(p)),
+    '', 'Show the QR code (on your phone or printed) at the gate. Keep the link to yourself — it works as your pass.', SIGN_OFF,
+  ].filter(Boolean).join('\n'), attachments: [{ filename: 'edc-pass.pdf', contentType: 'application/pdf', data: pdf }] });
 }
 
 export async function notifyRegistrationRejected(personId: string, note: string | null) {

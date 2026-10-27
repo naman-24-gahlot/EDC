@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { adminDb } from '@/lib/firebase/admin';
 import { LIST_FIELDS, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
-import { eventWindow, linkState, loadEvent } from '@/lib/events';
+import { eventOptions, eventWindow, linkState, loadEvent } from '@/lib/events';
 import { approveOptions } from '@/lib/people/approveRegistration';
 import { PROFILE_LABEL, formatDate, formatDateTime, windowSummary } from '@/lib/display';
 import { fetchedAtNow } from '@/lib/paging';
@@ -125,7 +125,7 @@ export default async function AdminEventPage({ params, searchParams }: { params:
         <div className="mt-3">
           <EventForm eventId={event.id} initial={{
             name: event.name, details: event.details, venue: event.venue, accessFrom: event.accessFrom, accessTo: event.accessTo,
-            gateOpens: event.gateOpens, gateCloses: event.gateCloses, linkExpiresAt: istInput(event.linkExpiresAt),
+            gateOpens: event.gateOpens, gateCloses: event.gateCloses, linkExpiresAt: istInput(event.linkExpiresAt), options: eventOptions(event),
           }} />
           <p className="mt-2 text-xs text-gray-500">Changing the dates or hours affects people approved from now on; people already approved keep the access they were given (edit theirs on their page).</p>
         </div>

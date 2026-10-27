@@ -183,6 +183,16 @@ An approved IN sets `people.lastEntryAt` and `people.onCampus = true`; an exit s
 `people.lastExitAt` and `onCampus = false`. "On campus now" is `onCampus == true`, so someone who
 came in yesterday and never scanned out is still listed (and flagged — `stayFlags`).
 
+### Event options and no-password guests
+`events/{id}.options` (absent = defaults): `{ requirePassword: true, autoApprove: false, emailPass: true,
+print: 'off' | 'button' | 'auto', cardSize: 'cr80' | 'cr80p' | 'cr100' | 'badge' | 'a6' | 'a4', kiosk: false }`
+(kiosk needs requirePassword false; printing needs autoApprove). With `requirePassword: false` the link
+registers **event guests with no account** (`lib/eventGuests.ts`): `hasAccount: false`, username
+`guest-<hex>` (reserved), `commEmail` optional, no Auth user, no password hash. Their pass is `/v/<credential>`
+and a printed card; a quick guest stays an event guest (type change refused). `autoApprove` approves as
+`system` (audit REGISTRATION_APPROVED + ENTITLEMENT_CREATED, "approved on the spot") with exactly the
+event window. Same mobile twice for one event is refused.
+
 ### `stayFlags/{kind}_{personId}_{entryMillis}`
 Stay alerts (`lib/stays.ts`), one per visit and kind — the deterministic id + `create()` makes a
 second write a no-op. Never deleted; "seen" is a field.

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { eventByToken, linkState, parseSource } from '@/lib/events';
+import { eventByToken, eventOptions, linkState, parseSource } from '@/lib/events';
 import { formatDate, formatDateTime } from '@/lib/display';
 import { RegisterForm } from '@/app/register/RegisterForm';
+import { QuickRegister } from './QuickRegister';
 
 export const dynamic = 'force-dynamic';
 // Event links are shared by hand; keep them out of search engines.
@@ -32,6 +33,7 @@ export default async function EventRegistrationPage({ params, searchParams }: { 
   }
 
   const q = await searchParams;
+  const opts = eventOptions(event);
   const source = parseSource({ source: q.utm_source, medium: q.utm_medium, campaign: q.utm_campaign });
   const header = (
     <div className="space-y-3">
@@ -45,13 +47,19 @@ export default async function EventRegistrationPage({ params, searchParams }: { 
         <dt className="text-gray-500">Register by</dt>
         <dd>{formatDateTime(event.linkExpiresAt.toDate())}</dd>
       </dl>
-      <p className="text-sm text-gray-500">
+      {!opts.requirePassword ? (
+        <p className="text-sm text-gray-500">{opts.autoApprove ? 'Fill this in and get your entry pass straight away' : 'Fill this in; once approved you get your entry pass'}{opts.emailPass ? ' (also by email, if you give one)' : ''}. No account or password needed.</p>
+      ) : <p className="text-sm text-gray-500">
         Fill this in once. After approval you can sign in and show your entry pass at the gate during the event.
         Already have an EDC account? You don&apos;t need to register again — <Link href="/login" className="underline">sign in</Link> and send an access request for this event.
-      </p>
+      </p>}
     </div>
   );
 
+  const sourceTags = { ...(source.source ? { source: source.source } : {}), ...(source.medium ? { medium: source.medium } : {}), ...(source.campaign ? { campaign: source.campaign } : {}) };
+  if (!opts.requirePassword) {
+    return <QuickRegister token={token} source={sourceTags} emailPass={opts.emailPass} autoApprove={opts.autoApprove} kiosk={opts.kiosk} header={header} />;
+  }
   return (
     <RegisterForm header={header} event={{
       token, name: event.name,

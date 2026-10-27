@@ -22,7 +22,7 @@ import { isTestAddress } from '@/lib/auth/emailActions';
 
 export type MailKind =
   | 'REGISTRATION_APPROVED' | 'REGISTRATION_REJECTED' | 'ACCESS_APPROVED' | 'VISITOR_PASS'
-  | 'VISITOR_ARRIVED' | 'STAY_ALERT' | 'LEAVE_DECIDED' | 'PASSWORD_RESET_BACKUP' | 'PASSWORD_RESET' | 'VERIFY_EMAIL';
+  | 'VISITOR_ARRIVED' | 'STAY_ALERT' | 'LEAVE_DECIDED' | 'PASSWORD_RESET_BACKUP' | 'PASSWORD_RESET' | 'VERIFY_EMAIL' | 'EVENT_PASS';
 
 export interface Mail {
   kind: MailKind;
@@ -32,6 +32,8 @@ export interface Mail {
   subject: string;
   /** Plain text. Lines are kept as written; a URL on its own line is clickable in every client. */
   text: string;
+  /** Files sent with it (e.g. the pass as a PDF). */
+  attachments?: { filename: string; contentType: string; data: Buffer }[];
 }
 
 // Same rule as sign-up: nothing that could break out of an SMTP command or header (<, >, commas, spaces).
@@ -51,12 +53,12 @@ export async function sendMail(mail: Mail): Promise<Record<string, Delivery>> {
     let error: string | null = null;
     try {
       if (isTestAddress(addr)) {
-        await adminDb.collection('testOutbox').add({ personId: mail.personId, to: addr, kind: mail.kind, subject: mail.subject, text: mail.text, link: firstUrl(mail.text), createdAt: now });
+        await adminDb.collection('testOutbox').add({ personId: mail.personId, to: addr, kind: mail.kind, subject: mail.subject, text: mail.text, link: firstUrl(mail.text), attachments: (mail.attachments ?? []).map((a) => a.filename), createdAt: now });
         status = 'outbox';
       } else if (!mailConfigured()) {
         status = 'skipped';
       } else {
-        await smtpSend(addr, mail.subject, mail.text);
+        await smtpSend(addr, mail.subject, mail.text, mail.attachments ?? []);
         status = 'sent';
       }
     } catch (err) {
@@ -78,7 +80,17 @@ const firstUrl = (text: string) => text.match(/https?:\/\/\S+/)?.[0] ?? null;
 const header = (s: string) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${Buffer.from(s, 'utf8').toString('base64')}?=`);
 const wrap76 = (b64: string) => b64.replace(/.{1,76}/g, '$&\r\n');
 
-function smtpSend(to: string, subject: string, text: string): Promise<void> {
+/** The MIME body: plain text, or multipart/mixed with the attachments (everything base64). */
+function mimeBody(text: string, attachments: NonNullable<Mail['attachments']>): string[] {
+  const textPart = ['Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', wrap76(Buffer.from(text.replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64'))];
+  if (attachments.length === 0) return textPart;
+  const b = `edc-${randomBytes(12).toString('hex')}`;
+  return [`Content-Type: multipart/mixed; boundary="${b}"`, '', `--${b}`, ...textPart,
+    ...attachments.flatMap((a) => [`--${b}`, `Content-Type: ${a.contentType}; name="${a.filename}"`, `Content-Disposition: attachment; filename="${a.filename}"`, 'Content-Transfer-Encoding: base64', '', wrap76(a.data.toString('base64'))]),
+    `--${b}--`];
+}
+
+function smtpSend(to: string, subject: string, text: string, attachments: NonNullable<Mail['attachments']>): Promise<void> {
   const user = process.env.SMTP_USER!;
   const pass = process.env.SMTP_PASS!;
   const host = process.env.SMTP_HOST || 'smtp.gmail.com';
@@ -91,10 +103,7 @@ function smtpSend(to: string, subject: string, text: string): Promise<void> {
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: <${randomBytes(12).toString('hex')}@${user.split('@')[1]}>`,
     'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset=UTF-8',
-    'Content-Transfer-Encoding: base64',
-    '',
-    wrap76(Buffer.from(text.replace(/\r?\n/g, '\r\n'), 'utf8').toString('base64')),
+    ...mimeBody(text, attachments),
   ].join('\r\n');
 
   return new Promise((resolve, reject) => {

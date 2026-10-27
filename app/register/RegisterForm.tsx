@@ -8,6 +8,7 @@ import { HumanCheck, humanCheckOn } from '@/components/HumanCheck';
 import { checkMobile } from '@/lib/phone';
 import { EmailConfirm } from './EmailConfirm';
 import type { PasswordVerdict } from '@/components/PasswordField';
+import { PassReady, type IssuedPass } from '@/components/PassReady';
 
 type Verdict = { ok: boolean; message: string | null };
 
@@ -98,6 +99,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [humanToken, setHumanToken] = useState('');
+  const [issued, setIssued] = useState<IssuedPass | null>(null);
 
   const needsParent = SUBORDINATE_TYPES.has(profileType);
   const usernameCheck = useLiveCheck('username', username, 3);
@@ -139,6 +141,8 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
       // 409 = that username or email already has a profile: sign in rather than register again.
       if (response.status === 409) setTaken(true);
       if (!response.ok) throw new Error(data.error ?? 'Registration failed');
+      // Event links set to approve on the spot hand back the pass straight away.
+      if (data.status === 'APPROVED' && data.passToken) setIssued(data as IssuedPass);
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
@@ -147,6 +151,14 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
     }
   }
 
+  if (submitted && issued && event) {
+    return (
+      <main className="mx-auto w-full max-w-lg space-y-4 px-4 py-10">
+        <PassReady pass={issued} name={firstName} nextHref={`/e/${event.token}`} />
+        <p className="text-sm text-gray-600">You can also sign in any time and open your entry pass from your account.</p>
+      </main>
+    );
+  }
   if (submitted) {
     return (
       <main className="mx-auto w-full max-w-sm space-y-4 px-4 py-12 text-center">

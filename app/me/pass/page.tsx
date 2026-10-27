@@ -120,6 +120,7 @@ export default async function PassPage() {
           Present this pass at the gate.
         </footer>
       </section>
+      <Link href="/print/pass" className="mt-4 flex min-h-11 items-center justify-center rounded-lg border border-[#0D5B7A] text-sm font-semibold text-[#0D5B7A]" data-testid="print-pass">Print as an ID card / save PDF</Link>
     </main>
   );
 }

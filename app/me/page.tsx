@@ -191,6 +191,7 @@ async function PeopleSection({ user, me, params }: { user: SessionUser; me: Pers
                     {p.profileType && (status === 'NONE' || status === 'EXPIRED') && !pendingByPerson.has(p.personId) && (
                       <GrantButton personId={p.personId} name={`${p.firstName} ${p.lastName}`} summary={usualAccess(p.profileType, today)} />
                     )}
+                    {p.profileType && p.registrationStatus === 'APPROVED' && <Link href={`/print/pass?person=${p.personId}`} className="inline-flex min-h-10 items-center rounded border border-gray-300 bg-white px-3 text-xs font-medium md:min-h-8" aria-label={`Print ${p.firstName} ${p.lastName}'s pass`}>Print pass</Link>}
                     <Pill status={status} />
                   </div>
                 </li>
@@ -291,6 +292,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
         </dl>
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <Link href="/me/pass" className="inline-flex min-h-10 items-center rounded bg-[#0D5B7A] px-4 text-sm font-semibold text-white">Open my entry pass</Link>
+          <Link href="/print/pass" className="inline-flex min-h-10 items-center rounded border border-[#0D5B7A] px-4 text-sm font-semibold text-[#0D5B7A]">Print / PDF ID card</Link>
           {me.registrationStatus === 'APPROVED' && <ReissueButton />}
         </div>
       </Section>

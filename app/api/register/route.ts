@@ -8,9 +8,11 @@ import { errorResponse } from '@/lib/hierarchy/authorize';
 import { createPerson, PersonCreateError } from '@/lib/people/create';
 import { resolveEmployeeParent } from '@/lib/people/resolveParent';
 import { isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
-import { eventByToken, linkState, parseSource } from '@/lib/events';
+import { eventByToken, eventOptions, linkState, parseSource } from '@/lib/events';
 import { audit } from '@/lib/audit';
 import { parseBackupEmail } from '@/lib/people/profile';
+import { approveOnTheSpot } from '@/lib/eventGuests';
+import { siteOrigin } from '@/lib/origin';
 
 // Public, unauthenticated. Can only ever create a PENDING person — approval is the
 // real gate, so the general link needs no invite token. See SECURITY_MODEL.md
@@ -119,5 +121,11 @@ export async function POST(request: NextRequest) {
     adminDb.collection('people').doc(created.personId).update({ emailVerified: true, ...(backupEmail ? { backupEmail } : {}) }),
     consumeEmailCheck(commEmail),
   ]);
-  return NextResponse.json({ personId: created.personId }, { status: 201 });
+  // Event links set to "approve on the spot": the pass is issued now (event days and hours only).
+  if (event && eventOptions(event).autoApprove) {
+    const opts = eventOptions(event);
+    const r = await approveOnTheSpot(created.personId, event, await siteOrigin()).catch((err) => { console.error('On-the-spot approval failed', err); return null; });
+    if (r) return NextResponse.json({ ...r, print: opts.print, cardSize: opts.cardSize, kiosk: opts.kiosk }, { status: 201 });
+  }
+  return NextResponse.json({ personId: created.personId, status: 'PENDING' }, { status: 201 });
 }

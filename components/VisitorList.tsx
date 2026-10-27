@@ -20,7 +20,10 @@ export function VisitorList({ rows, personHrefBase }: { rows: VisitorRow[]; pers
               {!r.active && ' · switched off'}
             </span>
           </span>
-          <a href={r.passUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 shrink-0 items-center rounded border border-gray-300 px-3 text-xs font-medium md:min-h-8">Open pass</a>
+          <span className="flex shrink-0 gap-2">
+            <a href={r.passUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded border border-gray-300 px-3 text-xs font-medium md:min-h-8">Open pass</a>
+            <a href={`/print/pass?person=${r.personId}`} className="inline-flex min-h-10 items-center rounded border border-gray-300 px-3 text-xs font-medium md:min-h-8">Print</a>
+          </span>
         </li>
       ))}
     </ul>

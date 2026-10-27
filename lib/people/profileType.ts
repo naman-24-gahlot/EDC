@@ -29,6 +29,10 @@ export async function changeProfileType(actor: SessionUser, personId: string, ne
       throw new HttpError(400, 'Masters and guards keep their type — demote a Master first.');
     }
     // A visitor has no sign-in account, and nobody else can become one: it isn't a type you move between.
+    // Quick event sign-ups have no sign-in account either: they stay event guests (or register fully).
+    if (person.hasAccount === false && person.profileType === 'event_guest' && newType !== 'event_guest') {
+      throw new HttpError(400, 'They signed up without a password (no account) — to become another type they need to register normally.');
+    }
     if (person.profileType === 'visitor' || newType === 'visitor') {
       throw new HttpError(400, 'Visitor passes can’t change type — create a new visitor pass, or have them register.');
     }

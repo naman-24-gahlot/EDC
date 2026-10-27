@@ -70,6 +70,8 @@ export const RULES = {
   loginPerAccount: { name: 'login-acct', max: 10, windowMs: 10 * MIN }, // per IP + identifier
   loginPerIp: { name: 'login-ip', max: 300, windowMs: 10 * MIN },
   registerPerIp: { name: 'register-ip', max: 30, windowMs: 60 * MIN },
+  // Event quick sign-up: one kiosk machine registers a queue of people (≈ one every 15 s at most).
+  kioskPerIp: { name: 'kiosk-ip', max: 240, windowMs: 60 * MIN },
   emailPerIp: { name: 'email-ip', max: 10, windowMs: 10 * MIN }, // forgot-password / verification emails
   checkPerIp: { name: 'check-ip', max: 120, windowMs: MIN }, // live 'is this taken?' checks while typing
   gatePerSession: { name: 'gate', max: 120, windowMs: MIN },
@@ -104,6 +106,8 @@ export function bucketsFor(r: RequestFacts): { rule: LimitRule; key: string }[] 
     out.push({ rule: RULES.emailPerIp, key: r.ip });
   } else if (r.pathname === '/api/register/check' || r.pathname === '/api/register/email-check') {
     out.push({ rule: RULES.checkPerIp, key: r.ip });
+  } else if (r.method === 'POST' && /^\/api\/e\/[A-Za-z0-9_-]{1,64}\/register$/.test(r.pathname)) {
+    out.push({ rule: RULES.kioskPerIp, key: r.ip });
   } else if (r.method === 'POST' && r.pathname === '/api/register') {
     out.push({ rule: RULES.registerPerIp, key: r.ip });
   } else if (r.method === 'POST' && r.pathname === '/api/guard/verify') {

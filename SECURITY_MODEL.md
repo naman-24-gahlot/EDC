@@ -342,6 +342,18 @@ point at another site ("reset-link poisoning"; covered by tests/live/features.mt
 the app icons use; plus high-severity fixes in transitive packages via `npm audit fix`). Remaining:
 2 moderate advisories inside Google's libraries under firebase-admin.
 
+## Printed passes and kiosk sign-up
+- **Printing** (`lib/passData.ts printablePerson`): the person, `assertCanActOn` (parents, Master), or
+  whoever holds the pass link (the credential itself). The printed QR is the live credential: replacing
+  the QR, revoking or deactivating makes printed cards stop working. Guards have no pass.
+- **No-password event sign-up** exists only where a Master chose it per event; such guests have no
+  account (nothing to sign in to, nothing to steal) and get only that event's window. "Approve on the
+  spot" is likewise per event and limited to the event's days/hours. Human check + 240/hour/IP limit.
+- **Kiosks**: the pass page after printing is *replaced* in history (Back can't show the previous
+  person's pass); "next" redirects only to `/e/<token>` (no open redirect). Use Chrome `--kiosk` so there's
+  no address bar.
+- Emails with the pass carry the link and a PDF; they go only to the address the guest typed.
+
 ## Account deletion
 Self-deletion re-checks the password (a stolen open session alone can't delete); others: Master only,
 except a host for their own visitor pass (`assertCanActOn`). Refused while people are under the

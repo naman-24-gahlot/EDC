@@ -14,6 +14,7 @@ import { HttpError, requireMaster } from '@/lib/hierarchy/authorize';
 import { todayDateString } from '@/lib/date';
 import type { EntitlementWindow } from '@/lib/access/entitlements';
 import { audit, type AuditAction } from '@/lib/audit';
+import { DEFAULT_CARD_SIZE, isCardSize, type CardSizeId } from '@/lib/passCard';
 
 export interface EventRecord {
   id: string;
@@ -29,6 +30,35 @@ export interface EventRecord {
   closedAt: Timestamp | null;
   createdBy: string;
   createdAt: Timestamp;
+  /** How registration works on this link (absent on older events = the defaults). */
+  options?: Partial<EventOptions>;
+}
+
+/**
+ * Per-event registration settings (Master, on the event form):
+ *  requirePassword  false = quick sign-up with no password and no account: the pass is a private
+ *                   link + printed card (lib/eventGuests.ts). Needed for kiosk mode.
+ *  autoApprove      approve on the spot: the pass is issued at once, for the event's days and hours
+ *  emailPass        email the pass (link + PDF card) once they're approved, if they gave an email
+ *  print            after registering: 'off', a 'button' to print the card, or 'auto' (prints at once)
+ *  cardSize         the card size printed (lib/passCard.ts)
+ *  kiosk            a shared machine: the form clears itself for the next person
+ */
+export interface EventOptions { requirePassword: boolean; autoApprove: boolean; emailPass: boolean; print: 'off' | 'button' | 'auto'; cardSize: CardSizeId; kiosk: boolean }
+export const DEFAULT_EVENT_OPTIONS: EventOptions = { requirePassword: true, autoApprove: false, emailPass: true, print: 'off', cardSize: DEFAULT_CARD_SIZE, kiosk: false };
+export const eventOptions = (e: Pick<EventRecord, 'options'> | null | undefined): EventOptions => ({ ...DEFAULT_EVENT_OPTIONS, ...(e?.options ?? {}) });
+
+function parseOptions(raw: unknown): EventOptions {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const bool = (k: keyof EventOptions) => (typeof o[k] === 'boolean' ? o[k] as boolean : DEFAULT_EVENT_OPTIONS[k] as boolean);
+  const out: EventOptions = {
+    requirePassword: bool('requirePassword'), autoApprove: bool('autoApprove'), emailPass: bool('emailPass'), kiosk: bool('kiosk'),
+    print: o.print === 'button' || o.print === 'auto' ? o.print : 'off',
+    cardSize: isCardSize(o.cardSize) ? o.cardSize : DEFAULT_CARD_SIZE,
+  };
+  if (out.kiosk && out.requirePassword) throw new HttpError(400, 'Kiosk mode needs “Passwords: not needed” — confirming an email and choosing a password at a shared machine doesn’t work.');
+  if (out.print !== 'off' && !out.autoApprove) throw new HttpError(400, 'Printing right after registering needs “Approve on the spot” — otherwise there’s no pass to print yet.');
+  return out;
 }
 
 export type LinkState = 'OPEN' | 'CLOSED' | 'EXPIRED';
@@ -69,7 +99,7 @@ export function eventWindow(e: EventRecord, today = todayDateString()): Entitlem
 const realDate = (s: string) => DATE_RE.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
 const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-export interface EventInput { name: string; details: string; venue: string; accessFrom: string; accessTo: string; gateOpens: string; gateCloses: string; linkExpiresAt: Timestamp }
+export interface EventInput { name: string; details: string; venue: string; accessFrom: string; accessTo: string; gateOpens: string; gateCloses: string; linkExpiresAt: Timestamp; options: EventOptions }
 
 /** Validates untrusted input. `partial` for edits: only the given fields, each still checked. */
 export function parseEventInput(body: unknown, partial: false): EventInput;
@@ -94,6 +124,7 @@ export function parseEventInput(body: unknown, partial: boolean): Partial<EventI
     if (Number.isNaN(ms)) throw new HttpError(400, 'Choose when the registration link stops working.');
     out.linkExpiresAt = Timestamp.fromMillis(ms);
   }
+  if (has('options')) out.options = parseOptions(b.options);
   return out;
 }
 

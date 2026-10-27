@@ -10,6 +10,7 @@ import { StatusPill } from '@/components/StatusPill';
 import { DataStamp } from '@/components/DataStamp';
 import { eventCounts, requireMasterPage } from '../data';
 import { EventForm } from './EventForm';
+import { DEFAULT_EVENT_OPTIONS } from '@/lib/events';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export default async function AdminEventsPage() {
       <details className="rounded-lg border border-gray-200 bg-gray-50 p-4" open={events.length === 0}>
         <summary className="inline-flex min-h-10 cursor-pointer items-center text-sm font-semibold md:min-h-0">+ New event</summary>
         <p className="mb-3 mt-1 text-xs text-gray-500">Creates a registration page with its own link. Anyone with the link can register (any profile type) until the time you set; you approve them here, and approved people get access for the event days and hours.</p>
-        <EventForm initial={{ name: '', details: '', venue: '', accessFrom: today, accessTo: today, gateOpens: '09:00', gateCloses: '18:00', linkExpiresAt: `${today}T23:59` }} />
+        <EventForm initial={{ name: '', details: '', venue: '', accessFrom: today, accessTo: today, gateOpens: '09:00', gateCloses: '18:00', linkExpiresAt: `${today}T23:59`, options: DEFAULT_EVENT_OPTIONS }} />
       </details>
 
       {events.length === 0 && <p className="text-sm text-gray-400">No events yet.</p>}

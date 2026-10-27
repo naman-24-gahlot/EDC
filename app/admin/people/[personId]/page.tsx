@@ -172,7 +172,8 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
           <p className="break-words text-xs text-gray-400 [overflow-wrap:anywhere]">{String(person.commEmail ?? '')} {person.emailVerified === true ? <span className="text-emerald-700">✓ confirmed</span> : <span className="text-amber-700">(not confirmed)</span>}
             {(() => { const c = person.idCheck as { type?: string; last4?: string | null; at?: { toDate: () => Date } } | undefined; return c?.type ? <> · photo ID seen: {c.type}{c.last4 ? ` ending ${c.last4}` : ''}{c.at ? ` (${formatDateTime(c.at.toDate())})` : ''}</> : <> · photo ID not checked yet</>; })()} · {String(person.mobile ?? '')} · credential v{person.credentialVersion}</p>
         </div>
-        <div><StatusPill status={status} /></div>
+        <div className="flex flex-col items-end gap-2"><StatusPill status={status} />
+          {person.profileType && person.registrationStatus === 'APPROVED' && <Link href={`/print/pass?person=${personId}`} className="inline-flex min-h-10 items-center rounded border border-gray-300 bg-white px-3 text-xs font-medium md:min-h-8" data-testid="print-pass">Print pass / PDF</Link>}</div>
       </div>
 
       <PersonActions
