@@ -36,7 +36,7 @@ export function VisitorForm() {
     }
   }
 
-  const input = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm font-normal normal-case text-gray-900';
+  const input = 'min-h-10 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm font-normal normal-case text-gray-900';
   const label = 'space-y-1 text-xs font-semibold uppercase text-gray-500';
   const set = (k: keyof ReturnType<typeof blank>) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });
 

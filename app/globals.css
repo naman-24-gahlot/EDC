@@ -26,6 +26,11 @@
   textarea {
     font-size: 16px !important;
   }
+  /* Every field and menu is comfortable to tap (Apple/Google suggest ~44px). */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+  select {
+    min-height: 2.75rem;
+  }
 
   /* Tables marked .rtable become stacked cards: each cell shows its column name (data-label). */
   table.rtable,

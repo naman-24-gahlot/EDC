@@ -214,6 +214,17 @@ decisionNote }`. Approved leave never blocks the gate; the guard sees "On approv
 Every app email attempt (`lib/mail.ts`): `{ kind, personId, to, subject, status: 'sent' | 'outbox' |
 'skipped' | 'failed', error, at }`. No message bodies (those exist only in `testOutbox` for `.test`).
 
+### Account deletion (`lib/people/deleteAccount.ts`)
+The one exception to "nothing is deleted". By the person (password + typing DELETE; My account),
+a Master (person page), or a host for their own visitor pass; refused while anyone is under them
+and for the last Master. Removes the Auth user and every record keyed to them: `people/{id}` (+
+`profileHistory`), `identifiers`, `accessNumbers`, `entitlements`, `accessRequests`, `entryEvents`,
+`stayFlags`, `leaveRequests`, `passwordHashes`, `emailChecks`, and `emailLog`/`testOutbox` by id or
+address. `auditLogs` keep an `ACCOUNT_DELETED` entry (no personal data); every other entry about
+them, or mentioning their name/username/emails/mobile, gets `details: "[removed — account deleted]"`,
+an email `subjectId` cleared, and `redacted: { by: <ACCOUNT_DELETED entry id>, at }`. Their random
+id stays where other records point at it (who approved whom).
+
 ### `auditChain/head`
 `{ seq, hash, sealedAt }` — the newest sealed audit entry (`lib/auditChain.ts`).
 

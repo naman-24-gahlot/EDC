@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
             <button type="submit" disabled={busy || (humanCheckOn && !humanToken)} className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
               {busy ? 'Sending…' : 'Email me a reset link'}
             </button>
-            <Link href="/login" className="block text-center text-xs text-gray-500 underline">Back to sign in</Link>
+            <Link href="/login" className="flex min-h-10 items-center justify-center text-xs text-gray-500 underline">Back to sign in</Link>
           </form>
         )}
       </div>

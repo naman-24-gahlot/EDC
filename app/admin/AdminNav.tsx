@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 const LINKS = [
   { href: '/admin', label: 'Access requests', count: 'requests' },
@@ -20,9 +20,24 @@ const LINKS = [
 
 export function AdminNav({ counts }: { counts: { requests: number; registrations: number; stays: number; leave: number } }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const isActive = (href: string) => (href === '/admin' ? pathname === '/admin' : pathname.startsWith(href));
+  const current = LINKS.find((l) => isActive(l.href))?.href ?? '/admin';
+  const waiting = (link: (typeof LINKS)[number]) => ('count' in link ? counts[link.count] : 0);
 
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-gray-200">
+    <>
+    {/* Phones: 13 sections don't fit across, and a sideways strip hides most of them — a menu shows all. */}
+    <label className="block md:hidden">
+      <span className="sr-only">Go to section</span>
+      <select value={current} onChange={(e) => router.push(e.target.value)} data-testid="admin-menu"
+        className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-900">
+        {LINKS.map((link) => (
+          <option key={link.href} value={link.href}>{link.label}{waiting(link) > 0 ? ` (${waiting(link)} waiting)` : ''}</option>
+        ))}
+      </select>
+    </label>
+    <nav className="hidden gap-1 overflow-x-auto border-b border-gray-200 md:flex">
       {LINKS.map((link) => {
         const active = link.href === '/admin' ? pathname === '/admin' : pathname.startsWith(link.href);
         const n = 'count' in link ? counts[link.count] : 0;
@@ -44,5 +59,6 @@ export function AdminNav({ counts }: { counts: { requests: number; registrations
         );
       })}
     </nav>
+    </>
   );
 }

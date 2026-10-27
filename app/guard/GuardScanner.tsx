@@ -185,7 +185,11 @@ export function GuardScanner() {
           }
         );
       } catch (err) {
-        setCameraError(err instanceof Error ? err.message : 'Could not start camera');
+        // Plain advice, including where Safari/Chrome keep the camera permission.
+        const name = (err as { name?: string })?.name ?? String(err);
+        setCameraError(/NotAllowed|Permission|denied/i.test(name)
+          ? 'Camera permission is blocked — allow the camera for this site (iPhone: Settings → Safari → Camera; Mac: Safari → Settings → Websites → Camera; Chrome: the camera icon in the address bar)'
+          : /NotFound|no camera|Requested device not found/i.test(name) ? 'No camera found on this device' : 'Could not start the camera');
       }
     })();
 

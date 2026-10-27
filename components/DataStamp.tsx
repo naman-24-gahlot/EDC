@@ -48,7 +48,7 @@ export function DataStamp({ fetchedAt, pageParams = ['page'] }: { fetchedAt: str
         type="button"
         onClick={refresh}
         disabled={pending}
-        className="inline-flex min-h-8 items-center gap-1 rounded border border-gray-300 bg-white px-2.5 font-medium text-gray-700 disabled:opacity-60"
+        className="inline-flex min-h-10 items-center gap-1 rounded border md:min-h-8 border-gray-300 bg-white px-2.5 font-medium text-gray-700 disabled:opacity-60"
       >
         <span aria-hidden className={pending ? 'inline-block animate-spin motion-reduce:animate-none' : 'inline-block'}>↻</span>
         Refresh

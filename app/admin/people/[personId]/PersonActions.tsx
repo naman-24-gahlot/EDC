@@ -44,7 +44,7 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const TOP_LEVEL = '__top__';
 const btn = 'inline-flex min-h-10 items-center rounded border px-3 text-sm font-medium disabled:opacity-50 md:min-h-8';
 const label = 'text-xs font-semibold uppercase text-gray-500';
-const input = 'w-full rounded border border-gray-300 px-2 py-1.5 text-sm';
+const input = 'min-h-10 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm md:min-h-0';
 
 const sameWindow = (a: Window, b: Window) =>
   a.startDate === b.startDate && a.endDate === b.endDate && a.startTime === b.startTime &&

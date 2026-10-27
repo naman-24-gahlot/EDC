@@ -342,6 +342,14 @@ point at another site ("reset-link poisoning"; covered by tests/live/features.mt
 the app icons use; plus high-severity fixes in transitive packages via `npm audit fix`). Remaining:
 2 moderate advisories inside Google's libraries under firebase-admin.
 
+## Account deletion
+Self-deletion re-checks the password (a stolen open session alone can't delete); others: Master only,
+except a host for their own visitor pass (`assertCanActOn`). Refused while people are under the
+person, and for the last Master. The session dies at once (session cookies are verified with
+revocation, and the Auth user is gone). Audit entries are blanked, not deleted; the chain verifier
+accepts a changed entry only if it carries `redacted.by` pointing at a sealed `ACCOUNT_DELETED`
+entry, so blanking can't be used to hide an edit. Covered live by `tests/live/deletion.mts`.
+
 ## Audit integrity (`lib/auditChain.ts`)
 Entries are chained with HMAC-SHA256 (key derived from `QR_TOKEN_SECRET`, so database access alone
 can't forge fingerprints). Detects edits, deletions and reordering of sealed entries. Not detected
