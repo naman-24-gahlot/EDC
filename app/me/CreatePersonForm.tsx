@@ -2,7 +2,7 @@
 
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { downscalePhoto } from '@/lib/photo';
+import { PhotoInput } from '@/components/PhotoInput';
 
 const TYPES = [
   { value: 'driver', label: 'Driver' },
@@ -32,15 +32,6 @@ export function CreatePersonForm() {
 
   const set = (key: keyof typeof EMPTY) => (e: ChangeEvent<HTMLInputElement>) => setFields({ ...fields, [key]: e.target.value });
 
-  async function onPhoto(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setPhotoDataUrl(await downscalePhoto(file));
-    } catch {
-      setError('Could not process that photo — try a different image.');
-    }
-  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -100,14 +91,7 @@ export function CreatePersonForm() {
           <div className="space-y-1"><label htmlFor="cp-email" className="text-sm font-medium">Communication email</label><input id="cp-email" type="email" value={fields.commEmail} onChange={set('commEmail')} required className={input} /></div>
           <div className="space-y-1"><label htmlFor="cp-mobile" className="text-sm font-medium">Mobile number</label><input id="cp-mobile" value={fields.mobile} onChange={set('mobile')} required className={input} /></div>
           <div className="space-y-1"><label htmlFor="cp-purpose" className="text-sm font-medium">Profile / Purpose</label><input id="cp-purpose" value={fields.purpose} onChange={set('purpose')} required className={input} /></div>
-          <div className="space-y-1">
-            <label htmlFor="cp-photo" className="text-sm font-medium">Photo (optional)</label>
-            <input id="cp-photo" type="file" accept="image/*" onChange={onPhoto} className="text-sm" />
-            {photoDataUrl && (
-              // eslint-disable-next-line @next/next/no-img-element -- data: URL preview, not a static/remote asset
-              <img src={photoDataUrl} alt="Preview" className="mt-1 h-14 w-14 rounded-full object-cover" />
-            )}
-          </div>
+          <PhotoInput value={photoDataUrl} onChange={setPhotoDataUrl} label="Photo" hint="optional — guards see it at the gate" />
           <p className="text-xs text-gray-500">They&apos;re approved immediately (you are their approver) and get a one-time password to sign in.</p>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2">

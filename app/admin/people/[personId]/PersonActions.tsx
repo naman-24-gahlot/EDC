@@ -379,6 +379,28 @@ They get full control of everyone and everything here.`, `${person.name} is now 
             )}
           </ActionRow>
         )}
+        <ActionRow label="Delete" state="Removes them and everything about them" action="Delete permanently"
+          help={person.hasDescendants ? 'People are registered under them — move them to someone else first (Profile → Parent on each of their pages).' : 'Deletes their sign-in, profile, photo, code, access, gate records, leave and emails for good. The audit log keeps that it happened, with their details blanked. Can’t be undone.'}>
+          <button className={`${btn} border-red-400 bg-red-700 text-white`} disabled={busy || person.hasDescendants}
+            onClick={async () => {
+              const typed = window.prompt(`Delete ${person.name} permanently? This can’t be undone.
+
+Type DELETE to confirm.`);
+              if (typed !== 'DELETE') return;
+              setBusy(true);
+              setMsg(null);
+              try {
+                await sendJson(base, { confirm: 'DELETE' }, 'DELETE');
+                router.push('/admin/people');
+                router.refresh();
+              } catch (err) {
+                setMsg({ ok: false, text: err instanceof Error ? err.message : 'Could not delete.' });
+                setBusy(false);
+              }
+            }}>
+            Delete permanently
+          </button>
+        </ActionRow>
       </dl>
 
       {oneTimePassword && (

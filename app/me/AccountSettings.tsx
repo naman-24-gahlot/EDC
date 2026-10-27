@@ -1,23 +1,24 @@
 'use client';
 
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { downscalePhoto } from '@/lib/photo';
+import { PhotoInput } from '@/components/PhotoInput';
 import { sendJson } from '@/lib/clientFetch';
 import { PasswordField, type PasswordVerdict } from '@/components/PasswordField';
 
-type Panel = 'details' | 'password' | null;
+type Panel = 'details' | 'password' | 'photo' | 'delete' | null;
 
 const input = 'w-full rounded border border-gray-300 px-3 py-2 text-sm';
 const btn = 'rounded px-3 py-2 text-sm font-medium disabled:opacity-50';
 
-export function AccountSettings({ initial, username }: { initial: { firstName: string; lastName: string; mobile: string; purpose: string; backupEmail: string }; username: string }) {
+export function AccountSettings({ initial, username, photo: savedPhoto }: { initial: { firstName: string; lastName: string; mobile: string; purpose: string; backupEmail: string }; username: string; photo: string | null }) {
   const router = useRouter();
   const [panel, setPanel] = useState<Panel>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [details, setDetails] = useState(initial);
-  const [photo, setPhoto] = useState<string | null | undefined>(undefined);
+  const [photo, setPhoto] = useState<string | null>(savedPhoto);
+  const [del, setDel] = useState({ password: '', confirm: '' });
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
   const [confirmEverywhere, setConfirmEverywhere] = useState(false);
   const [pwVerdict, setPwVerdict] = useState<PasswordVerdict>('blocked');
@@ -40,7 +41,6 @@ export function AccountSettings({ initial, username }: { initial: { firstName: s
     e.preventDefault();
     const patch: Record<string, unknown> = {};
     (Object.keys(details) as (keyof typeof details)[]).forEach((k) => { if (details[k] !== initial[k]) patch[k] = details[k]; });
-    if (photo !== undefined) patch.photoDataUrl = photo;
     if (Object.keys(patch).length === 0) return setMessage({ ok: false, text: 'Nothing changed.' });
     if (await send('PATCH', '/api/me/profile', patch)) {
       setMessage({ ok: true, text: 'Details saved.' });
@@ -49,10 +49,22 @@ export function AccountSettings({ initial, username }: { initial: { firstName: s
     }
   }
 
-  async function onPhoto(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try { setPhoto(await downscalePhoto(file)); } catch { setMessage({ ok: false, text: 'Could not process that photo — try a different image.' }); }
+  async function savePhoto() {
+    if (photo === savedPhoto) return setMessage({ ok: false, text: 'Nothing changed.' });
+    if (await send('PATCH', '/api/me/profile', { photoDataUrl: photo })) {
+      setMessage({ ok: true, text: photo ? 'Photo saved — guards see it at the gate.' : 'Photo removed.' });
+      setPanel(null);
+      router.refresh();
+    }
+  }
+
+  async function deleteAccount(e: FormEvent) {
+    e.preventDefault();
+    if (del.confirm !== 'DELETE') return setMessage({ ok: false, text: 'Type DELETE in capitals to confirm.' });
+    if (await send('DELETE', '/api/me/account', { password: del.password, confirm: 'DELETE' })) {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- full load: the session is gone
+      window.location.assign('/login?deleted=1');
+    }
   }
 
   async function changePassword(e: FormEvent) {
@@ -75,6 +87,7 @@ export function AccountSettings({ initial, username }: { initial: { firstName: s
       {message && <p role="status" className={`text-sm ${message.ok ? 'text-emerald-700' : 'text-red-700'}`}>{message.text}</p>}
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => setPanel(panel === 'details' ? null : 'details')} aria-expanded={panel === 'details'} className={`${btn} border border-gray-300 bg-white`}>Edit my details</button>
+        <button type="button" onClick={() => setPanel(panel === 'photo' ? null : 'photo')} aria-expanded={panel === 'photo'} className={`${btn} border border-gray-300 bg-white`}>{savedPhoto ? 'Change photo' : 'Add photo'}</button>
         <button type="button" onClick={() => setPanel(panel === 'password' ? null : 'password')} aria-expanded={panel === 'password'} className={`${btn} border border-gray-300 bg-white`}>Change password</button>
         {!confirmEverywhere ? (
           <button type="button" onClick={() => setConfirmEverywhere(true)} className={`${btn} border border-red-200 bg-white text-red-700`}>Sign out of all devices</button>
@@ -86,6 +99,22 @@ export function AccountSettings({ initial, username }: { initial: { firstName: s
           </span>
         )}
       </div>
+      {panel !== 'delete' && (
+        <button type="button" onClick={() => setPanel('delete')} className="inline-flex min-h-10 items-center text-xs text-red-700 underline md:min-h-0">Delete my account…</button>
+      )}
+
+      {panel === 'delete' && (
+        <form onSubmit={deleteAccount} className="space-y-3 rounded border border-red-200 bg-red-50 p-4" aria-label="Delete my account">
+          <p className="text-sm font-semibold text-red-900">Delete my account permanently</p>
+          <p className="text-sm text-red-900">This removes your sign-in, profile, photo, access code, access history, gate records, leave and emails from EDC for good. It can’t be undone; to come back you’d register again. The audit log keeps that an account was deleted, with your details removed.</p>
+          <div className="space-y-1"><label htmlFor="del-pw" className="text-sm font-medium">Your password</label><input id="del-pw" type="password" autoComplete="current-password" value={del.password} onChange={(e) => setDel({ ...del, password: e.target.value })} required className={input} /></div>
+          <div className="space-y-1"><label htmlFor="del-confirm" className="text-sm font-medium">Type <b>DELETE</b> to confirm</label><input id="del-confirm" value={del.confirm} onChange={(e) => setDel({ ...del, confirm: e.target.value })} autoCapitalize="characters" autoComplete="off" required className={input} /></div>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" disabled={busy || del.confirm !== 'DELETE' || !del.password} className={`${btn} bg-red-700 text-white`}>{busy ? 'Deleting…' : 'Delete my account'}</button>
+            <button type="button" onClick={() => { setDel({ password: '', confirm: '' }); setPanel(null); }} className={`${btn} border border-gray-300 bg-white`}>Cancel</button>
+          </div>
+        </form>
+      )}
 
       {panel === 'details' && (
         <form onSubmit={saveDetails} className="space-y-3 rounded border border-gray-200 bg-white p-4" aria-label="Edit my details">
@@ -96,17 +125,19 @@ export function AccountSettings({ initial, username }: { initial: { firstName: s
           <div className="space-y-1"><label htmlFor="as-mobile" className="text-sm font-medium">Mobile</label><input id="as-mobile" value={details.mobile} onChange={(e) => setDetails({ ...details, mobile: e.target.value })} required className={input} /></div>
           <div className="space-y-1"><label htmlFor="as-purpose" className="text-sm font-medium">Profile / Purpose</label><input id="as-purpose" value={details.purpose} onChange={(e) => setDetails({ ...details, purpose: e.target.value })} required className={input} /></div>
           <div className="space-y-1"><label htmlFor="as-backup" className="text-sm font-medium">Backup email <span className="font-normal text-gray-500">(optional — also gets password-reset links and approval emails; leave empty to remove)</span></label><input id="as-backup" type="email" value={details.backupEmail} onChange={(e) => setDetails({ ...details, backupEmail: e.target.value })} className={input} /></div>
-          <div className="space-y-1">
-            <label htmlFor="as-photo" className="text-sm font-medium">Photo</label>
-            <input id="as-photo" type="file" accept="image/*" onChange={onPhoto} className="text-sm" />
-            {photo && (
-              // eslint-disable-next-line @next/next/no-img-element -- data: URL preview, not a static/remote asset
-              <img src={photo} alt="New photo preview" className="mt-1 h-14 w-14 rounded-full object-cover" />
-            )}
-          </div>
           <p className="text-xs text-gray-500">Username and email can’t be changed here.</p>
           <button type="submit" disabled={busy} className={`${btn} bg-gray-900 text-white`}>{busy ? 'Saving…' : 'Save details'}</button>
         </form>
+      )}
+
+      {panel === 'photo' && (
+        <div className="space-y-3 rounded border border-gray-200 bg-white p-4" aria-label="My photo">
+          <PhotoInput value={photo} onChange={setPhoto} label="My photo" hint="guards see it at the gate" />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={savePhoto} disabled={busy || photo === savedPhoto} className={`${btn} bg-gray-900 text-white`}>{busy ? 'Saving…' : 'Save photo'}</button>
+            <button type="button" onClick={() => { setPhoto(savedPhoto); setPanel(null); }} className={`${btn} border border-gray-300`}>Cancel</button>
+          </div>
+        </div>
       )}
 
       {panel === 'password' && (

@@ -66,7 +66,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
         </span>
         {check ? (check.broken
           ? <span className="rounded bg-red-100 px-2 py-1 font-semibold text-red-800" role="alert" data-testid="chain-broken">Chain broken at entry #{check.broken.seq}{check.broken.entryId ? ` (${check.broken.entryId})` : ''}: {check.broken.problem}. {check.checked} entries before it are intact.</span>
-          : <span className="rounded bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" role="status" data-testid="chain-ok">✓ All {check.checked} entries intact{check.unsealed ? ` (${check.unsealed} just written, not sealed yet)` : ''}.</span>)
+          : <span className="rounded bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" role="status" data-testid="chain-ok">✓ All {check.checked} entries intact{check.redacted ? ` (${check.redacted} blanked by account deletions)` : ''}{check.unsealed ? ` (${check.unsealed} just written, not sealed yet)` : ''}.</span>)
           : <Link href={{ pathname: '/admin/audit', query: { ...filterParams(filter), verify: '1' } }} className="inline-flex min-h-10 items-center rounded border border-gray-300 px-2 font-medium md:min-h-7">Check integrity</Link>}
       </div>
       <AuditFilterForm key={JSON.stringify(filter)} groups={ACTION_GROUPS} selected={filter.actions} from={filter.from} to={filter.to} order={filter.order} person={person}

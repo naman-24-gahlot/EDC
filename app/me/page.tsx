@@ -275,6 +275,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
         </dl>
         <AccountSettings
           username={me.username}
+          photo={photo}
           initial={{ firstName: me.firstName, lastName: me.lastName, mobile: String(me.mobile ?? ''), purpose: String(me.purpose ?? ''), backupEmail: String(me.backupEmail ?? '') }}
         />
       </Section>

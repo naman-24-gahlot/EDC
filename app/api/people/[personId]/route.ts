@@ -3,6 +3,7 @@ import { getSessionUser } from '@/lib/session';
 import { accessCodeFor } from '@/lib/access/codes';
 import { assertCanActOn, errorResponse } from '@/lib/hierarchy/authorize';
 import { parseProfilePatch, updateProfile } from '@/lib/people/profile';
+import { deleteAccount } from '@/lib/people/deleteAccount';
 import { adminDb } from '@/lib/firebase/admin';
 
 const nameOf = async (id: string) => { const d = (await adminDb.collection('people').doc(id).get()).data(); return d ? `${d.firstName} ${d.lastName}` : null; };
@@ -57,5 +58,19 @@ export async function GET(
     });
   } catch (err) {
     return errorResponse(err, 'Could not load person.');
+  }
+}
+
+// Delete someone permanently: a Master, or a host for their own visitor pass. Body { confirm: "DELETE" }.
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ personId: string }> }) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  const body = await request.json().catch(() => null);
+  try {
+    const { personId } = await params;
+    if (personId === user.personId) return NextResponse.json({ error: 'Delete your own account from My account.' }, { status: 400 });
+    return NextResponse.json(await deleteAccount(user, personId, { confirm: body?.confirm }));
+  } catch (err) {
+    return errorResponse(err, 'Could not delete the account.');
   }
 }

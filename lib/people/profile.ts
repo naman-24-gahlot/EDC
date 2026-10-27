@@ -96,7 +96,7 @@ export async function updateProfile(actor: SessionUser, personId: string, patch:
   return { personId, changed: Object.keys(patch) };
 }
 
-async function passwordSignIn(email: string, password: string): Promise<string | null> {
+export async function passwordSignIn(email: string, password: string): Promise<string | null> {
   const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

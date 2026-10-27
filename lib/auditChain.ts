@@ -71,6 +71,8 @@ export interface ChainReport {
   checked: number;
   headSeq: number;
   unsealed: number;
+  /** Entries whose text was blanked by an account deletion (still linked; contents not re-checkable). */
+  redacted: number;
   /** The first problem found, or null if the chain is intact. */
   broken: { seq: number; entryId: string | null; problem: string } | null;
 }
@@ -80,9 +82,18 @@ export async function verifyChain(): Promise<ChainReport> {
   const [head, unsealed] = await Promise.all([HEAD().get(), adminDb.collection('auditLogs').where('sealed', '==', false).count().get()]);
   const headSeq = head.exists ? Number(head.get('seq')) : 0;
   let prev = GENESIS;
+  let redacted = 0;
+  const deletions = new Map<string, boolean>();
+  const isDeletionRecord = async (id: string) => {
+    if (!deletions.has(id)) {
+      const snap = /^[A-Za-z0-9]{1,128}$/.test(id) ? await adminDb.collection('auditLogs').doc(id).get() : null;
+      deletions.set(id, !!snap?.exists && snap.get('action') === 'ACCOUNT_DELETED' && snap.get('sealed') === true);
+    }
+    return deletions.get(id)!;
+  };
   let expected = 1;
   let last: FirebaseFirestore.QueryDocumentSnapshot | null = null;
-  const fail = (seq: number, entryId: string | null, problem: string): ChainReport => ({ checked: expected - 1, headSeq, unsealed: unsealed.data().count, broken: { seq, entryId, problem } });
+  const fail = (seq: number, entryId: string | null, problem: string): ChainReport => ({ checked: expected - 1, headSeq, unsealed: unsealed.data().count, redacted, broken: { seq, entryId, problem } });
   for (;;) {
     let q = adminDb.collection('auditLogs').where('sealed', '==', true).orderBy('seq').limit(500);
     if (last) q = q.startAfter(last);
@@ -91,7 +102,13 @@ export async function verifyChain(): Promise<ChainReport> {
       const e = d.data();
       if (e.seq !== expected) return fail(expected, null, e.seq > expected ? `entry #${expected} is missing (deleted?)` : `entry #${e.seq} appears twice`);
       if (e.prevHash !== prev) return fail(expected, d.id, 'it no longer links to the entry before it');
-      if (e.hash !== fingerprint(prev, expected, e)) return fail(expected, d.id, 'its contents were changed after it was sealed');
+      if (e.hash !== fingerprint(prev, expected, e)) {
+        // Blanked when an account was deleted (lib/people/deleteAccount.ts): accepted only if it
+        // points at a real, sealed ACCOUNT_DELETED entry — otherwise it's an edit.
+        const by = (e.redacted as { by?: unknown } | undefined)?.by;
+        if (typeof by !== 'string' || !(await isDeletionRecord(by))) return fail(expected, d.id, 'its contents were changed after it was sealed');
+        redacted += 1;
+      }
       prev = e.hash;
       expected += 1;
     }
@@ -100,5 +117,5 @@ export async function verifyChain(): Promise<ChainReport> {
   }
   if (expected - 1 !== headSeq) return fail(expected, null, `the chain ends at #${expected - 1} but the head says #${headSeq} (entries deleted from the end?)`);
   if (head.exists && head.get('hash') !== prev) return fail(headSeq, null, 'the chain head doesn’t match the last entry');
-  return { checked: expected - 1, headSeq, unsealed: unsealed.data().count, broken: null };
+  return { checked: expected - 1, headSeq, unsealed: unsealed.data().count, redacted, broken: null };
 }
