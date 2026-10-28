@@ -47,3 +47,4 @@ next-env.d.ts
 .demo-credentials*
 serviceAccountKey*.json
 firebase-debug.log
+reports/
