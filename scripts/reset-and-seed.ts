@@ -19,7 +19,7 @@ import { writeFileSync } from 'fs';
 import path from 'path';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 
 if (process.env.NODE_ENV === 'production') {
   console.error('Refusing to run: NODE_ENV=production.');
@@ -67,6 +67,7 @@ const NEW_COLLECTIONS = [
   'entryEvents',
   'auditLogs',
   'auditChain',
+  'auditSeals',
   'events',
   'passwordHashes',
   'testOutbox',
@@ -194,9 +195,9 @@ async function main() {
     timestamp: Timestamp = now
   ) => {
     const ref = db.collection('auditLogs').doc();
-    // Same shape lib/audit.ts writes; sealed into the chain by the app's next audit write.
+    // Same shape lib/audit.ts writes; sealed into the chain by the app's next sealing pass.
     const category = action.startsWith('ENTRY') ? 'gate' : /^(ACCESS|ENTITLEMENT)/.test(action) ? 'access' : 'people';
-    await ref.set({ action, category, actorId, actorRole, targetPersonId, subjectId, eventId: null, timestamp, details, sealed: false });
+    await ref.set({ action, category, actorId, actorRole, targetPersonId, subjectId, eventId: null, timestamp, details, writtenAt: FieldValue.serverTimestamp() });
   };
 
   const nextAccessNumber = (fixed?: string): string => {

@@ -10,6 +10,8 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
+    // Local-only reports (git-ignored).
+    "reports/**",
     "build/**",
     "next-env.d.ts",
   ]),

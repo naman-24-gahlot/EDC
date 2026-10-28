@@ -1,5 +1,5 @@
 import { requirePageRole } from '@/lib/session';
-import { onCampusNow } from '@/lib/gate';
+import { onCampusSummary } from '@/lib/gate';
 import { fetchedAtNow } from '@/lib/paging';
 import { RoleHeader } from '@/components/RoleHeader';
 import { DataStamp } from '@/components/DataStamp';
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function GuardHomePage() {
   const user = await requirePageRole('guard');
-  const people = await onCampusNow();
+  const summary = await onCampusSummary();
 
   return (
     <main className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8">
@@ -18,7 +18,7 @@ export default async function GuardHomePage() {
       <GuardScanner />
       <div className="space-y-2">
         <DataStamp fetchedAt={fetchedAtNow()} />
-        <OnCampusPanel people={people} />
+        <OnCampusPanel summary={summary} />
       </div>
     </main>
   );

@@ -57,7 +57,7 @@ export async function deleteAccount(actor: SessionUser, personId: string, opts: 
     if (masters.data().count <= 1) throw new HttpError(409, 'This is the only Master — make someone else a Master first.');
   }
 
-  // 1. The record that it happened (no personal data), sealed so blanked entries can point at it.
+  // 1. The record that it happened (no personal data), part of the chain so blanked entries can point at it.
   const deletionRef = await (async () => {
     await audit(null, {
       action: 'ACCOUNT_DELETED', actor, targetPersonId: personId,

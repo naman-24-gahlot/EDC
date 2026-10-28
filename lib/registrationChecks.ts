@@ -1,7 +1,9 @@
 // SERVER-ONLY. The live "is this OK?" checks the registration form runs while you type
 // (/api/register/check). Submitting still re-checks everything in createPerson — these only
-// warn early. Usernames and emails are public-facing identifiers, so "taken" is fine to say;
-// the check is rate limited per IP (proxy.ts) to stop bulk probing.
+// warn early. Usernames are public-facing, so "taken" is fine to say. Whether an EMAIL is
+// registered is not said while typing (it would tell anyone whether a person is registered with
+// EDC); it is said when the confirmation link is requested, which is rate limited much harder.
+// The check is rate limited per IP (proxy.ts) to stop bulk probing.
 if (typeof window !== 'undefined') {
   throw new Error('lib/registrationChecks.ts must never be imported into client code.');
 }
@@ -50,13 +52,14 @@ async function domainTakesMail(domain: string): Promise<boolean | null> {
   }
 }
 
-export async function checkEmail(raw: string): Promise<FieldVerdict> {
+/** `live`: the as-you-type hint — never reveals whether the address is already registered. */
+export async function checkEmail(raw: string, { live = false }: { live?: boolean } = {}): Promise<FieldVerdict> {
   const email = raw.trim();
   if (!EMAIL_RE.test(email) || email.length > 254) return { ok: false, message: 'That doesn’t look like an email address.' };
   const domain = email.split('@')[1].toLowerCase();
   if (TYPOS[domain]) return { ok: false, message: `Did you mean …@${TYPOS[domain]}?` };
   if (DISPOSABLE.has(domain)) return { ok: false, message: 'Throwaway inboxes can’t be used — we email you sign-in links.' };
-  if ((await adminDb.collection('identifiers').doc(email.toLowerCase()).get()).exists) return { ok: false, message: 'Already registered — sign in instead.' };
+  if (!live && (await adminDb.collection('identifiers').doc(email.toLowerCase()).get()).exists) return { ok: false, message: 'Already registered — sign in instead.' };
   if (domain.endsWith('.test')) return { ok: true, message: 'Test address: emails go to the test outbox.' };
   const takesMail = await domainTakesMail(domain);
   if (takesMail === false) return { ok: false, message: `“${domain}” can’t receive email — check the spelling.` };

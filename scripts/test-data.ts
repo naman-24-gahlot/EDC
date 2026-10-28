@@ -21,7 +21,7 @@ import { audit } from '@/lib/audit';
 import { sealAll } from '@/lib/auditChain';
 
 const FILE = '.test-checkpoint.local.json';
-const COLLECTIONS = ['people', 'identifiers', 'accessNumbers', 'entitlements', 'accessRequests', 'entryEvents', 'auditLogs', 'events', 'passwordHashes', 'testOutbox', 'emailChecks', 'stayFlags', 'holidays', 'leaveRequests', 'emailLog', 'auditChain'] as const;
+const COLLECTIONS = ['people', 'identifiers', 'accessNumbers', 'entitlements', 'accessRequests', 'entryEvents', 'auditLogs', 'events', 'passwordHashes', 'testOutbox', 'emailChecks', 'stayFlags', 'holidays', 'leaveRequests', 'emailLog', 'auditChain', 'auditSeals'] as const;
 const SUB = 'profileHistory'; // people/{id}/profileHistory/{id}
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };

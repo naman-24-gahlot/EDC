@@ -3,8 +3,8 @@
 //   OVERNIGHT    still recorded inside after midnight, or left on a later day
 //   MISSED_EXIT  came in again, an hour or more after the last entry, with no exit scan between
 // …unless their access says "may stay overnight". No cron: the gate checks at each scan, and
-// "still inside since yesterday" is noticed whenever anyone loads "On campus now" (the guard
-// screen does, all day). Each flag is written once (deterministic id + create()), with its audit
+// "still inside since yesterday" is noticed whenever the guard screen or an admin gate page loads
+// (sweepOvernight: one cheap query for people whose overnightDueAt has passed). Each flag is written once (deterministic id + create()), with its audit
 // entry; OVERNIGHT and MISSED_EXIT also email the person's immediate parent (or every Master
 // for top-level people). Parents see their people's flags on /me, Masters all of them.
 if (typeof window !== 'undefined') {
@@ -12,9 +12,9 @@ if (typeof window !== 'undefined') {
 }
 
 import { after } from 'next/server';
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
-import { nowInIST } from '@/lib/date';
+import { addDays, nowInIST } from '@/lib/date';
 import type { SessionUser } from '@/lib/session';
 import { HttpError, assertCanActOn, type PersonRecord } from '@/lib/hierarchy/authorize';
 import type { Entitlement } from '@/lib/access/entitlements';
@@ -108,15 +108,51 @@ export function stayMinutesAt(person: PersonRecord, now: Timestamp): number | nu
   return person.onCampus === true && person.lastEntryAt instanceof Timestamp ? Math.round((now.toMillis() - person.lastEntryAt.toMillis()) / 60_000) : null;
 }
 
-/** Still recorded inside since before today (and not allowed overnight) → flagged once. */
-export function sweepOvernight(rows: { who: Who; entryAt: Timestamp; allowOvernight: boolean }[], origin: string) {
-  const today = nowInIST().date;
-  const due = rows.filter((r) => !r.allowOvernight && istDate(r.entryAt) < today);
-  if (due.length === 0) return;
+/** The IST midnight after `ts`. */
+const nextMidnight = (ts: Timestamp) => Timestamp.fromDate(new Date(`${addDays(istDate(ts), 1)}T00:00:00+05:30`));
+
+/**
+ * Written on the person with each IN scan (and removed by the OUT scan) so "on campus now" needs
+ * neither their access record nor a full read of everyone inside:
+ *   stayAlertAt     when this stay starts to show as a warning: GRACE_MIN past their gate-closing
+ *                   time that day, or midnight (inside since an earlier day), whichever is first
+ *   overnightOk     their access says "may stay overnight"
+ *   overnightDueAt  midnight, unless overnightOk — when an OVERNIGHT flag becomes due; cleared once
+ *                   flagged, so it is raised once (the sweep below only reads people still due)
+ */
+export function stayFieldsAtEntry(entitlement: Entitlement | null, now: Timestamp) {
+  const midnight = nextMidnight(now);
+  const overnightOk = entitlement?.allowOvernight === true;
+  const late = entitlement && !overnightOk
+    ? Timestamp.fromMillis(new Date(`${istDate(now)}T${entitlement.endTime}:00+05:30`).getTime() + (GRACE_MIN + 1) * 60_000) : null;
+  return {
+    stayAlertAt: late && late.toMillis() < midnight.toMillis() ? late : midnight,
+    overnightOk,
+    overnightDueAt: overnightOk ? FieldValue.delete() : midnight,
+  };
+}
+export const stayFieldsAtExit = () => ({ stayAlertAt: FieldValue.delete(), overnightOk: FieldValue.delete(), overnightDueAt: FieldValue.delete() });
+
+/**
+ * Still recorded inside since before today (and not allowed overnight) → flagged once. Reads
+ * only the people now due (usually none: one read), so it can run on every guard-screen load.
+ */
+export function sweepOvernight(origin: string) {
   after(async () => {
-    for (const r of due) {
-      await raise('OVERNIGHT', r.who, r.entryAt, { detail: `has been recorded inside since ${clock(r.entryAt)} — stayed overnight or left without an exit scan` }, origin)
-        .catch((e) => console.error('Overnight flag failed', e));
+    try {
+      const snap = await adminDb.collection('people').where('overnightDueAt', '<=', Timestamp.now())
+        .select('firstName', 'lastName', 'ancestorIds', 'eventId', 'lastEntryAt', 'onCampus').limit(50).get();
+      for (const d of snap.docs) {
+        const p = d.data();
+        if (p.onCampus === true && p.lastEntryAt instanceof Timestamp) {
+          const who: Who = { personId: d.id, firstName: p.firstName, lastName: p.lastName, ancestorIds: p.ancestorIds ?? [], eventId: p.eventId };
+          await raise('OVERNIGHT', who, p.lastEntryAt, { detail: `has been recorded inside since ${clock(p.lastEntryAt)} — stayed overnight or left without an exit scan` }, origin);
+        }
+        // Done with this stay (flagged now, or before). Only if nobody has scanned them since.
+        await d.ref.update({ overnightDueAt: FieldValue.delete() }, { lastUpdateTime: d.updateTime }).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Overnight sweep failed', err);
     }
   });
 }

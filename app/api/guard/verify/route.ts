@@ -9,7 +9,7 @@ import { PREFIX } from '@/lib/access/codes';
 import { decideAccess, type AccessDenialReason } from '@/lib/access/evaluate';
 import { getCurrentEntitlement, type Entitlement } from '@/lib/access/entitlements';
 import { audit } from '@/lib/audit';
-import { afterGateScan, stayMinutesAt } from '@/lib/stays';
+import { afterGateScan, stayFieldsAtEntry, stayFieldsAtExit, stayMinutesAt } from '@/lib/stays';
 import { siteOrigin } from '@/lib/origin';
 import { notifyVisitorArrived } from '@/lib/notify';
 import { holidayOn } from '@/lib/holidays';
@@ -119,8 +119,13 @@ export async function POST(request: NextRequest) {
       // Exits: minutes since their entry, when we have one (event reports, stay alerts).
       ...(exit ? { stayMinutes: stayMinutesAt(person!, now) } : {}),
     });
-    // lastEntryAt / lastExitAt / onCampus drive "Recently at the gate" and "On campus now" without scanning entries.
-    if (approved && person) batch.update(adminDb.collection('people').doc(person.personId), exit ? { lastExitAt: now, onCampus: false } : { lastEntryAt: now, onCampus: true });
+    // lastEntryAt / lastExitAt / onCampus drive "Recently at the gate" and "On campus now" without scanning entries;
+    // the stay fields let the headcount and overnight check skip the access records (lib/stays.ts).
+    if (approved && person) {
+      batch.update(adminDb.collection('people').doc(person.personId), exit
+        ? { lastExitAt: now, onCampus: false, ...stayFieldsAtExit() }
+        : { lastEntryAt: now, onCampus: true, ...stayFieldsAtEntry(entitlement, now) });
+    }
     audit(batch, {
       action: exit ? 'EXIT_RECORDED' : approved ? 'ENTRY_APPROVED' : 'ENTRY_DENIED', actor: user, targetPersonId: person?.personId ?? null,
       subjectId: eventRef.id, eventId: eventOf(person), at: now, details: reason ? `${method}: ${reason}` : method,

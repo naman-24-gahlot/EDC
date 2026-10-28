@@ -45,12 +45,16 @@ if (inHours) {
   check('next scan shows the ID as checked', r.data?.idCheck?.type === 'Aadhaar' && r.data?.idCheck?.last4 === 'AB12');
   const denied = (await post('/api/guard/verify', { code: 'ZZZ00000', direction: 'IN' }, guard));
   check('an ID can’t be recorded against a refused scan', (await post('/api/guard/id-check', { entryId: denied.data?.entryId ?? 'nope', type: 'Aadhaar' }, guard)).status >= 400);
-  let page = await get('/guard', guard);
-  check('on campus now lists them', page.text.includes(`Gate${tag}`));
+  // The guard screen shows only the counts; the list comes when opened (/api/guard/on-campus).
+  const page = await get('/guard', guard);
+  check('guard screen shows the on-campus count, not the names', /data-testid="on-campus-count">[1-9]/.test(page.text) && !page.text.includes(`Gate${tag}`));
+  let list = await get('/api/guard/on-campus', guard);
+  check('on campus now lists them', list.status === 200 && list.text.includes(`Gate${tag}`));
+  check('the list is for guards and Masters only', (await get('/api/guard/on-campus')).status === 401 && (await get('/api/guard/on-campus', master)).status === 200);
   r = await post('/api/guard/verify', { code, direction: 'OUT' }, guard);
   check('exit recorded', r.data?.exit === true && r.data?.approved === true, r.data);
-  page = await get('/guard', guard);
-  check('…and they leave the on-campus list', !page.text.includes(`Gate${tag}`));
+  list = await get('/api/guard/on-campus', guard);
+  check('…and they leave the on-campus list', list.status === 200 && !list.text.includes(`Gate${tag}`));
 }
 r = await post('/api/guard/verify', { code: 'ZZZ00000', direction: 'OUT' }, guard);
 check('exit with an unknown code records nothing', r.data?.approved === false && r.data?.exit === false);

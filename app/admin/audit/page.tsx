@@ -41,7 +41,8 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
 
   // Anything not yet sealed into the chain is sealed before it's shown (lib/auditChain.ts).
   await sealAll();
-  const check = params.verify === '1' ? await verifyChain() : null;
+  // "Check integrity" checks what was sealed since the last good check; "Full check" re-reads everything.
+  const check = params.verify === '1' || params.verify === 'full' ? await verifyChain({ full: params.verify === 'full' }) : null;
 
   // Paged in Firestore (lib/logs.ts; indexes in firestore.indexes.json).
   const base = auditQuery(filter);
@@ -62,12 +63,15 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
       <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="chain">
         <span className="inline-flex items-center gap-1 text-gray-500">
           Tamper-evident log
-          <InfoTip label="About the tamper-evident log">Every entry is numbered and carries a fingerprint of itself plus the entry before it, made with a server-only key. If anyone edits, deletes or reorders an entry in the database, the chain breaks at that point. “Check integrity” re-checks every entry (it reads the whole log, so use it when you need it, not every visit).</InfoTip>
+          <InfoTip label="About the tamper-evident log">Every entry is numbered and carries a fingerprint of itself plus the entry before it, made with a server-only key. If anyone edits, deletes or reorders an entry in the database, the chain breaks at that point. “Check integrity” checks the entries added since the last good check; “Full check” re-checks every entry from the first (it reads the whole log, so use it when you need it, not every visit).</InfoTip>
         </span>
         {check ? (check.broken
-          ? <span className="rounded bg-red-100 px-2 py-1 font-semibold text-red-800" role="alert" data-testid="chain-broken">Chain broken at entry #{check.broken.seq}{check.broken.entryId ? ` (${check.broken.entryId})` : ''}: {check.broken.problem}. {check.checked} entries before it are intact.</span>
-          : <span className="rounded bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" role="status" data-testid="chain-ok">✓ All {check.checked} entries intact{check.redacted ? ` (${check.redacted} blanked by account deletions)` : ''}{check.unsealed ? ` (${check.unsealed} just written, not sealed yet)` : ''}.</span>)
-          : <Link href={{ pathname: '/admin/audit', query: { ...filterParams(filter), verify: '1' } }} className="inline-flex min-h-10 items-center rounded border border-gray-300 px-2 font-medium md:min-h-7">Check integrity</Link>}
+          ? <span className="rounded bg-red-100 px-2 py-1 font-semibold text-red-800" role="alert" data-testid="chain-broken">Chain broken at entry #{check.broken.seq}{check.broken.entryId ? ` (${check.broken.entryId})` : ''}: {check.broken.problem}. {check.from + check.checked} entries before it are intact.</span>
+          : <span className="rounded bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" role="status" data-testid="chain-ok">✓ {check.from > 0 ? <>{check.checked} new {check.checked === 1 ? 'entry' : 'entries'} checked — all {check.headSeq} intact (#1–{check.from} at earlier checks)</> : <>All {check.checked} entries intact</>}{check.redacted ? ` (${check.redacted} blanked by account deletions)` : ''}{check.unsealed ? ` (${check.unsealed} just written, not sealed yet)` : ''}.</span>)
+          : <>
+            <Link href={{ pathname: '/admin/audit', query: { ...filterParams(filter), verify: '1' } }} className="inline-flex min-h-10 items-center rounded border border-gray-300 px-2 font-medium md:min-h-7">Check integrity</Link>
+            <Link href={{ pathname: '/admin/audit', query: { ...filterParams(filter), verify: 'full' } }} className="inline-flex min-h-10 items-center rounded border border-gray-300 px-2 font-medium md:min-h-7">Full check</Link>
+          </>}
       </div>
       <AuditFilterForm key={JSON.stringify(filter)} groups={ACTION_GROUPS} selected={filter.actions} from={filter.from} to={filter.to} order={filter.order} person={person}
         event={filter.event} events={events.map((e) => ({ id: e.id, name: e.name }))} />

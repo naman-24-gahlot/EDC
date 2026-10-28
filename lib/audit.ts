@@ -5,11 +5,11 @@ if (typeof window !== 'undefined') {
   throw new Error('lib/audit.ts must never be imported into client code.');
 }
 
-import { Timestamp, type Transaction, type WriteBatch } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, type Transaction, type WriteBatch } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
 import { after } from 'next/server';
-import { sealAll } from '@/lib/auditChain';
+import { SEAL_EVERY_MS, sealAll } from '@/lib/auditChain';
 
 // Every action the app writes, grouped. The group key is stored as `category`.
 export const ACTION_GROUPS = [
@@ -58,24 +58,30 @@ export function auditDoc(e: AuditInput) {
     eventId: e.eventId ?? null,
     timestamp: e.at ?? Timestamp.now(),
     details: e.details ?? null,
-    // Sealed into the tamper-evident chain shortly after (lib/auditChain.ts).
-    sealed: false,
+    // The database's commit time: how the tamper-evident chain finds entries waiting to be sealed
+    // (lib/auditChain.ts). Not part of the fingerprint.
+    writtenAt: FieldValue.serverTimestamp(),
   };
 }
 
-// After the response (the entry is committed by then), seal what's waiting. Calls that arrive
-// while a seal is running just ask for one more pass, so a request writing several entries costs
-// at most two passes. Outside a request (scripts) after() isn't available: the entry is sealed by
-// the next request that seals.
+// After the response (the entry is committed by then), seal what's waiting — at most once every
+// SEAL_EVERY_MS per server instance, so one seal record covers many entries instead of each request
+// paying for its own pass. Calls that arrive while a seal is running just ask for one more pass.
+// Outside a request (scripts) after() isn't available: the entry is sealed by the next pass.
 let running: Promise<void> | null = null;
 let again = false;
+let lastPass = 0;
 function runSeal(): Promise<void> {
   if (running) { again = true; return running; }
   running = (async () => { do { again = false; await sealAll(); } while (again); })().finally(() => { running = null; });
   return running;
 }
 function sealSoon() {
-  try { after(runSeal); } catch { /* not in a request */ }
+  if (Date.now() - lastPass < SEAL_EVERY_MS) return;
+  try {
+    after(runSeal);
+    lastPass = Date.now();
+  } catch { /* not in a request */ }
 }
 
 /** Adds the entry to a transaction or batch (committed with it), or writes it now. */

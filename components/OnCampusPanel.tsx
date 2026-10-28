@@ -8,11 +8,34 @@ const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'nume
 // "On campus now": everyone whose last gate scan was an entry, as a headcount per group (for a
 // roll call or evacuation), with who has stayed overnight or past their hours. Download/print
 // work from what's on screen — nothing extra is fetched.
-export function OnCampusPanel({ people }: { people: OnCampus[] }) {
+// Given `people`, the list is there from the start (admin pages). Given only `summary` (the guard
+// screen), it shows the counts and fetches the list when opened — reading everyone inside on
+// every guard-screen load was the system's single biggest cost on a busy day.
+export function OnCampusPanel({ people: initial, summary }: { people?: OnCampus[]; summary?: { count: number; warnings: number } }) {
   const [group, setGroup] = useState<string | null>(null);
+  const [fetched, setFetched] = useState<OnCampus[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const people = initial ?? fetched ?? [];
+  const listReady = !!initial || !!fetched;
+
+  async function load() {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch('/api/guard/on-campus', { cache: 'no-store' });
+      if (!res.ok) throw new Error();
+      setFetched((await res.json()).people as OnCampus[]);
+    } catch {
+      setLoadError('Couldn’t load the list — try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
   const groups = [...people.reduce((m, p) => m.set(p.group, (m.get(p.group) ?? 0) + 1), new Map<string, number>())];
   const shown = group ? people.filter((p) => p.group === group) : people;
-  const warnings = people.filter((p) => p.overnight || p.afterHours).length;
+  const count = listReady ? people.length : summary?.count ?? 0;
+  const warnings = listReady ? people.filter((p) => p.overnight || p.afterHours).length : summary?.warnings ?? 0;
 
   function download() {
     // Quote, and defuse cells a spreadsheet would run as a formula (= + - @ at the start).
@@ -27,13 +50,16 @@ export function OnCampusPanel({ people }: { people: OnCampus[] }) {
   }
 
   return (
-    <details className="rounded-lg border border-gray-200 bg-white p-3 print:border-0" open={people.length > 0 && people.length <= 12}>
+    <details className="rounded-lg border border-gray-200 bg-white p-3 print:border-0" open={initial ? people.length > 0 && people.length <= 12 : undefined}
+      onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open && !listReady && !loading && count > 0) load(); }}>
       <summary className="flex min-h-10 cursor-pointer flex-wrap items-center justify-between gap-2 text-sm md:min-h-0">
-        <span><b className="text-lg" data-testid="on-campus-count">{people.length}</b> on campus now
+        <span><b className="text-lg" data-testid="on-campus-count">{count}</b> on campus now
           {warnings > 0 && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900" data-testid="stay-warnings">{warnings} overnight / after hours</span>}</span>
-        <span className="text-xs text-gray-500">last scan was an entry</span>
+        <span className="text-xs text-gray-500">{listReady || count === 0 ? 'last scan was an entry' : 'tap to show the list'}</span>
       </summary>
-      {people.length === 0 ? <p className="mt-2 text-sm text-gray-400">Nobody right now.</p> : (
+      {loading && <p className="mt-2 text-sm text-gray-500">Loading the list…</p>}
+      {loadError && <p className="mt-2 text-sm text-red-700" role="alert">{loadError} <button type="button" onClick={load} className="underline">Retry</button></p>}
+      {!listReady ? (count === 0 && <p className="mt-2 text-sm text-gray-400">Nobody right now.</p>) : people.length === 0 ? <p className="mt-2 text-sm text-gray-400">Nobody right now.</p> : (
         <div className="mt-2 space-y-2">
           <div className="flex flex-wrap gap-1.5 print:hidden" role="group" aria-label="Headcount by group">
             <button type="button" onClick={() => setGroup(null)} aria-pressed={group === null}
@@ -55,6 +81,7 @@ export function OnCampusPanel({ people }: { people: OnCampus[] }) {
           <div className="flex gap-2 print:hidden">
             <button type="button" onClick={download} className="inline-flex min-h-10 items-center rounded border border-gray-300 px-3 text-xs font-medium md:min-h-8">Download list (CSV)</button>
             <button type="button" onClick={() => window.print()} className="inline-flex min-h-10 items-center rounded border border-gray-300 px-3 text-xs font-medium md:min-h-8">Print</button>
+            {!initial && <button type="button" onClick={load} disabled={loading} className="inline-flex min-h-10 items-center rounded border border-gray-300 px-3 text-xs font-medium disabled:opacity-50 md:min-h-8">{loading ? 'Refreshing…' : 'Refresh list'}</button>}
           </div>
         </div>
       )}

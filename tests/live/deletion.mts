@@ -60,7 +60,7 @@ check('they can’t sign in any more', (await call('POST', '/api/auth/session', 
 check('their old cookie is dead', (await call('GET', '/api/people', undefined, me)).status === 401);
 check('the username is free again', !(await adminDb.collection('identifiers').doc(a.u).get()).exists);
 await sealAll();
-const chain = await verifyChain();
+const chain = await verifyChain({ full: true });
 check('audit chain still intact (blanked entries accepted)', chain.broken === null && chain.redacted > 0, chain);
 
 // ——— deleting others
@@ -78,7 +78,7 @@ check('someone with people under them can’t be deleted', (await call('DELETE',
 check('the only Master can’t delete themselves', (await call('DELETE', '/api/me/account', { password: creds.master, confirm: 'DELETE' }, master)).status === 409);
 check('…and they still exist', (await adminDb.collection('people').where('username', 'in', ['rahul', 'master']).count().get()).data().count === 2);
 await sealAll();
-check('audit chain intact at the end', (await verifyChain()).broken === null);
+check('audit chain intact at the end', (await verifyChain({ full: true })).broken === null);
 
 console.log(fails ? `${fails} FAILED` : 'All passed');
 process.exit(0);
