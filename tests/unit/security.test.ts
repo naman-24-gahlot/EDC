@@ -51,9 +51,9 @@ test('profile edits: only known fields, validated', () => {
   }
 });
 
-test('photos: JPEG data URLs under 150KB only', () => {
+test('photos: real JPEG data URLs under 150KB only', () => {
   assert.equal(validatePhoto(null), null);
-  assert.equal(validatePhoto('data:image/jpeg;base64,AAAA'), 'data:image/jpeg;base64,AAAA');
+  assert.throws(() => validatePhoto('data:image/jpeg;base64,AAAA'), /not a real JPEG/); // labelled JPEG, isn't one
   assert.throws(() => validatePhoto('data:image/svg+xml;base64,AAAA'));
   assert.throws(() => validatePhoto('javascript:alert(1)'));
   assert.throws(() => validatePhoto(`data:image/jpeg;base64,${'A'.repeat(210_000)}`));

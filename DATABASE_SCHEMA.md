@@ -49,6 +49,10 @@ The person: identity, current profile, hierarchy position, credential state.
               last4: string | null, by: string, at: Timestamp, entryId: string }, // a guard saw a photo ID; never the number          // last APPROVED gate entry — written by /api/guard/verify; drives "Recently at the gate"
   approvalNotice?: { appliedAs: ProfileType, approvedAs: ProfileType, by: string, at: Timestamp, seenAt: Timestamp | null },
   onCampus?: boolean,               // last approved gate scan was an entry (entryEvents)
+  // Stay fields — set by an approved IN, removed by the exit (lib/stays.ts "stayFieldsAtEntry"):
+  stayAlertAt?: Timestamp,          // when this stay shows as a warning: gate-closing + 15 min, or midnight
+  overnightOk?: boolean,            // their access allowed staying overnight
+  overnightDueAt?: Timestamp,       // midnight after entry (absent if overnightOk); removed once flagged
   lastExitAt?: Timestamp,
   backupEmail?: string,             // optional, set only by the person; also gets reset links and app emails
   // Visitor passes only (profileType 'visitor', lib/visitors.ts):
@@ -181,7 +185,9 @@ Append-only. **Every** gate attempt, approved or denied. Entering does not consu
 ```
 An approved IN sets `people.lastEntryAt` and `people.onCampus = true`; an exit sets
 `people.lastExitAt` and `onCampus = false`. "On campus now" is `onCampus == true`, so someone who
-came in yesterday and never scanned out is still listed (and flagged — `stayFlags`).
+came in yesterday and never scanned out is still listed (and flagged — `stayFlags`). The guard
+screen shows only two counts (`onCampus == true`, `stayAlertAt <= now`) and fetches the list when
+opened (`/api/guard/on-campus`); the list reads the people inside only (warnings from the stay fields).
 
 ### Event options and no-password guests
 `events/{id}.options` (absent = defaults): `{ requirePassword: true, autoApprove: false, emailPass: true,
@@ -208,7 +214,8 @@ second write a no-op. Never deleted; "seen" is a field.
 }
 ```
 LATE_EXIT = exit more than 15 min after the entitlement's `endTime`, same day. OVERNIGHT = left on
-a later day, or still `onCampus` from an earlier day (noticed whenever "On campus now" loads).
+a later day, or still `onCampus` from an earlier day (`overnightDueAt` passed — checked by one small query
+on each guard-screen / admin gate-page load; the field is removed once flagged, so it's raised once).
 MISSED_EXIT = an approved IN while still `onCampus`, an hour or more after that entry (a quick re-scan isn't one). None for entitlements with
 `allowOvernight: true`. OVERNIGHT and MISSED_EXIT email the immediate parent (Masters if none).
 
@@ -237,8 +244,12 @@ them, or mentioning their name/username/emails/mobile, gets `details: "[removed 
 an email `subjectId` cleared, and `redacted: { by: <ACCOUNT_DELETED entry id>, at }`. Their random
 id stays where other records point at it (who approved whom).
 
-### `auditChain/head`
-`{ seq, hash, sealedAt }` — the newest sealed audit entry (`lib/auditChain.ts`).
+### `auditChain/head`, `auditChain/verified`, `auditSeals/{fromSeq}`
+`head`: `{ seq, hash, sealedAt, mark, markId }` — the newest sealed audit entry; `mark`/`markId` = the
+`writtenAt` and id of the last entry sealed by a seal record. `verified`: `{ seq, hash, at, full }` —
+where the last good integrity check ended (the next quick check starts there).
+`auditSeals/{fromSeq, zero-padded}`: `{ fromSeq, toSeq, prevHash, hash, ids[], hashes[], sealedAt, mark,
+markId }` — one sealing pass: the entries it sealed, in chain order, with their fingerprints.
 
 ### `events/{eventId}`
 A campus event with its own time-limited registration link (SECURITY_MODEL.md "Event registration links").
@@ -259,7 +270,8 @@ People who registered through it carry `eventId`, `eventName` and
 
 ### `emailChecks/{email}`
 "Confirm your email before registering" (`lib/emailCheck.ts`). Doc id = the lower-cased email.
-`{ email, requestedAt, verifiedAt | null, expiresAt | null, tokenHash?, tokenExpiresAt? }` —
+`{ email, requestedAt, verifiedAt | null, expiresAt | null, tokenHash?, tokenExpiresAt?, sentDay, sentCount }` —
+at most 5 links per address per IST day (`sentDay`/`sentCount`);
 confirmed for 24 h after the link is opened; `/api/register` requires it and deletes it once the
 person is created (the account then starts with `emailVerified: true`). Test addresses use a hashed
 one-off token (link in the outbox, valid 24 h); real addresses use Firebase's email-link sign-in.
@@ -293,15 +305,20 @@ too, so filters and writer can't drift). Records from before 2026-10-22 were giv
   eventId: string | null,           // the event the entry is about (the person's, or the event itself)
   timestamp: Timestamp,
   details: string | null,
-  sealed: boolean,                  // false when written; true once chained (below)
-  seq?: number, prevHash?: string, hash?: string,  // set when sealed
+  writtenAt: Timestamp,             // server commit time (since 2026-10-29); not fingerprinted
+  // Entries from before 2026-10-29 only: sealed on the entry itself
+  sealed?: boolean, seq?: number, prevHash?: string, hash?: string,
 }
 ```
-**Tamper-evident chain** (`lib/auditChain.ts`): shortly after an entry is written (after the
-response, and before the audit page lists anything) it is sealed in a transaction on
-`auditChain/head`: `seq` = next number, `hash` = HMAC-SHA256(key, prevHash | seq | the entry's
-fields), key derived from `QR_TOKEN_SECRET`. "Check integrity" on the audit page recomputes every
-hash. The 331 entries from before 2026-10-24 were given `sealed: false` once (additive) and sealed
+**Tamper-evident chain** (`lib/auditChain.ts`): each entry gets the next `seq` and `hash` =
+HMAC-SHA256(key, prevHash | seq | the entry's fields), key derived from `QR_TOKEN_SECRET`, in a
+transaction on `auditChain/head`. Since 2026-10-29 entries are never updated: a sealing pass (at most
+every 2 min per server instance after a write, and before the audit page lists anything) writes one
+`auditSeals` record for the entries with `writtenAt` past the head's mark (older than 10 s), ~1.1
+writes per entry instead of ~3. Old-shape entries (`sealed: false`) still seal on the entry.
+"Check integrity" recomputes the hashes sealed since the last good check (`auditChain/verified`);
+"Full check" recomputes all of them and also counts entries behind the mark that are in no seal
+record (written straight into the database). The 331 entries from before 2026-10-24 were given `sealed: false` once (additive) and sealed
 in timestamp order. Categories now also include `'stays' | 'leave'`.
 
 `AuditAction`:
@@ -315,7 +332,7 @@ SESSIONS_REVOKED | EVENT_CREATED | EVENT_UPDATED | EVENT_LINK_CLOSED | EVENT_LIN
 EVENT_LINK_REPLACED | EXIT_RECORDED | LATE_EXIT | OVERNIGHT_STAY | MISSED_EXIT_SCAN | STAY_FLAG_SEEN |
 VISITOR_PASS_CREATED | LEAVE_REQUESTED | LEAVE_APPROVED | LEAVE_REJECTED | LEAVE_CANCELLED |
 HOLIDAY_ADDED | HOLIDAY_REMOVED | APPROVAL_NOTICE_SEEN | REGISTRATION_EMAIL_CONFIRMED | SIGNED_IN |
-SIGNED_OUT | TEST_DATA_CLEANED` (the authoritative list is `ACTION_GROUPS` in `lib/audit.ts`)
+SIGNED_OUT | SIGN_IN_LOCKED | TEST_DATA_CLEANED` (the authoritative list is `ACTION_GROUPS` in `lib/audit.ts`)
 
 ## State machines
 

@@ -19,6 +19,8 @@ function generatePassword(): string {
 export async function GET() {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+  // Gate staff have nobody under them and no requests of their own.
+  if (user.systemRole === 'guard') return NextResponse.json({ error: 'Not available to guards.' }, { status: 403 });
 
   const people: PersonRecord[] =
     user.systemRole === 'master'

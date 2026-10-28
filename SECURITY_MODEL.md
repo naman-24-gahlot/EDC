@@ -217,6 +217,12 @@ approve route recomputes expiry inside its transaction before acting.
 - **Clickjacking / sniffing** (P11) — every response carries `X-Frame-Options: DENY`,
   `frame-ancestors 'none'`, `nosniff`, `strict-origin-when-cross-origin` and a
   Permissions-Policy allowing only the camera (for the guard scanner).
+- **Content-Security-Policy** (2026-10-29, `next.config.ts`) — the browser may load and talk to this
+  site only, plus Cloudflare Turnstile (script + frame) and the HIBP range API; images also from
+  `data:`/`blob:` (photos, QR); no plugins, no `<base>`, forms post only here. So injected script
+  couldn't send data anywhere. Inline scripts remain allowed: per-request nonces would force the
+  static pages (/register, /forgot) to render on every visit. Pass links (`/v`, `/print`,
+  `/api/pass`) also send `X-Robots-Tag: noindex`, `no-store` and `Referrer-Policy: no-referrer`.
 - **Path injection through identifiers** (P11) — emails must match a strict pattern (no `/`,
   no whitespace) because they become `identifiers/{email}` document ids; login rejects any
   identifier containing `/` before it reaches Firestore.
@@ -289,8 +295,13 @@ reported and the rest continue.
   characters, not a well-known password, not containing the name/username/email, and not in a
   known breach (Have I Been Pwned range API: only the first 5 hex characters of the SHA-1 leave our
   server or the browser; fails open if the service is down).
-- **Live sign-up checks** (`GET /api/register/check`) say whether a username/email is taken —
-  the same thing submitting already says — and are rate limited per IP.
+- **Live sign-up checks** (`GET /api/register/check`, 60 per IP per minute) say whether a
+  *username* is taken; the email hint never says whether an address is registered (it would reveal
+  who is registered with EDC) — that is said only when the confirmation link is requested (10 per IP
+  per 10 min). Confirmation links: at most 5 per address per IST day, so the form can't be used to
+  flood someone's inbox.
+- **Photos** are accepted only as one well-formed JPEG (`isWellFormedJpeg`: SOI, intact segments,
+  a frame header of 1–4096 px, EOI and nothing after) — they're shown to guards and embedded in PDFs.
 - **Turnstile** (optional): registration and forgot-password require it when its keys are set.
 
 ## Gate additions
@@ -361,12 +372,18 @@ person, and for the last Master. The session dies at once (session cookies are v
 revocation, and the Auth user is gone). Audit entries are blanked, not deleted; the chain verifier
 accepts a changed entry only if it carries `redacted.by` pointing at a sealed `ACCOUNT_DELETED`
 entry, so blanking can't be used to hide an edit. Covered live by `tests/live/deletion.mts`.
+No-password event guests (no account to sign in to) delete their own data from their pass page:
+`POST /api/pass/delete` is authorised by the pass link itself — the signed credential, current
+version only, event guests without an account only (`tests/live/hardening.mts`).
 
 ## Audit integrity (`lib/auditChain.ts`)
 Entries are chained with HMAC-SHA256 (key derived from `QR_TOKEN_SECRET`, so database access alone
 can't forge fingerprints). Detects edits, deletions and reordering of sealed entries. Not detected
 from the data alone: deleting the newest entries *and* rewinding `auditChain/head` together — the
-head's count is shown on the audit page so a drop can be noticed.
+head's count is shown on the audit page so a drop can be noticed. Since 2026-10-29 entries carry
+`writtenAt` (commit time) and are sealed by `auditSeals` records instead of being updated, so an
+entry slipped into the log behind the seals is also caught ("Full check"). "Check integrity" checks
+only what was sealed since the last good check; edits to older entries need "Full check".
 - **Photo ID seen** (`POST /api/guard/id-check`): guard only, and only against an entry *that
   guard approved in the last 10 minutes* — a guard can't mark someone who isn't in front of them.
   Stores the ID type and at most its last 4 characters; never a number, never an image.
@@ -398,10 +415,14 @@ IP per 10 min (plus Firebase's own lockout of an account after repeated wrong pa
 300 per IP; registration 30 per IP per hour; gate 120 checks per guard per minute; other API
 writes 60 / reads 300 per minute; 3,000 requests per IP per minute overall. API bodies over 1 MB
 are refused before parsing. Over budget → 429 with `Retry-After` and a plain message.
+A sign-in lock-out writes one `SIGN_IN_LOCKED` audit entry when it starts (at most 20 an hour per
+instance), so password guessing leaves a trace without becoming a way to spend the write quota.
+Guards get 403 from the people and request lists (they have nobody under them).
 
 ## Accepted risks (reviewed in P11, deliberately not changed)
-- **Registration reveals whether a username or email is taken** — a public sign-up form has to
-  say so; login itself stays non-enumerating.
+- **Registration reveals whether a username is taken**, and requesting a confirmation link says
+  whether that email is registered — a public sign-up form has to; login and the as-you-type email
+  hint stay non-enumerating.
 - **Rate limits are per server instance** — best-effort on serverless (Fluid compute reuses
   instances, so they hold well in practice); a determined distributed attacker could exceed them.
   Edge rate limiting (Vercel WAF) would need a new package and dashboard rules.

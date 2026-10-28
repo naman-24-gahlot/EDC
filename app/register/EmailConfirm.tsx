@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { RequestError, sendJson } from '@/lib/clientFetch';
 
 type Verdict = { ok: boolean; message: string | null };
-const POLL_MS = 4000;
 const POLL_FOR_MS = 30 * 60 * 1000;
+/** Wait (ms) between "confirmed yet?" checks, by time since the link was sent. */
+const pollDelay = (sinceMs: number) => (sinceMs < 30_000 ? 4000 : sinceMs < 2 * 60_000 ? 8000 : sinceMs < 10 * 60_000 ? 15_000 : 30_000);
 
 // The email box with "Send confirmation link" beside it. Registration can't be submitted until
 // the link has been opened (here, in another tab, or on a phone) — this asks the server every
@@ -35,14 +36,36 @@ export function EmailConfirm({ value, onChange, hint, humanToken, onConfirmed }:
     return () => { live = false; clearTimeout(t); };
   }, [email, confirmed]);
 
+  // Asks often at first (most people open the link within a minute), then less often. While this
+  // tab is hidden (the person is in their inbox) it doesn't ask at all, and asks at once when they
+  // come back — so the usual "open the email, come back" flow still flips immediately.
   useEffect(() => {
     if (!waiting || !sentTo) return;
-    const timer = setInterval(async () => {
-      if (Date.now() - sentTo.at > POLL_FOR_MS) return clearInterval(timer);
-      const r = await fetch(`/api/register/email-check?email=${encodeURIComponent(sentTo.email)}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
-      if (r?.confirmed) setConfirmedFor(sentTo.email);
-    }, POLL_MS);
-    return () => clearInterval(timer);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
+    let asking = false;
+    const ask = async () => {
+      clearTimeout(timer);
+      if (stopped || asking || Date.now() - sentTo.at > POLL_FOR_MS) return;
+      if (!document.hidden) {
+        asking = true;
+        const r = await fetch(`/api/register/email-check?email=${encodeURIComponent(sentTo.email)}`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+        asking = false;
+        if (stopped) return;
+        if (r?.confirmed) return setConfirmedFor(sentTo.email);
+      }
+      if (!document.hidden) timer = setTimeout(ask, pollDelay(Date.now() - sentTo.at));
+    };
+    const back = () => { if (!document.hidden) ask(); };
+    timer = setTimeout(ask, pollDelay(0));
+    document.addEventListener('visibilitychange', back);
+    window.addEventListener('focus', back);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', back);
+      window.removeEventListener('focus', back);
+    };
   }, [waiting, sentTo]);
 
   async function send() {

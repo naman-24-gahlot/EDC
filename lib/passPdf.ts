@@ -29,13 +29,19 @@ function pdfString(s: string): string {
 
 /** Width and height of a baseline/progressive JPEG (from its SOF marker). */
 function jpegSize(b: Buffer): { w: number; h: number } | null {
-  let i = 2;
-  while (i + 9 < b.length) {
-    if (b[i] !== 0xff) { i++; continue; }
-    const marker = b[i + 1];
-    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) return { h: b.readUInt16BE(i + 5), w: b.readUInt16BE(i + 7) };
-    i += 2 + b.readUInt16BE(i + 2);
-  }
+  // Photos are checked on upload (isWellFormedJpeg); older or hand-edited ones just print without the photo.
+  try {
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const marker = b[i + 1];
+      if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+        const dim = { h: b.readUInt16BE(i + 5), w: b.readUInt16BE(i + 7) };
+        return dim.w && dim.h ? dim : null;
+      }
+      i += 2 + b.readUInt16BE(i + 2);
+    }
+  } catch { /* malformed */ }
   return null;
 }
 

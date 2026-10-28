@@ -11,6 +11,20 @@ import { audit } from '@/lib/audit';
 // enumeration oracle. See SECURITY_MODEL.md "Identity and login".
 const GENERIC_ERROR = { error: 'Invalid username/email or password.' };
 
+// Lock-outs are recorded in the audit log — once when each one starts, and at most LOCKOUT_LOG_MAX
+// an hour per server instance, so a password-guessing campaign leaves a trace but can't be used
+// to spend the database's daily write allowance.
+const LOCKOUT_LOG_MAX = 20;
+let lockoutLog = { hour: 0, count: 0 };
+function recordLockout(identifier: string, ip: string) {
+  const hour = Math.floor(Date.now() / 3_600_000);
+  if (lockoutLog.hour !== hour) lockoutLog = { hour, count: 0 };
+  if (++lockoutLog.count > LOCKOUT_LOG_MAX) return;
+  const shown = identifier.trim().slice(0, 60).replace(/[\x00-\x1f]/g, '');
+  audit(null, { action: 'SIGN_IN_LOCKED', actor: 'public', targetPersonId: null, details: `10 failed sign-ins for “${shown}” from ${ip.slice(0, 45)} — locked for 10 minutes${lockoutLog.count === LOCKOUT_LOG_MAX ? ' (further lock-outs this hour not recorded)' : ''}` })
+    .catch((e) => console.error('Could not record a sign-in lock-out', e));
+}
+
 // Resolves identifier -> person -> verifies password server-side (lib/auth/login.ts)
 // -> issues the httpOnly session cookie. The client never receives or holds an ID
 // token or the canonical account email.
@@ -25,8 +39,10 @@ export async function POST(request: NextRequest) {
 
   // Per account (per IP): stops password guessing against one person without locking out a
   // whole campus that shares one Wi-Fi address. Counted before any lookup, so it costs nothing.
-  const attempt = loginLimiter.hit(RULES.loginPerAccount, `${clientIpFrom(request.headers)}|${identifier.trim().toLowerCase()}`);
+  const ip = clientIpFrom(request.headers);
+  const attempt = loginLimiter.hit(RULES.loginPerAccount, `${ip}|${identifier.trim().toLowerCase()}`);
   if (!attempt.ok) {
+    if (attempt.firstRefusal) recordLockout(identifier, ip);
     return NextResponse.json(
       { error: `Too many sign-in attempts — try again in ${Math.ceil(attempt.retryAfterSec / 60)} minute(s).` },
       { status: 429, headers: { 'Retry-After': String(attempt.retryAfterSec) } }

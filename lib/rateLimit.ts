@@ -20,6 +20,8 @@ export interface LimitRule {
 export interface LimitResult {
   ok: boolean;
   retryAfterSec: number;
+  /** This is the first request refused in the current window (the moment a lock-out starts). */
+  firstRefusal?: boolean;
 }
 
 const MAX_KEYS = 20_000;
@@ -39,7 +41,7 @@ export class RateLimiter {
       this.buckets.set(id, b);
     }
     b.count++;
-    if (b.count > rule.max) return { ok: false, retryAfterSec: Math.max(1, Math.ceil((b.resetAt - t) / 1000)) };
+    if (b.count > rule.max) return { ok: false, retryAfterSec: Math.max(1, Math.ceil((b.resetAt - t) / 1000)), firstRefusal: b.count === rule.max + 1 };
     return { ok: true, retryAfterSec: 0 };
   }
 
@@ -73,7 +75,7 @@ export const RULES = {
   // Event quick sign-up: one kiosk machine registers a queue of people (≈ one every 15 s at most).
   kioskPerIp: { name: 'kiosk-ip', max: 240, windowMs: 60 * MIN },
   emailPerIp: { name: 'email-ip', max: 10, windowMs: 10 * MIN }, // forgot-password / verification emails
-  checkPerIp: { name: 'check-ip', max: 120, windowMs: MIN }, // live 'is this taken?' checks while typing
+  checkPerIp: { name: 'check-ip', max: 60, windowMs: MIN }, // live 'is this taken?' checks while typing (a refusal only hides the hint)
   gatePerSession: { name: 'gate', max: 120, windowMs: MIN },
   writePerSession: { name: 'write', max: 60, windowMs: MIN },
   readPerSession: { name: 'read', max: 300, windowMs: MIN },

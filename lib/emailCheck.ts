@@ -4,7 +4,7 @@
 // person owns the inbox, then delete the throwaway account it creates. Test addresses (*.test)
 // skip Firebase: a one-off token, link in the Master's test outbox.
 //
-// emailChecks/{email}: { email, requestedAt, verifiedAt | null, expiresAt | null, tokenHash? }
+// emailChecks/{email}: { email, requestedAt, verifiedAt | null, expiresAt | null, tokenHash?, sentDay, sentCount }
 // Confirmed lasts CONFIRMED_FOR_MS; registration consumes it (lib → /api/register).
 if (typeof window !== 'undefined') {
   throw new Error('lib/emailCheck.ts must never be imported into client code.');
@@ -17,10 +17,14 @@ import { HttpError } from '@/lib/hierarchy/authorize';
 import { identityToolkit, isTestAddress, EmailActionError } from '@/lib/auth/emailActions';
 import { checkEmail } from '@/lib/registrationChecks';
 import { audit } from '@/lib/audit';
+import { todayDateString } from '@/lib/date';
 
 export const CONFIRMED_FOR_MS = 24 * 60 * 60 * 1000; // time to finish the form after confirming
 const TEST_LINK_FOR_MS = 24 * 60 * 60 * 1000;
 const RESEND_AFTER_MS = 45 * 1000;
+// Links to one address per IST day: plenty for a real person (typos, spam folders), but the form
+// can't be used to flood someone else's inbox from many machines.
+const MAX_SENDS_PER_DAY = 5;
 
 const keyOf = (email: string) => email.trim().toLowerCase();
 const ref = (email: string) => adminDb.collection('emailChecks').doc(keyOf(email));
@@ -36,12 +40,18 @@ export async function requestEmailCheck(rawEmail: unknown, origin: string): Prom
   if (existing?.requestedAt && Date.now() - existing.requestedAt.toMillis() < RESEND_AFTER_MS) {
     throw new HttpError(429, 'We just sent a link — check your inbox (and spam). You can send another in a minute.');
   }
+  const today = todayDateString();
+  const sentToday = existing?.sentDay === today ? Number(existing.sentCount ?? 0) : 0;
+  if (sentToday >= MAX_SENDS_PER_DAY) {
+    throw new HttpError(429, 'We’ve sent several links to this address today — use the newest one (check spam), or try again tomorrow.');
+  }
+  const daily = { sentDay: today, sentCount: sentToday + 1 };
   const confirmUrl = `${origin}/register/confirm?email=${encodeURIComponent(email)}`;
   const now = Timestamp.now();
 
   if (isTestAddress(email)) {
     const token = randomBytes(24).toString('base64url');
-    await ref(email).set({ email, requestedAt: now, verifiedAt: null, expiresAt: null, tokenHash: sha(token).toString('base64url'), tokenExpiresAt: Timestamp.fromMillis(Date.now() + TEST_LINK_FOR_MS) });
+    await ref(email).set({ email, requestedAt: now, verifiedAt: null, expiresAt: null, tokenHash: sha(token).toString('base64url'), tokenExpiresAt: Timestamp.fromMillis(Date.now() + TEST_LINK_FOR_MS), ...daily });
     await adminDb.collection('testOutbox').add({ personId: null, to: email, kind: 'confirmEmail', link: `${confirmUrl}&token=${token}`, createdAt: now });
     return;
   }
@@ -56,7 +66,7 @@ export async function requestEmailCheck(rawEmail: unknown, origin: string): Prom
     }
     throw err;
   }
-  await ref(email).set({ email, requestedAt: now, verifiedAt: null, expiresAt: null });
+  await ref(email).set({ email, requestedAt: now, verifiedAt: null, expiresAt: null, ...daily });
 }
 
 /** Is this email confirmed and still within its window? */

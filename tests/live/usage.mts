@@ -19,7 +19,7 @@ const login = async (u: string) => (await post('/api/auth/session', { identifier
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const master = await login('master'); const guard = await login('guard1');
-const tag = Date.now().toString(36); const u = `qa.u${tag}`;
+const tag = Date.now().toString(36).replace(/\d/g, (d) => 'abcdefghij'[Number(d)]); const u = `qa.u${tag}`; // names are letters only
 await post('/api/register/email-check', { email: `${u}@qa.test` });
 await sleep(800);
 const confirmLink = (await adminDb.collection('testOutbox').where('to', '==', `${u}@qa.test`).get()).docs[0]?.data().link as string;

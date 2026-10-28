@@ -7,6 +7,7 @@ import { accessCodeFor } from '@/lib/access/codes';
 import { getCurrentEntitlement } from '@/lib/access/entitlements';
 import { evaluateAccess } from '@/lib/access/evaluate';
 import { windowSummary } from '@/lib/display';
+import { DeleteMyData } from '@/components/DeleteMyData';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Visitor pass — EDC', robots: { index: false, follow: false } };
@@ -37,8 +38,10 @@ export default async function VisitorPassPage({ params }: { params: Promise<{ to
   const [entitlement, verdict, host] = await Promise.all([
     getCurrentEntitlement(person.personId), evaluateAccess(person, nowInIST()), typeof person.hostId === 'string' ? loadPerson(person.hostId) : null,
   ]);
+  // Event guests without an account can remove their own data with this link (app/api/pass/delete).
+  const canDelete = person.hasAccount === false && person.profileType === 'event_guest';
   const ended = !entitlement || entitlement.state !== 'ACTIVE' || person.active !== true || verdict.reason === 'Access expired';
-  if (ended) return <Box title="This pass is no longer valid">{verdict.reason ?? 'It was cancelled.'} Ask your host if you still need to come in.</Box>;
+  if (ended) return <Box title="This pass is no longer valid">{verdict.reason ?? 'It was cancelled.'} Ask your host if you still need to come in.{canDelete && <DeleteMyData token={token} />}</Box>;
 
   const qr = await QRCode.toString(token, { type: 'svg', errorCorrectionLevel: 'M', margin: 1 });
   return (
@@ -65,6 +68,7 @@ export default async function VisitorPassPage({ params }: { params: Promise<{ to
       </section>
       <a href={`/print/pass?t=${encodeURIComponent(token)}`} className="mt-4 flex min-h-11 items-center justify-center rounded-lg border border-[#0D5B7A] text-sm font-semibold text-[#0D5B7A]">Print as an ID card / save PDF</a>
       <p className="mt-3 text-center text-xs text-gray-500">Keep this link to yourself — it works as your pass until it ends.</p>
+      {canDelete && <DeleteMyData token={token} />}
     </main>
   );
 }

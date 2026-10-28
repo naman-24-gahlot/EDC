@@ -47,7 +47,7 @@ r = await post('/api/guard/verify', { code: vCode, direction: 'IN' }, guard);
 check('visitor let in, VVIP shown, host named', r.data?.approved === true && r.data?.person?.vvip === true && r.data?.notes?.some((n: string) => n.includes('Rahul')), r.data);
 await sleep(2500);
 check('host arrival email attempted (logged)', !(await adminDb.collection('emailLog').where('kind', '==', 'VISITOR_ARRIVED').where('personId', '==', v.hostId).get()).empty);
-check('on campus now shows a Visitor group', (await get('/guard', guard)).text.includes('Visitor'));
+check('on campus now shows a Visitor group', (await get('/api/guard/on-campus', guard)).text.includes('"group":"Visitor"'));
 
 // ——— Stays
 console.log('— stays');
@@ -60,9 +60,10 @@ await post('/api/guard/verify', { code: vCode, direction: 'IN' }, guard);
 await sleep(2500);
 const missed = (await adminDb.collection('stayFlags').where('personId', '==', vId).get()).docs.map((d) => d.data());
 check('entering again 2 h later without an exit → "no exit scan" flag', missed.some((f) => f.kind === 'MISSED_EXIT'));
-// Pretend they came in yesterday and never left: loading "on campus now" flags it.
+// Pretend they came in yesterday and never left (as the gate records it: due at the midnight
+// after the entry): loading the guard screen flags it.
 const yesterday = Timestamp.fromMillis(Date.now() - 26 * 3600_000);
-await people.doc(vId).update({ lastEntryAt: yesterday, onCampus: true });
+await people.doc(vId).update({ lastEntryAt: yesterday, onCampus: true, overnightDueAt: Timestamp.fromMillis(Date.now() - 60_000), stayAlertAt: Timestamp.fromMillis(Date.now() - 60_000) });
 await get('/guard', guard);
 await sleep(3000);
 const flags = (await adminDb.collection('stayFlags').where('personId', '==', vId).get()).docs.map((d) => ({ id: d.id, ...d.data() } as { id: string; kind: string }));

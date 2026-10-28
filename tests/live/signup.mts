@@ -30,7 +30,8 @@ const tag = Date.now().toString(36);
 check('username taken', (await check1('username=rahul')).username.ok === false);
 check('username free', (await check1(`username=qa.free${tag}`)).username.ok === true);
 check('username invalid', (await check1('username=A%20B')).username.ok === false);
-check('email taken', (await check1(`email=${encodeURIComponent('rahul@gmail.com')}`)).email.ok === false);
+// While typing, the email hint never says whether an address is registered (it would reveal who is).
+check('email hint doesn’t reveal a registered address', !/registered/i.test(String((await check1(`email=${encodeURIComponent('rahul@gmail.com')}`)).email.message)));
 check('email typo caught', /gmail\.com/.test((await check1('email=someone%40gmial.com')).email.message));
 check('disposable email refused', (await check1('email=x%40mailinator.com')).email.ok === false);
 check('domain that cannot receive mail', (await check1('email=x%40zz-not-a-real-domain-qa-9417.com')).email.ok === false);

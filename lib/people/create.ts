@@ -45,7 +45,39 @@ export function validatePhoto(photoDataUrl: string | null): string | null {
   if (approxBytes > MAX_PHOTO_BYTES) {
     throw new PersonCreateError(400, 'Photo is too large — it should be downscaled to under 150KB.');
   }
+  if (!isWellFormedJpeg(Buffer.from(match[1], 'base64'))) {
+    throw new PersonCreateError(400, 'That photo file is damaged or not a real JPEG — choose or take the photo again.');
+  }
   return photoDataUrl;
+}
+
+/**
+ * The bytes really are one JPEG image: starts with SOI, every header segment's length fits, there
+ * is a frame header with sane dimensions (1–4096 px) before the image data, and it ends with EOI —
+ * nothing appended. The photo is shown to guards and embedded in printed/PDF passes, so a label
+ * that says "JPEG" isn't enough. (The browser re-encodes honest uploads, which always pass.)
+ */
+export function isWellFormedJpeg(b: Buffer): boolean {
+  if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8 || b[b.length - 2] !== 0xff || b[b.length - 1] !== 0xd9) return false;
+  let i = 2;
+  let frame = false;
+  while (i + 4 <= b.length) {
+    if (b[i] !== 0xff) return false;
+    const marker = b[i + 1];
+    if (marker === 0xff) { i++; continue; } // fill byte
+    if (marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) return false; // no image data before these
+    const len = b.readUInt16BE(i + 2);
+    if (len < 2 || i + 2 + len > b.length) return false;
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+      if (len < 8) return false;
+      const h = b.readUInt16BE(i + 5), w = b.readUInt16BE(i + 7);
+      if (!w || !h || w > 4096 || h > 4096) return false;
+      frame = true;
+    }
+    if (marker === 0xda) return frame; // start of scan: the compressed image follows, up to EOI
+    i += 2 + len;
+  }
+  return false;
 }
 
 export interface CreatePersonInput {

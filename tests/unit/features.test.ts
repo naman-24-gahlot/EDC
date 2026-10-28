@@ -12,6 +12,7 @@ import { parseLeaveInput } from '@/lib/leave';
 import { parseVisitorInput } from '@/lib/visitors';
 import { parseBackupEmail, parseProfilePatch } from '@/lib/people/profile';
 import { addDays, todayDateString } from '@/lib/date';
+import { isWellFormedJpeg } from '@/lib/people/create';
 
 const today = todayDateString();
 const ent = (over: Partial<Entitlement> = {}): Entitlement => ({
@@ -76,4 +77,17 @@ test('backup email: only the person can set it; empty clears it', () => {
   assert.throws(() => parseBackupEmail('not-an-email'), /valid backup email/);
   assert.throws(() => parseProfilePatch({ backupEmail: 'a@b.co' }), /Only the person/);
   assert.equal(parseProfilePatch({ backupEmail: 'a@b.co' }, { self: true }).backupEmail, 'a@b.co');
+});
+
+test('photos must be one well-formed JPEG', () => {
+  const seg = (marker: number, body: number[]) => [0xff, marker, (body.length + 2) >> 8, (body.length + 2) & 0xff, ...body];
+  const sof = seg(0xc0, [8, 0, 200, 0, 160, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]); // 160×200
+  const sos = seg(0xda, [3, 1, 0, 2, 0x11, 3, 0x11, 0, 63, 0]);
+  const jpeg = (parts: number[][]) => Buffer.from([0xff, 0xd8, ...parts.flat(), 0x12, 0x34, 0xff, 0xd9]);
+  assert.ok(isWellFormedJpeg(jpeg([seg(0xe0, [0x4a, 0x46, 0x49, 0x46, 0]), sof, sos])));
+  assert.ok(!isWellFormedJpeg(Buffer.concat([jpeg([sof, sos]), Buffer.from('<x>')])), 'data after the end');
+  assert.ok(!isWellFormedJpeg(jpeg([sos])), 'no frame header');
+  assert.ok(!isWellFormedJpeg(jpeg([seg(0xc0, [8, 0x20, 0, 0, 160, 1, 1, 0x11, 0]), sos])), 'over 4096 px');
+  assert.ok(!isWellFormedJpeg(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x7f, 0xff, 0xff, 0xd9])), 'segment longer than the file');
+  assert.ok(!isWellFormedJpeg(Buffer.from('89504e470d0a1a0a', 'hex')), 'not a JPEG');
 });
