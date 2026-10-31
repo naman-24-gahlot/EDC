@@ -24,6 +24,8 @@ import { resolveEmployeeParent } from '@/lib/people/resolveParent';
 import { eventOptions, eventWindow, parseSource, type EventRecord } from '@/lib/events';
 import { audit } from '@/lib/audit';
 import { notifyEventPass } from '@/lib/notify';
+import { personTouched } from '@/lib/people/peopleIndex';
+import { assertAddressAllowed } from '@/lib/testMode';
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]{0,59}$/u;
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
@@ -51,6 +53,7 @@ export interface RegisteredGuest { personId: string; status: 'PENDING' | 'APPROV
 export async function registerQuickGuest(event: EventRecord, input: QuickInput, origin: string): Promise<RegisteredGuest> {
   const opts = eventOptions(event);
   if (opts.requirePassword) throw new HttpError(400, 'This event needs a full registration.');
+  await assertAddressAllowed(input.email);
   // The same phone number twice for one event is almost always someone registering again.
   const dup = await adminDb.collection('people').where('eventId', '==', event.id).where('mobile', '==', input.mobile).limit(1).get();
   if (!dup.empty) throw new HttpError(409, 'This mobile number is already registered for this event — ask the organisers to reprint your pass.');
@@ -73,7 +76,7 @@ export async function registerQuickGuest(event: EventRecord, input: QuickInput, 
     mobile: input.mobile, photoDataUrl: input.photoDataUrl, purpose: input.purpose, profileType: 'event_guest', systemRole: 'member',
     parentId, ancestorIds, registrationStatus: 'PENDING', registrationDecision: null, accessNumber: null, credentialVersion: 1,
     active: false, createdAt: now, createdBy: 'self', hasAccount: false, emailVerified: false,
-    eventId: event.id, eventName: event.name, registrationSource: input.source,
+    eventId: event.id, eventName: event.name, registrationSource: input.source, ...personTouched(),
   });
   audit(batch, { action: 'REGISTRATION_SUBMITTED', actor: 'public', targetPersonId: personId, eventId: event.id, at: now, details: `quick sign-up (no password) for event: ${event.name}` });
   await batch.commit();
@@ -97,7 +100,7 @@ export async function approveOnTheSpot(personId: string, event: EventRecord, ori
     const fresh = toPerson(await tx.get(ref));
     if (!fresh || fresh.registrationStatus !== 'PENDING' || fresh.eventId !== event.id) throw new HttpError(409, 'Already decided.');
     const now = Timestamp.now();
-    tx.update(ref, { registrationStatus: 'APPROVED', registrationDecision: { by: 'system', at: now, note: 'approved on the spot (event setting)', appliedProfileType: 'event_guest' }, profileType: 'event_guest', accessNumber, active: true });
+    tx.update(ref, { registrationStatus: 'APPROVED', registrationDecision: { by: 'system', at: now, note: 'approved on the spot (event setting)', appliedProfileType: 'event_guest' }, profileType: 'event_guest', accessNumber, active: true, ...personTouched() });
     tx.create(entRef, { personId, profileTypeAtGrant: 'event_guest', ...window, state: 'ACTIVE', sourceRequestId: null, approvedBy: 'system', approvedAt: now, revokedBy: null, revokedAt: null, revokeReason: null, createdAt: now });
     audit(tx, { action: 'REGISTRATION_APPROVED', actor: 'system', targetPersonId: personId, eventId: event.id, at: now, details: `approved on the spot (event "${event.name}" setting); accessCode=${accessCodeFor('event_guest', accessNumber)}` });
     audit(tx, { action: 'ENTITLEMENT_CREATED', actor: 'system', targetPersonId: personId, subjectId: entRef.id, eventId: event.id, at: now, details: `event "${event.name}" on approval: ${window.startDate} → ${window.endDate}, ${window.startTime}–${window.endTime}` });

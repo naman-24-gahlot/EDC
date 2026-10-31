@@ -13,6 +13,7 @@ import { audit, eventIdOf } from '@/lib/audit';
 import { after } from 'next/server';
 import { siteOrigin } from '@/lib/origin';
 import { notifyAccessApproved } from '@/lib/notify';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 export const ACTIONABLE_MS = 3 * 24 * 60 * 60 * 1000;
 
@@ -185,7 +186,7 @@ export async function createRequest(actor: SessionUser, input: CreateRequestInpu
     tx.create(ref, doc);
     // Writing the person doc makes concurrent creates for the same person conflict and
     // retry, so the "one PENDING per person" check above can't be raced.
-    tx.update(personRef, { lastRequestAt: now });
+    tx.update(personRef, { lastRequestAt: now, ...personTouched() });
     audit(tx, { action: 'ACCESS_REQUEST_CREATED', actor, targetPersonId: input.personId, subjectId: ref.id, eventId: eventIdOf(person), at: now, details: input.purpose });
     return { ...doc, id: ref.id };
   });

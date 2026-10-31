@@ -8,6 +8,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
 import { HttpError, loadPerson, requireMaster } from '@/lib/hierarchy/authorize';
 import { audit, eventIdOf } from '@/lib/audit';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 export async function setActive(
   actor: SessionUser,
@@ -39,6 +40,7 @@ export async function setActive(
     active,
     // Every QR issued before deactivation dies, and stays dead after reactivation.
     ...(active ? {} : { credentialVersion: FieldValue.increment(1) }),
+    ...personTouched(),
   });
   audit(batch, { action: active ? 'PERSON_REACTIVATED' : 'PERSON_DEACTIVATED', actor, targetPersonId: personId, eventId: eventIdOf(person) });
   await batch.commit();

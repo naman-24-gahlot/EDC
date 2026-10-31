@@ -8,6 +8,7 @@ import { adminDb } from '@/lib/firebase/admin';
 import type { SessionUser } from '@/lib/session';
 import { HttpError, MAX_DEPTH, computeAncestorIds, requireMaster, toPerson } from './authorize';
 import { audit, eventIdOf } from '@/lib/audit';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 const TOP_LEVEL_PROFILE_TYPES = new Set(['employee', 'incubee']);
 
@@ -62,8 +63,8 @@ export async function rehome(
       throw new HttpError(400, `That move would push part of the subtree past depth ${MAX_DEPTH}.`);
     }
 
-    tx.update(people.doc(personId), { parentId: newParentId, ancestorIds: newAncestors });
-    for (const r of rewrites) tx.update(people.doc(r.personId), { ancestorIds: r.ancestorIds });
+    tx.update(people.doc(personId), { parentId: newParentId, ancestorIds: newAncestors, ...personTouched() });
+    for (const r of rewrites) tx.update(people.doc(r.personId), { ancestorIds: r.ancestorIds, ...personTouched() });
     audit(tx, {
       action: 'HIERARCHY_CHANGED', actor, targetPersonId: personId, eventId: eventIdOf(person),
       details: `parent ${person.parentId ?? 'top-level'} → ${newParentId ?? 'top-level'}; ${rewrites.length} descendant(s) moved`,

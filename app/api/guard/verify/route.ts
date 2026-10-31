@@ -15,6 +15,7 @@ import { notifyVisitorArrived } from '@/lib/notify';
 import { holidayOn } from '@/lib/holidays';
 import { leaveOn } from '@/lib/leave';
 import { formatDate } from '@/lib/display';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 // The gate. ONE path for QR and typed code — see SECURITY_MODEL.md "Verification".
 // Every verdict is recorded (entryEvent + audit) BEFORE it is returned: if recording
@@ -123,8 +124,8 @@ export async function POST(request: NextRequest) {
     // the stay fields let the headcount and overnight check skip the access records (lib/stays.ts).
     if (approved && person) {
       batch.update(adminDb.collection('people').doc(person.personId), exit
-        ? { lastExitAt: now, onCampus: false, ...stayFieldsAtExit() }
-        : { lastEntryAt: now, onCampus: true, ...stayFieldsAtEntry(entitlement, now) });
+        ? { lastExitAt: now, onCampus: false, ...stayFieldsAtExit(), ...personTouched() }
+        : { lastEntryAt: now, onCampus: true, ...stayFieldsAtEntry(entitlement, now), ...personTouched() });
     }
     audit(batch, {
       action: exit ? 'EXIT_RECORDED' : approved ? 'ENTRY_APPROVED' : 'ENTRY_DENIED', actor: user, targetPersonId: person?.personId ?? null,

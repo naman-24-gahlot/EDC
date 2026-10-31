@@ -13,6 +13,8 @@ import { HttpError, computeAncestorIds, loadPerson } from '@/lib/hierarchy/autho
 import { hashPassword, writeHashes } from '@/lib/auth/passwordHashes';
 import { audit } from '@/lib/audit';
 import { checkMobile } from '@/lib/phone';
+import { personTouched } from '@/lib/people/peopleIndex';
+import { assertAddressAllowed } from '@/lib/testMode';
 
 export const PersonCreateError = HttpError;
 
@@ -99,6 +101,8 @@ export interface CreatePersonOptions {
   event?: { eventId: string; eventName: string; source: { source: string | null; medium: string | null; campaign: string | null } };
   registrationStatus: 'PENDING' | 'APPROVED';
   systemRole?: SystemRole; // defaults to 'member'
+  /** Testing-mode registration only: a blank mobile is stored as ''. */
+  allowNoMobile?: boolean;
 }
 
 export interface CreatedPerson {
@@ -153,11 +157,13 @@ export async function createPerson(
   if (!EMAIL_RE.test(commEmailRaw) || commEmailRaw.length > 254) {
     throw new PersonCreateError(400, 'A valid communication email is required.');
   }
+  await assertAddressAllowed(commEmailRaw).catch((err: Error) => { throw new PersonCreateError(400, err.message); });
   if (!input.password || input.password.length < 8) {
     throw new PersonCreateError(400, 'Password must be at least 8 characters.');
   }
   const photoDataUrl = validatePhoto(input.photoDataUrl);
-  const mobile = checkMobile(input.mobile ?? '');
+  // No mobile at all is accepted only for a testing-mode registration (lib/testMode.ts).
+  const mobile = options.allowNoMobile && !(input.mobile ?? '').trim() ? { ok: true, value: '', message: null } : checkMobile(input.mobile ?? '');
   if (!mobile.ok) throw new PersonCreateError(400, mobile.message ?? 'Enter a valid mobile number.');
 
   let ancestorIds: string[] = [];
@@ -205,6 +211,7 @@ export async function createPerson(
     const isApproved = options.registrationStatus === 'APPROVED';
     if (isApproved && input.profileType) accessNumber = await issueAccessNumber(personId);
     await adminDb.collection('people').doc(personId).create({
+      ...personTouched(),
       personId,
       firstName: input.firstName.trim(),
       lastName: input.lastName.trim(),

@@ -136,7 +136,7 @@ const pw = `Qa-${randomBytes(9).toString('base64url')}`;
 check('backup email same as the main one refused', (await post('/api/register', { firstName: 'QA', lastName: `F${tag}`, username: u, commEmail: `${u}@qa.test`, backupEmail: `${u}@qa.test`, mobile: '9812345670', password: pw, purpose: 'features test', profileType: 'incubee' })).status === 400);
 r = await post('/api/register', { firstName: 'QA', lastName: `F${tag}`, username: u, commEmail: `${u}@qa.test`, backupEmail: `${u}.backup@qa.test`, mobile: '9812345670', password: pw, purpose: 'features test', profileType: 'incubee' });
 const pid = r.data?.personId as string;
-check('registers with a backup email', r.status === 201 && (await people.doc(pid).get()).data()?.backupEmail === `${u}.backup@qa.test`);
+check('registers with a backup email', r.status === 201 && (await people.doc(pid).get()).data()?.backupEmail === `${u}.backup@qa.test`, r.data);
 check('Master approves', (await post(`/api/registrations/${pid}/approve`, {}, master)).status === 200);
 await sleep(2500);
 const approval = (await adminDb.collection('testOutbox').where('to', '==', `${u}@qa.test`).where('kind', '==', 'REGISTRATION_APPROVED').get()).docs[0]?.data();

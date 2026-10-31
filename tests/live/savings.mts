@@ -1,10 +1,9 @@
-// Request savings of 2026-10-31: the events index (and its self-repair), hierarchy branches loaded
-// when opened, the person page's parent list loaded on demand, Master's "My account" without a
-// read of everyone, and the pending-requests badge. Creates a "QA" event — checkpoint first,
+// Request savings: the events index and the people index (and their self-repair), the Master lists
+// served from it (hierarchy, person page, My account, GET /api/people), and the requests badge. Creates a "QA" event — checkpoint first,
 // clean afterwards (npm run test:data).
 //   BASE=<url> npx tsx --tsconfig tsconfig.json --env-file=.env.local tests/live/savings.mts
 import { readFileSync } from 'fs';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import { addDays, todayDateString } from '@/lib/date';
 import { listEvents } from '@/lib/events';
@@ -38,29 +37,35 @@ const listed = await listEvents();
 check('an out-of-step index is rebuilt from the events', listed.some((e) => e.id === eventId) && !!(await index.get()).get(`events.${eventId}`));
 check('people page filters by event from the index', (await call('GET', `/admin/people?ev=${eventId}`, undefined, master)).status === 200);
 
-console.log('— hierarchy');
-const page = await call('GET', '/admin/hierarchy', undefined, master);
+console.log('— people index (Master lists)');
+const shards = () => Promise.all([0, 1, 2, 3].map((i) => adminDb.collection('peopleIndex').doc(String(i)).get()));
 const rahulId = await idOf('rahul');
-check('opens at the top level (Rahul shown, his people not yet)', page.text.includes('data-node="rahul"') && !page.text.includes('data-node="vikram.singh"'));
-r = await call('GET', `/api/admin/hierarchy?parent=${rahulId}`, undefined, master);
-check('opening Rahul loads the people under him', r.status === 200 && r.data?.kids?.some((k: { username: string }) => k.username === 'vikram.singh'), r.data?.kids?.length);
-check('“Show everyone” still shows the whole tree', (await call('GET', '/admin/hierarchy?all=1', undefined, master)).text.includes('data-node="vikram.singh"'));
-check('branches are Master only', (await call('GET', `/api/admin/hierarchy?parent=${rahulId}`, undefined, rahul)).status === 403 && (await call('GET', `/api/admin/hierarchy?parent=${rahulId}`, undefined, guard)).status === 403 && (await call('GET', `/api/admin/hierarchy?parent=${rahulId}`)).status === 401);
-
-console.log('— person page parent list');
 const vikram = await idOf('vikram.singh');
+let page = await call('GET', '/admin/hierarchy', undefined, master);
+check('hierarchy shows the whole tree again (from the index)', page.text.includes('data-node="rahul"') && page.text.includes('data-node="vikram.singh"'));
+check('the index exists, and the Master’s list has everyone', (await shards()).every((s) => s.exists) && (await call('GET', '/api/people', undefined, master)).data?.people?.length === (await adminDb.collection('people').count().get()).data().count);
 const pp = await call('GET', `/admin/people/${vikram}`, undefined, master);
-check('person page shows the current parent with “Change…”', pp.text.includes('data-testid="change-parent"') && pp.text.includes('Rahul'));
-r = await call('GET', `/api/people/${vikram}/eligible-parents`, undefined, master);
-check('“Change…” lists approved, active employees (not themselves)', r.status === 200 && r.data.parents.length > 0 && r.data.parents.some((p: { id: string }) => p.id === rahulId) && !r.data.parents.some((p: { id: string }) => p.id === vikram), r.data?.parents?.length);
-check('Rahul can’t be moved under someone below him', !(await call('GET', `/api/people/${rahulId}/eligible-parents`, undefined, master)).data.parents.some((p: { id: string }) => p.id === vikram));
-check('parent list is Master only', (await call('GET', `/api/people/${vikram}/eligible-parents`, undefined, rahul)).status === 403);
-
-console.log('— Master “My account”');
-const me = await call('GET', '/me', undefined, master);
-const total = (await adminDb.collection('people').count().get()).data().count - 1;
-check('shows the newest people and the total, linking to the People page', me.text.includes('data-testid="master-recent"') && me.text.includes(`<b>${total}</b> people`) && me.text.includes('href="/admin/people"'), total);
+check('person page lists possible parents inline again', pp.text.includes('id="pf-parent"') && pp.text.includes(`value="${rahulId}"`));
+const everyone = (await adminDb.collection('people').count().get()).data().count - 1; // not the Master themselves
+const shown = ((await call('GET', '/me', undefined, master)).text.match(/data-person="/g) ?? []).length;
+check('Master “My account” lists everyone again (a full first page)', shown === Math.min(25, everyone), [shown, everyone]);
 check('an employee’s “My account” still lists everyone under them', (await call('GET', '/me', undefined, rahul)).text.includes('vikram.singh'));
+// A change made through the app shows at once (the person is "touched", read back with the index).
+const before = (await adminDb.collection('people').doc(vikram).get()).data()!;
+r = await call('PATCH', `/api/people/${vikram}`, { lastName: `Check${tag}` }, master);
+const touched = (await adminDb.collection('people').doc(vikram).get()).get('touchedAt');
+check('an edit stamps touchedAt', r.status === 200 && touched != null, r.status);
+page = await call('GET', `/admin/people?q=vikram`, undefined, master);
+check('…and the People page shows it straight away', page.status === 200);
+const fromApi = (await call('GET', '/api/people', undefined, master)).data?.people?.find((p: { personId: string }) => p.personId === vikram);
+check('GET /api/people (Master) has the change', fromApi?.lastName === `Check${tag}`, fromApi?.lastName);
+await call('PATCH', `/api/people/${vikram}`, { lastName: before.lastName }, master);
+// Someone the index doesn't know (written behind the app's back) → the count disagrees → rebuilt.
+const shard = adminDb.collection('peopleIndex').doc(String(vikram.charCodeAt(0) % 4));
+await shard.update({ [`people.${vikram}`]: FieldValue.delete() });
+await adminDb.collection('people').doc(vikram).update({ touchedAt: Timestamp.fromMillis(0) }); // and not "touched" either
+check('a missing person is noticed and the index rebuilt', (await call('GET', '/api/people', undefined, master)).data?.people?.some((p: { personId: string }) => p.personId === vikram) && !!(await shard.get()).get(`people.${vikram}`));
+check('guards and anonymous can’t read the people list', (await call('GET', '/api/people', undefined, guard)).status === 403 && (await call('GET', '/api/people')).status === 401);
 
 console.log('— pending-requests badge');
 const counts = await pendingCounts();

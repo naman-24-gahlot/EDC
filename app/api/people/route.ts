@@ -5,10 +5,11 @@ import { adminDb } from '@/lib/firebase/admin';
 import { getSessionUser } from '@/lib/session';
 import { createPerson, PersonCreateError } from '@/lib/people/create';
 import { accessCodeFor, isProfileType, SUBORDINATE_PROFILE_TYPES } from '@/lib/access/codes';
-import { LIST_FIELDS, listDescendants, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
+import { listDescendants, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { templateWindow } from '@/lib/access/entitlements';
 import { todayDateString } from '@/lib/date';
 import { audit } from '@/lib/audit';
+import { allPeopleIndexed } from '@/lib/people/peopleIndex';
 
 function generatePassword(): string {
   return randomBytes(9).toString('base64url');
@@ -24,7 +25,7 @@ export async function GET() {
 
   const people: PersonRecord[] =
     user.systemRole === 'master'
-      ? (await adminDb.collection('people').select(...LIST_FIELDS).get()).docs.map((doc) => toPerson(doc)!)
+      ? await allPeopleIndexed() // everyone, from the people index
       : await listDescendants(user.personId);
 
   return NextResponse.json({

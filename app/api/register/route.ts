@@ -13,6 +13,8 @@ import { audit } from '@/lib/audit';
 import { parseBackupEmail } from '@/lib/people/profile';
 import { approveOnTheSpot } from '@/lib/eventGuests';
 import { siteOrigin } from '@/lib/origin';
+import { personTouched } from '@/lib/people/peopleIndex';
+import { assertAddressAllowed, testModeOn } from '@/lib/testMode';
 
 // Public, unauthenticated. Can only ever create a PENDING person — approval is the
 // real gate, so the general link needs no invite token. See SECURITY_MODEL.md
@@ -25,12 +27,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : '';
-  const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : '';
+  // Testing mode (lib/testMode.ts): name, mobile and purpose may be left blank.
+  const testing = await testModeOn();
+  const firstName = (typeof body.firstName === 'string' ? body.firstName.trim() : '') || (testing ? 'Test' : '');
+  const lastName = (typeof body.lastName === 'string' ? body.lastName.trim() : '') || (testing ? 'User' : '');
   const username = typeof body.username === 'string' ? body.username : '';
   const commEmail = typeof body.commEmail === 'string' ? body.commEmail.trim() : '';
   const mobile = typeof body.mobile === 'string' ? body.mobile.trim() : '';
-  const purpose = typeof body.purpose === 'string' ? body.purpose.trim() : '';
+  const purpose = (typeof body.purpose === 'string' ? body.purpose.trim() : '') || (testing ? 'Testing' : '');
   const password = typeof body.password === 'string' ? body.password : '';
   // Event links register guests only — the type is fixed here, whatever the form sent; a Master
   // can approve them as another type, or change it later.
@@ -39,7 +43,10 @@ export async function POST(request: NextRequest) {
     typeof body.parentIdentifier === 'string' ? body.parentIdentifier.trim() : '';
   const photoDataUrl = typeof body.photoDataUrl === 'string' ? body.photoDataUrl : null;
   let backupEmail: string | null;
-  try { backupEmail = parseBackupEmail(body.backupEmail); } catch (err) { return errorResponse(err); }
+  try {
+    backupEmail = parseBackupEmail(body.backupEmail);
+    await assertAddressAllowed(backupEmail);
+  } catch (err) { return errorResponse(err); }
   if (backupEmail && backupEmail === commEmail.toLowerCase()) {
     return NextResponse.json({ error: 'The backup email must be different from your main email.' }, { status: 400 });
   }
@@ -47,7 +54,7 @@ export async function POST(request: NextRequest) {
   if (!(await humanCheckPassed(body.humanToken, clientIpFrom(request.headers)))) {
     return NextResponse.json({ error: 'Please complete the “I’m human” check and try again.' }, { status: 400 });
   }
-  if (!firstName || !lastName || !mobile || !purpose) {
+  if (!firstName || !lastName || (!mobile && !testing) || !purpose) {
     return NextResponse.json({ error: 'All fields are required.' }, { status: 400 });
   }
   if (!isProfileType(profileType)) {
@@ -98,7 +105,7 @@ export async function POST(request: NextRequest) {
     created = await createPerson(
       { firstName, lastName, username, commEmail, mobile, purpose, profileType, password, photoDataUrl },
       {
-        createdBy: 'self', parentId, registrationStatus: 'PENDING',
+        createdBy: 'self', parentId, registrationStatus: 'PENDING', allowNoMobile: testing,
         ...(event ? { event: { eventId: event.id, eventName: event.name, source: parseSource(body.source) } } : {}),
       }
     );
@@ -118,7 +125,7 @@ export async function POST(request: NextRequest) {
   // Confirmed before registering: the account starts confirmed, and the confirmation is used up.
   await Promise.all([
     adminAuth.updateUser(created.personId, { emailVerified: true }),
-    adminDb.collection('people').doc(created.personId).update({ emailVerified: true, ...(backupEmail ? { backupEmail } : {}) }),
+    adminDb.collection('people').doc(created.personId).update({ emailVerified: true, ...(backupEmail ? { backupEmail } : {}), ...personTouched() }),
     consumeEmailCheck(commEmail),
   ]);
   // Event links set to "approve on the spot": the pass is issued now (event days and hours only).

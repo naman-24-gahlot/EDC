@@ -15,6 +15,8 @@ import { hashPassword, matches, readHashes, writeHashes } from '@/lib/auth/passw
 import { audit, eventIdOf, lookupEventId } from '@/lib/audit';
 import { assertGoodPassword } from '@/lib/auth/passwordPolicy';
 import { identityToolkit, sendPasswordReset, actionErrorMessage } from '@/lib/auth/emailActions';
+import { personTouched } from '@/lib/people/peopleIndex';
+import { assertAddressAllowed } from '@/lib/testMode';
 
 export interface ProfilePatch {
   firstName?: string;
@@ -79,12 +81,13 @@ export async function updateProfile(actor: SessionUser, personId: string, patch:
   if (personId !== actor.personId) await assertCanActOn(actor, personId);
   const person = await loadPerson(personId);
   if (!person) throw new HttpError(404, 'Person not found.');
+  await assertAddressAllowed(patch.backupEmail);
   if (patch.backupEmail && patch.backupEmail === String(person.commEmail ?? '').toLowerCase()) {
     throw new HttpError(400, 'Your backup email must be different from your main email.');
   }
 
   const batch = adminDb.batch();
-  batch.update(adminDb.collection('people').doc(personId), { ...patch });
+  batch.update(adminDb.collection('people').doc(personId), { ...patch, ...personTouched() });
   audit(batch, {
     action: 'PROFILE_UPDATED', actor, targetPersonId: personId, eventId: eventIdOf(person),
     details: `changed: ${Object.keys(patch).join(', ')}`,
@@ -265,7 +268,7 @@ export async function completeEmailReset(oobCode: unknown, next: unknown): Promi
   await adminAuth.setCustomUserClaims(user.uid, claims);
   await adminAuth.updateUser(user.uid, { emailVerified: true });
   await adminAuth.revokeRefreshTokens(user.uid);
-  await adminDb.collection('people').doc(user.uid).update({ emailVerified: true }).catch(() => {});
+  await adminDb.collection('people').doc(user.uid).update({ emailVerified: true, ...personTouched() }).catch(() => {});
   await audit(null, {
     action: 'PASSWORD_CHANGED', actor: { personId: user.uid, email, systemRole: claims.systemRole === 'master' || claims.systemRole === 'guard' ? claims.systemRole : 'member' },
     targetPersonId: user.uid, eventId: await lookupEventId(user.uid), details: 'reset with an email link; signed out everywhere',
@@ -282,6 +285,6 @@ export async function applyEmailVerification(oobCode: unknown): Promise<void> {
     throw new HttpError(400, actionErrorMessage(err));
   }
   const user = await adminAuth.getUserByEmail(email);
-  await adminDb.collection('people').doc(user.uid).update({ emailVerified: true }).catch(() => {});
+  await adminDb.collection('people').doc(user.uid).update({ emailVerified: true, ...personTouched() }).catch(() => {});
   await audit(null, { action: 'EMAIL_VERIFIED', actor: { personId: user.uid, email, systemRole: 'member' }, targetPersonId: user.uid, eventId: await lookupEventId(user.uid) });
 }

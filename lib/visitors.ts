@@ -21,6 +21,8 @@ import { windowSummary } from '@/lib/display';
 import { checkMobile } from '@/lib/phone';
 import { audit } from '@/lib/audit';
 import { notifyVisitorPass } from '@/lib/notify';
+import { personTouched } from '@/lib/people/peopleIndex';
+import { assertAddressAllowed } from '@/lib/testMode';
 
 const NAME_RE = /^[\p{L}\p{M}][\p{L}\p{M} .'-]{0,59}$/u;
 const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
@@ -59,6 +61,7 @@ export function parseVisitorInput(body: unknown): VisitorInput {
 export const visitorPassUrl = (origin: string, p: { personId: string; credentialVersion: number }) => `${origin}/v/${encodeURIComponent(passTokenFor(p))}`;
 
 export async function createVisitor(actor: SessionUser, input: VisitorInput, origin: string) {
+  await assertAddressAllowed(input.email);
   const host = await loadPerson(actor.personId);
   const isMaster = actor.systemRole === 'master';
   if (!host || (!isMaster && (host.profileType !== 'employee' || host.registrationStatus !== 'APPROVED' || host.active !== true))) {
@@ -84,7 +87,7 @@ export async function createVisitor(actor: SessionUser, input: VisitorInput, ori
     mobile: input.mobile, photoDataUrl: null, purpose: input.purpose, profileType: 'visitor', systemRole: 'member',
     parentId, ancestorIds, registrationStatus: 'APPROVED', registrationDecision: { by: actor.personId, at: now, note: null },
     accessNumber, credentialVersion: 1, active: true, createdAt: now, createdBy: actor.personId,
-    hasAccount: false, hostId: actor.personId, vvip: input.vvip, emailVerified: false,
+    hasAccount: false, hostId: actor.personId, vvip: input.vvip, emailVerified: false, ...personTouched(),
   });
   batch.create(entRef, {
     personId, profileTypeAtGrant: 'visitor', ...window, state: 'ACTIVE', sourceRequestId: null,

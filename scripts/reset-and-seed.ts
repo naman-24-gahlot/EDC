@@ -69,6 +69,7 @@ const NEW_COLLECTIONS = [
   'auditChain',
   'auditSeals',
   'eventsIndex',
+  'peopleIndex',
   'events',
   'passwordHashes',
   'testOutbox',

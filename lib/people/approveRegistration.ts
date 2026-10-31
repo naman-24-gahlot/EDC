@@ -19,6 +19,7 @@ import { audit, eventIdOf } from '@/lib/audit';
 import { after } from 'next/server';
 import { siteOrigin } from '@/lib/origin';
 import { notifyRegistrationApproved, notifyRegistrationRejected } from '@/lib/notify';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 /** Types this approver may approve someone as. A parent employee keeps them a dependant. */
 export function approvableTypes(actor: SessionUser): readonly ProfileType[] {
@@ -84,6 +85,7 @@ export async function approveRegistration(actor: SessionUser, personId: string, 
       accessNumber,
       active: true,
       ...(hierarchy ?? {}),
+      ...personTouched(),
       // Shown once on their account; `seenAt` is set when they dismiss it (never deleted).
       ...(changed ? { approvalNotice: { appliedAs, approvedAs, by: actor.personId, at: now, seenAt: null } } : {}),
     });
@@ -111,6 +113,7 @@ export async function rejectRegistration(actor: SessionUser, personId: string, n
   batch.update(adminDb.collection('people').doc(personId), {
     registrationStatus: 'REJECTED',
     registrationDecision: { by: actor.personId, at: now, note },
+    ...personTouched(),
   });
   audit(batch, { action: 'REGISTRATION_REJECTED', actor, targetPersonId: personId, eventId: eventIdOf(person), at: now, details: note });
   await batch.commit();

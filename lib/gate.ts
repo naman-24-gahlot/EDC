@@ -15,6 +15,7 @@ import { PROFILE_LABEL } from '@/lib/display';
 import type { ProfileType } from '@/lib/access/codes';
 import { currentEntitlementsFor } from '@/lib/access/entitlements';
 import { stayFieldsAtEntry, sweepOvernight } from '@/lib/stays';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 export interface OnCampus {
   personId: string;
@@ -45,7 +46,7 @@ export async function onCampusNow(): Promise<OnCampus[]> {
       const entryAt = d.data().lastEntryAt as Timestamp;
       const fields = stayFieldsAtEntry(ents.get(d.id) ?? null, entryAt);
       filled.set(d.id, { stayAlertAt: fields.stayAlertAt, overnightOk: fields.overnightOk });
-      batch.update(d.ref, fields, { lastUpdateTime: d.updateTime });
+      batch.update(d.ref, { ...fields, ...personTouched() }, { lastUpdateTime: d.updateTime });
     }
     await batch.commit().catch((e) => console.error('Stay fields backfill failed', e));
   }

@@ -20,6 +20,7 @@ import { HttpError, assertCanActOn, type PersonRecord } from '@/lib/hierarchy/au
 import type { Entitlement } from '@/lib/access/entitlements';
 import { audit, eventIdOf, type AuditAction } from '@/lib/audit';
 import { notifyStayAlert } from '@/lib/notify';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 export type StayKind = 'LATE_EXIT' | 'OVERNIGHT' | 'MISSED_EXIT';
 export const GRACE_MIN = 15;
@@ -149,7 +150,7 @@ export function sweepOvernight(origin: string) {
           await raise('OVERNIGHT', who, p.lastEntryAt, { detail: `has been recorded inside since ${clock(p.lastEntryAt)} — stayed overnight or left without an exit scan` }, origin);
         }
         // Done with this stay (flagged now, or before). Only if nobody has scanned them since.
-        await d.ref.update({ overnightDueAt: FieldValue.delete() }, { lastUpdateTime: d.updateTime }).catch(() => {});
+        await d.ref.update({ overnightDueAt: FieldValue.delete(), ...personTouched() }, { lastUpdateTime: d.updateTime }).catch(() => {});
       }
     } catch (err) {
       console.error('Overnight sweep failed', err);

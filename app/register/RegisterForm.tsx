@@ -9,6 +9,7 @@ import { checkMobile } from '@/lib/phone';
 import { EmailConfirm } from './EmailConfirm';
 import type { PasswordVerdict } from '@/components/PasswordField';
 import { PassReady, type IssuedPass } from '@/components/PassReady';
+import { useTestMode } from '@/components/useTestMode';
 
 type Verdict = { ok: boolean; message: string | null };
 
@@ -104,13 +105,16 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   const needsParent = SUBORDINATE_TYPES.has(profileType);
   const usernameCheck = useLiveCheck('username', username, 3);
   const emailCheck = useLiveCheck('email', commEmail, 6);
+  // Testing mode (lib/testMode.ts): name, mobile and purpose may be left blank.
+  const testing = useTestMode() === true;
   const mobileCheck = mobileHint(mobile);
+  const mobileOk = !!mobileCheck?.ok || (testing && !mobile.trim());
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [pwVerdict, setPwVerdict] = useState<PasswordVerdict>('blocked');
   const pwCtx = { username, email: commEmail, name: `${firstName} ${lastName}` };
   // Block only on what we know is wrong; the server has the final word on everything.
   // Submit only when nothing known is wrong: confirmed email, a valid mobile, an allowed password.
-  const blocking = [usernameCheck, emailCheck, mobileCheck].some((v) => v && !v.ok) || !emailConfirmed || !(mobileCheck?.ok) || pwVerdict !== 'ok';
+  const blocking = [usernameCheck, emailCheck, mobileCheck].some((v) => v && !v.ok) || !emailConfirmed || !mobileOk || pwVerdict !== 'ok';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -193,9 +197,14 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {testing && (
+          <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900" data-testid="testing-mode-note">
+            <b>Testing mode is on:</b> name, mobile and purpose may be left blank, and test addresses (…@….test) work — their emails go to the Master’s test outbox.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="First name" value={firstName} onChange={setFirstName} required />
-          <Field label="Last name" value={lastName} onChange={setLastName} required />
+          <Field label="First name" value={firstName} onChange={setFirstName} required={!testing} />
+          <Field label="Last name" value={lastName} onChange={setLastName} required={!testing} />
         </div>
         <Field
           label="Username"
@@ -207,7 +216,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           hint={usernameCheck}
         />
         <EmailConfirm value={commEmail} onChange={setCommEmail} hint={emailCheck} humanToken={humanToken} onConfirmed={setEmailConfirmed} />
-        <Field label="Mobile number" type="tel" value={mobile} onChange={setMobile} required autoComplete="tel" placeholder="98765 43210" hint={mobileCheck} />
+        <Field label="Mobile number" type="tel" value={mobile} onChange={setMobile} required={!testing} autoComplete="tel" placeholder="98765 43210" hint={mobileCheck} />
         <Field label="Backup email (optional) — a second place for password resets and approval emails" type="email" value={backupEmail} onChange={setBackupEmail} autoComplete="off" />
         <PasswordField id="reg-password" label="Password" value={password} onChange={setPassword} ctx={pwCtx} onVerdict={setPwVerdict} />
 
@@ -217,7 +226,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
             id="reg-purpose"
             value={purpose}
             onChange={(e) => setPurpose(e.target.value)}
-            required
+            required={!testing}
             rows={2}
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
           />
@@ -278,7 +287,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
         </button>
         {!loading && blocking && (
           <p className="text-center text-xs text-gray-500" aria-live="polite">
-            {!emailConfirmed ? 'Confirm your email to submit.' : !(mobileCheck?.ok) ? 'Enter a valid mobile number.' : pwVerdict === 'checking' ? 'Checking your password…' : pwVerdict !== 'ok' ? 'Choose an allowed password.' : 'Fix the fields marked in red.'}
+            {!emailConfirmed ? 'Confirm your email to submit.' : !mobileOk ? 'Enter a valid mobile number.' : pwVerdict === 'checking' ? 'Checking your password…' : pwVerdict !== 'ok' ? 'Choose an allowed password.' : 'Fix the fields marked in red.'}
           </p>
         )}
       </form>

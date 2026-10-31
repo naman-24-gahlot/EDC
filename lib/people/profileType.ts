@@ -14,6 +14,7 @@ import { accessCodeFor, SUBORDINATE_PROFILE_TYPES, type ProfileType } from '@/li
 import { effectiveStatus, templateWindow } from '@/lib/access/entitlements';
 import { todayDateString } from '@/lib/date';
 import { audit, eventIdOf } from '@/lib/audit';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 const TOP_LEVEL_TYPES: readonly ProfileType[] = ['employee', 'incubee'];
 
@@ -87,6 +88,7 @@ export async function changeProfileType(actor: SessionUser, personId: string, ne
       profileType: newType,
       credentialVersion: FieldValue.increment(1),
       ...(hierarchy ?? {}),
+      ...personTouched(),
     });
     for (const d of active) {
       tx.update(d.ref, { state: 'SUPERSEDED' });

@@ -70,6 +70,34 @@ Docs (read only what the current phase needs):
 - Uniqueness = deterministic doc ID + `create()`. Time = `lib/date.ts` (IST).
 - No new dependencies or patterns beyond this file without asking first.
 
+## Request budget (Firestore free tier: 50k reads / 20k writes a day)
+Running out stops everything until the daily reset, and the gate fails closed. So:
+- **Never read a whole collection per page view.** Master lists of everyone use the people index
+  (`lib/people/peopleIndex.ts`, via `allPeople()`); lists of events use the events index (`listEvents()`);
+  logs are paged queries (`lib/logs.ts`); counts use `count()`.
+- **Every write to a person record spreads `...personTouched()`** — the index relies on it
+  (`tests/unit/peopleIndex.test.ts` checks; writes through a variable like `ref` must be stamped by hand).
+- Every event change goes through `lib/events.ts` (it updates the events index in the same batch).
+- Audit entries are written with `audit()` only; they're sealed in batches (`lib/auditChain.ts`).
+- The guard screen shows counts; "on campus now" lists load on demand.
+- New public endpoints: think about what a bot hitting them 1,000 times costs.
+
+## Testing mode (`lib/testMode.ts`)
+One Master-only switch (the bar on every /admin page) for everything that exists only to make testing
+easier: test addresses (…@….test → /admin/outbox), optional name/mobile/purpose on the full
+registration form, and no Turnstile. ON until a Master turns it off; **off for presenting and the
+final build.** Any new testing shortcut goes behind `testModeOn()` and is added to the list at the
+top of `lib/testMode.ts` — never a separate flag.
+
+## When something breaks
+- Vercel → project → Logs: errors are logged with a plain prefix — "Gate verification failed",
+  "Audit sealing failed", "peopleIndex …", "Overnight sweep failed", "Stay check failed".
+- Audit log page → "Check integrity" (new entries) / "Full check" (everything) for tampering or gaps.
+- A list looking stale: the people/events indexes repair themselves when their count disagrees, and the
+  people index is rebuilt hourly; deleting `peopleIndex/*` or `eventsIndex/all` forces a rebuild (safe).
+- Live tests: `tests/live/*.mts` against a dev server (`BASE=…` for production). Testing mode must be ON.
+  The email limit is 10 per machine per 10 min, so restart the dev server between email-heavy suites.
+
 ## Out of scope — do not build, do not prepare for
 Aadhaar/government-ID/external identity verification (storing ID numbers or images), biometrics,
 facial recognition, RFID/gate hardware, offline verification, analytics dashboards, payments, ERP,
@@ -92,7 +120,8 @@ PDF via `lib/passPdf.ts`, no library) and per-event registration options incl. n
   `report`, then `clean --yes` (deletes what testing added, puts edited records back).
 - `clean` refuses people/accounts that don't look like test data (`qa.` username or `.test` email)
   unless `--include-real` — show the user the report and ask before using it.
-- Test addresses end in `.test` (e.g. `qa1@example.test`): their emails go to /admin/outbox.
+- Test addresses end in `.test` (e.g. `qa1@example.test`): their emails go to /admin/outbox — only
+  while testing mode is on (see "Testing mode").
 
 ## Testing expectations
 Every implementation phase ends with `npm run lint`, `npx tsc --noEmit` and `npm run build`

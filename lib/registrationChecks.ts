@@ -10,6 +10,7 @@ if (typeof window !== 'undefined') {
 
 import { promises as dns } from 'dns';
 import { adminDb } from '@/lib/firebase/admin';
+import { testModeOn } from '@/lib/testMode';
 
 export const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
 export const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
@@ -60,7 +61,11 @@ export async function checkEmail(raw: string, { live = false }: { live?: boolean
   if (TYPOS[domain]) return { ok: false, message: `Did you mean …@${TYPOS[domain]}?` };
   if (DISPOSABLE.has(domain)) return { ok: false, message: 'Throwaway inboxes can’t be used — we email you sign-in links.' };
   if (!live && (await adminDb.collection('identifiers').doc(email.toLowerCase()).get()).exists) return { ok: false, message: 'Already registered — sign in instead.' };
-  if (domain.endsWith('.test')) return { ok: true, message: 'Test address: emails go to the test outbox.' };
+  if (domain.endsWith('.test')) {
+    return (await testModeOn())
+      ? { ok: true, message: 'Test address: emails go to the test outbox.' }
+      : { ok: false, message: 'Test email addresses only work while testing mode is on — use a real email address.' };
+  }
   const takesMail = await domainTakesMail(domain);
   if (takesMail === false) return { ok: false, message: `“${domain}” can’t receive email — check the spelling.` };
   return { ok: true, message: 'We’ll email a link to confirm it’s yours.' };

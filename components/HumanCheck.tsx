@@ -1,16 +1,21 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useTestMode } from '@/components/useTestMode';
 
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 type TurnstileApi = { render: (el: HTMLElement, o: Record<string, unknown>) => string; remove: (id: string) => void };
 
 // Cloudflare Turnstile widget. Renders nothing (and loads nothing) until the site key is set —
-// see lib/turnstile.ts. Calls onToken with the token, or '' when it expires.
+// see lib/turnstile.ts — or while testing mode is on (lib/testMode.ts): then it hands the form a
+// stand-in token, which the server doesn't check in testing mode. Calls onToken with the token,
+// or '' when it expires.
 export function HumanCheck({ onToken }: { onToken: (token: string) => void }) {
   const box = useRef<HTMLDivElement>(null);
+  const testing = useTestMode(!!SITE_KEY);
+  useEffect(() => { if (testing) onToken('testing-mode'); }, [testing, onToken]);
   useEffect(() => {
-    if (!SITE_KEY || !box.current) return;
+    if (!SITE_KEY || testing !== false || !box.current) return;
     let id: string | null = null;
     const draw = () => {
       const t = (window as unknown as { turnstile?: TurnstileApi }).turnstile;
@@ -25,8 +30,8 @@ export function HumanCheck({ onToken }: { onToken: (token: string) => void }) {
       document.head.appendChild(s);
     }
     return () => { if (id) (window as unknown as { turnstile?: TurnstileApi }).turnstile?.remove(id); };
-  }, [onToken]);
-  return SITE_KEY ? <div ref={box} className="min-h-[65px]" /> : null;
+  }, [onToken, testing]);
+  return SITE_KEY && testing === false ? <div ref={box} className="min-h-[65px]" /> : null;
 }
 
 export const humanCheckOn = !!SITE_KEY;

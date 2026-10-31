@@ -10,6 +10,7 @@ import type { SessionUser } from '@/lib/session';
 import { signPassToken } from '@/lib/qr-token';
 import { assertCanActOn, HttpError, loadPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
 import { audit, lookupEventId } from '@/lib/audit';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 export function passTokenFor(person: Pick<PersonRecord, 'personId' | 'credentialVersion'>): string {
   return signPassToken(person.personId, person.credentialVersion);
@@ -23,7 +24,7 @@ export async function reissueCredential(actor: SessionUser, personId: string): P
   if (personId !== actor.personId) await assertCanActOn(actor, personId);
   const ref = adminDb.collection('people').doc(personId);
   const batch = adminDb.batch();
-  batch.update(ref, { credentialVersion: FieldValue.increment(1) });
+  batch.update(ref, { credentialVersion: FieldValue.increment(1), ...personTouched() });
   audit(batch, { action: 'CREDENTIAL_REISSUED', actor, targetPersonId: personId, eventId: await lookupEventId(personId) });
   await batch.commit();
   const person = await loadPerson(personId);

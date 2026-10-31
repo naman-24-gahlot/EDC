@@ -1,5 +1,7 @@
+import { testModeOn } from '@/lib/testMode';
 // SERVER-ONLY. Cloudflare Turnstile (free, mostly invisible "are you human?" check) for the public
-// forms: registration and forgot-password. OFF until both keys are set in Vercel
+// forms: registration, forgot-password and event sign-up. Skipped in testing mode (lib/testMode.ts).
+// OFF until both keys are set in Vercel
 // (NEXT_PUBLIC_TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY) — then the forms show it and the server
 // requires it. Until then the per-IP rate limits (proxy.ts) are the protection.
 if (typeof window !== 'undefined') {
@@ -8,9 +10,9 @@ if (typeof window !== 'undefined') {
 
 export const turnstileOn = () => !!process.env.TURNSTILE_SECRET_KEY && !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-/** True if Turnstile is off, or the token is genuine. Fails closed when it's on. */
+/** True if Turnstile is off (no keys, or testing mode), or the token is genuine. Fails closed when it's on. */
 export async function humanCheckPassed(token: unknown, ip: string): Promise<boolean> {
-  if (!turnstileOn()) return true;
+  if (!turnstileOn() || (await testModeOn())) return true;
   if (typeof token !== 'string' || !token || token.length > 2048) return false;
   try {
     const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {

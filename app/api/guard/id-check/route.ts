@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/session';
 import { audit } from '@/lib/audit';
 
 import { ID_TYPES } from '@/lib/idCheck';
+import { personTouched } from '@/lib/people/peopleIndex';
 const RECENT_MS = 10 * 60_000;
 
 // Guard only. Body: { entryId, type, last4? }. Records that a photo ID was looked at, against an
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
   }
   const now = Timestamp.now();
   const batch = adminDb.batch();
-  batch.update(adminDb.collection('people').doc(entry.personId), { idCheck: { type, last4, by: user.personId, at: now, entryId: body.entryId } });
+  batch.update(adminDb.collection('people').doc(entry.personId), { idCheck: { type, last4, by: user.personId, at: now, entryId: body.entryId }, ...personTouched() });
   audit(batch, { action: 'ID_CHECKED', actor: user, targetPersonId: entry.personId, subjectId: body.entryId, eventId: entry.eventId ?? null, at: now, details: `${type}${last4 ? ` ending ${last4}` : ''}` });
   await batch.commit();
   return NextResponse.json({ ok: true });

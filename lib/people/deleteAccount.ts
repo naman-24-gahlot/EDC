@@ -26,6 +26,7 @@ import { HttpError, assertCanActOn, loadPerson } from '@/lib/hierarchy/authorize
 import { passwordSignIn } from '@/lib/people/profile';
 import { audit } from '@/lib/audit';
 import { sealAll } from '@/lib/auditChain';
+import { dropFromIndex } from '@/lib/people/peopleIndex';
 
 export const REDACTED_TEXT = '[removed — account deleted]';
 
@@ -105,7 +106,10 @@ export async function deleteAccount(actor: SessionUser, personId: string, opts: 
     await batch.commit();
   }
 
-  // 4. The profile itself last, so a failure part-way can simply be retried.
-  await adminDb.collection('people').doc(personId).delete();
+  // 4. The profile itself last (and its line in the people index), so a failure part-way can simply be retried.
+  const last = adminDb.batch();
+  last.delete(adminDb.collection('people').doc(personId));
+  dropFromIndex(last, personId);
+  await last.commit();
   return { personId, deleted: unique.length + 1, auditEntriesBlanked: toBlank.length };
 }

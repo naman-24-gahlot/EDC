@@ -14,6 +14,7 @@ import { audit, eventIdOf, type AuditAction } from '@/lib/audit';
 import { after } from 'next/server';
 import { siteOrigin } from '@/lib/origin';
 import { notifyAccessApproved } from '@/lib/notify';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 export type EntitlementState = 'ACTIVE' | 'REVOKED' | 'SUPERSEDED';
 export type EffectiveStatus = EntitlementState | 'EXPIRED' | 'SCHEDULED';
@@ -277,7 +278,7 @@ export async function revokeEntitlement(actor: SessionUser, entitlementId: strin
     if (fresh.data()?.state !== 'ACTIVE') throw new HttpError(409, `Cannot revoke a ${fresh.data()?.state} entitlement.`);
     const now = Timestamp.now();
     tx.update(ref, { state: 'REVOKED', revokedBy: actor.personId, revokedAt: now, revokeReason: reason });
-    tx.update(adminDb.collection('people').doc(ent.personId), { credentialVersion: FieldValue.increment(1) });
+    tx.update(adminDb.collection('people').doc(ent.personId), { credentialVersion: FieldValue.increment(1), ...personTouched() });
     log(tx, 'ENTITLEMENT_REVOKED', actor, ent.personId, entitlementId, eventId, reason);
   });
   return { entitlementId, state: 'REVOKED' as const };

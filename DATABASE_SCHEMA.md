@@ -53,6 +53,7 @@ The person: identity, current profile, hierarchy position, credential state.
   stayAlertAt?: Timestamp,          // when this stay shows as a warning: gate-closing + 15 min, or midnight
   overnightOk?: boolean,            // their access allowed staying overnight
   overnightDueAt?: Timestamp,       // midnight after entry (absent if overnightOk); removed once flagged
+  touchedAt?: Timestamp,            // server commit time of the last write — EVERY write sets it (peopleIndex)
   lastExitAt?: Timestamp,
   backupEmail?: string,             // optional, set only by the person; also gets reset links and app emails
   // Visitor passes only (profileType 'visitor', lib/visitors.ts):
@@ -251,6 +252,17 @@ where the last good integrity check ended (the next quick check starts there).
 `auditSeals/{fromSeq, zero-padded}`: `{ fromSeq, toSeq, prevHash, hash, ids[], hashes[], sealedAt, mark,
 markId }` — one sealing pass: the entries it sealed, in chain order, with their fingerprints.
 
+### `peopleIndex/{0..3}`
+`{ people: { [personId]: <LIST_FIELDS> }, builtAt, fullAt }` — everyone, split over 4 records by the
+first character of the id (`lib/people/peopleIndex.ts`). A Master list reads the 4 records, a count of
+`people`, and the people with `touchedAt > builtAt`; it is rewritten when 40+ were touched since, rebuilt
+when the count disagrees, and rebuilt from scratch every hour. Account deletion removes the entry in the
+same write.
+
+### `settings/app`
+`{ testMode: boolean, changedBy, changedAt }` — testing mode (`lib/testMode.ts`); missing = on. Changes are
+audited `TEST_MODE_CHANGED`.
+
 ### `eventsIndex/all`
 `{ events: { [eventId]: <the event without `details`> }, rebuiltAt? }` — one record listing every event,
 written in the same batch as each event change (`lib/events.ts`), so lists of events cost 1 read
@@ -337,7 +349,7 @@ SESSIONS_REVOKED | EVENT_CREATED | EVENT_UPDATED | EVENT_LINK_CLOSED | EVENT_LIN
 EVENT_LINK_REPLACED | EXIT_RECORDED | LATE_EXIT | OVERNIGHT_STAY | MISSED_EXIT_SCAN | STAY_FLAG_SEEN |
 VISITOR_PASS_CREATED | LEAVE_REQUESTED | LEAVE_APPROVED | LEAVE_REJECTED | LEAVE_CANCELLED |
 HOLIDAY_ADDED | HOLIDAY_REMOVED | APPROVAL_NOTICE_SEEN | REGISTRATION_EMAIL_CONFIRMED | SIGNED_IN |
-SIGNED_OUT | SIGN_IN_LOCKED | TEST_DATA_CLEANED` (the authoritative list is `ACTION_GROUPS` in `lib/audit.ts`)
+SIGNED_OUT | SIGN_IN_LOCKED | TEST_MODE_CHANGED | TEST_DATA_CLEANED` (the authoritative list is `ACTION_GROUPS` in `lib/audit.ts`)
 
 ## State machines
 

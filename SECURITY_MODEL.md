@@ -302,7 +302,13 @@ reported and the rest continue.
   flood someone's inbox.
 - **Photos** are accepted only as one well-formed JPEG (`isWellFormedJpeg`: SOI, intact segments,
   a frame header of 1–4096 px, EOI and nothing after) — they're shown to guards and embedded in PDFs.
-- **Turnstile** (optional): registration and forgot-password require it when its keys are set.
+- **Turnstile** (optional): registration, forgot-password and event sign-up require it when its keys
+  are set and testing mode is off.
+- **Testing mode** (`lib/testMode.ts`, Master only, audited): while on, test addresses (…@….test) are
+  accepted, the full registration form's name/mobile/purpose are optional, and Turnstile is skipped.
+  It is meant for testing only — a public, live system runs with it off. Registrations still need a
+  confirmed email and a decision, so it never grants access by itself. `GET /api/settings` (public)
+  says whether it's on; `PATCH` is Master only.
 
 ## Gate additions
 - **Exits** are recorded, never refused (nobody is kept in): the scan must still identify a real

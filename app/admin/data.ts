@@ -6,7 +6,8 @@ if (typeof window !== 'undefined') {
 import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import { requirePageRole, type SessionUser } from '@/lib/session';
-import { LIST_FIELDS, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
+import { allPeopleIndexed } from '@/lib/people/peopleIndex';
+import type { PersonRecord } from '@/lib/hierarchy/authorize';
 
 /**
  * Every admin PAGE must call this first. The layout's check is not enough: on client-side
@@ -17,8 +18,9 @@ export function requireMasterPage(): Promise<SessionUser> {
   return requirePageRole('master');
 }
 
-export async function allPeople(): Promise<PersonRecord[]> {
-  return (await adminDb.collection('people').select(...LIST_FIELDS).get()).docs.map((d) => toPerson(d)!);
+/** Everyone, for Master pages — from the people index (lib/people/peopleIndex.ts), not a read per person. */
+export function allPeople(): Promise<PersonRecord[]> {
+  return allPeopleIndexed();
 }
 
 /**

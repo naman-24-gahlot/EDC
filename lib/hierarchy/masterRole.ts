@@ -9,6 +9,7 @@ import type { SessionUser } from '@/lib/session';
 import type { SystemRole } from '@/lib/roles';
 import { HttpError, requireMaster, toPerson } from './authorize';
 import { audit, eventIdOf } from '@/lib/audit';
+import { personTouched } from '@/lib/people/peopleIndex';
 
 export async function setMasterRole(
   actor: SessionUser,
@@ -45,7 +46,7 @@ export async function setMasterRole(
       if (masters.length <= 1) throw new HttpError(409, 'Cannot demote the last remaining Master.');
     }
 
-    tx.update(people.doc(targetPersonId), { systemRole: newRole });
+    tx.update(people.doc(targetPersonId), { systemRole: newRole, ...personTouched() });
     audit(tx, { action: makeMaster ? 'MASTER_PROMOTED' : 'MASTER_DEMOTED', actor, targetPersonId, eventId: eventIdOf(target) });
     return target.systemRole;
   });
@@ -58,7 +59,7 @@ export async function setMasterRole(
     await adminAuth.setCustomUserClaims(targetPersonId, { ...claims, systemRole: newRole });
     await adminAuth.revokeRefreshTokens(targetPersonId);
   } catch (err) {
-    await people.doc(targetPersonId).update({ systemRole: previousRole }).catch(() => {});
+    await people.doc(targetPersonId).update({ systemRole: previousRole, ...personTouched() }).catch(() => {});
     throw err;
   }
 
