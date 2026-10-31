@@ -251,6 +251,11 @@ where the last good integrity check ended (the next quick check starts there).
 `auditSeals/{fromSeq, zero-padded}`: `{ fromSeq, toSeq, prevHash, hash, ids[], hashes[], sealedAt, mark,
 markId }` — one sealing pass: the entries it sealed, in chain order, with their fingerprints.
 
+### `eventsIndex/all`
+`{ events: { [eventId]: <the event without `details`> }, rebuiltAt? }` — one record listing every event,
+written in the same batch as each event change (`lib/events.ts`), so lists of events cost 1 read
+plus a count of `events`; if the two disagree the index is rebuilt from the events.
+
 ### `events/{eventId}`
 A campus event with its own time-limited registration link (SECURITY_MODEL.md "Event registration links").
 ```

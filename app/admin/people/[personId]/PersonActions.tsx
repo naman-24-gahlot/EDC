@@ -24,7 +24,8 @@ interface Props {
     /** false for visitors: no sign-in account, so no password. */
     hasAccount: boolean;
   };
-  eligibleParents: { id: string; name: string }[];
+  /** Shown until "Change" loads the full list of employees they could move under. */
+  currentParent: { id: string; name: string } | null;
   /** Default access period per profile type, starting today. */
   templates: Record<string, Window>;
   /** Why access can't be granted right now (not approved / deactivated), or null. */
@@ -92,8 +93,23 @@ function WindowFields({ value, onChange }: { value: Window; onChange: (w: Window
 }
 
 /** One form for everything about the person record: details, profile type, parent. */
-function ProfileForm({ person, eligibleParents, templates, details, current, setMsg }: Props & { setMsg: (m: Msg) => void }) {
+function ProfileForm({ person, currentParent, templates, details, current, setMsg }: Props & { setMsg: (m: Msg) => void }) {
   const router = useRouter();
+  // The employees they could be moved under, fetched when "Change" is pressed (not on every view).
+  const [parents, setParents] = useState<{ id: string; name: string }[] | null>(null);
+  const [loadingParents, setLoadingParents] = useState(false);
+  async function loadParents() {
+    setLoadingParents(true);
+    try {
+      const r = await fetch(`/api/people/${person.personId}/eligible-parents`, { cache: 'no-store' });
+      if (!r.ok) throw new Error((await r.json().catch(() => null))?.error ?? 'Could not load the employees.');
+      setParents((await r.json()).parents);
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : 'Could not load the employees.' });
+    } finally {
+      setLoadingParents(false);
+    }
+  }
   const [info, setInfo] = useState(details);
   const [type, setType] = useState(person.profileType ?? '');
   const [parent, setParent] = useState(person.parentId ?? TOP_LEVEL);
@@ -155,10 +171,18 @@ function ProfileForm({ person, eligibleParents, templates, details, current, set
             </div>
             <div className="space-y-1">
               <label htmlFor="pf-parent" className={label}>Parent</label>
-              <select id="pf-parent" value={movesToTop ? TOP_LEVEL : parent} disabled={movesToTop} onChange={(e) => setParent(e.target.value)} className={`${input} disabled:bg-gray-100`}>
-                <option value={TOP_LEVEL}>— top-level (under Master) —</option>
-                {eligibleParents.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              {parents ? (
+                <select id="pf-parent" value={movesToTop ? TOP_LEVEL : parent} disabled={movesToTop} onChange={(e) => setParent(e.target.value)} className={`${input} disabled:bg-gray-100`}>
+                  <option value={TOP_LEVEL}>— top-level (under Master) —</option>
+                  {currentParent && !parents.some((p) => p.id === currentParent.id) && <option value={currentParent.id}>{currentParent.name}</option>}
+                  {parents.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              ) : (
+                <div className="flex min-h-10 items-center justify-between gap-2 rounded border border-gray-300 px-3 text-sm" id="pf-parent">
+                  <span className="truncate">{movesToTop || !currentParent ? '— top-level (under Master) —' : currentParent.name}</span>
+                  {!movesToTop && <button type="button" onClick={loadParents} disabled={loadingParents} className="shrink-0 text-xs font-medium underline disabled:opacity-50" data-testid="change-parent">{loadingParents ? 'Loading…' : 'Change…'}</button>}
+                </div>
+              )}
             </div>
           </>
         )}

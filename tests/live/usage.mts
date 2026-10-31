@@ -87,25 +87,28 @@ check('head carries the mark; the newest seal record ends at the head', head.mar
 const mine = (await adminDb.collection('auditLogs').where('targetPersonId', '==', id).get()).docs;
 check('this test’s entries are untouched (no seal fields on them) and all sealed in records', mine.length > 3 && mine.every((d) => d.get('sealed') === undefined && d.get('hash') === undefined) && mine.filter((d) => d.get('writtenAt')).length === mine.length, mine.length);
 
-let chain = await verifyChain({ full: true });
-check('full check: intact', chain.broken === null && chain.checked === chain.headSeq, chain);
-chain = await verifyChain();
-check('quick check right after: nothing new, intact', chain.broken === null && chain.from === chain.headSeq && chain.checked === 0, chain);
-
-const victim = mine.find((d) => d.get('action') === 'ENTRY_APPROVED')!;
-const original = victim.get('details');
-await victim.ref.update({ details: 'tampered' });
-chain = await verifyChain({ full: true });
-check('full check finds an edited entry', chain.broken?.entryId === victim.id && /changed/.test(chain.broken.problem), chain.broken);
-await victim.ref.update({ details: original });
-
+// Two full checks only (each reads the whole log): one with an entry slipped in, one clean.
 const fake = adminDb.collection('auditLogs').doc();
 await fake.set({ action: 'ENTRY_APPROVED', category: 'gate', actorId: 'x', actorRole: 'guard', targetPersonId: id, subjectId: null, eventId: null, timestamp: Timestamp.now(), details: 'QR', writtenAt: Timestamp.fromMillis(head.mark.toMillis() - 1000) });
-chain = await verifyChain({ full: true });
+let chain = await verifyChain({ full: true });
 check('full check finds an entry slipped in behind the seals', /without being sealed/.test(chain.broken?.problem ?? ''), chain.broken);
 await fake.delete();
 chain = await verifyChain({ full: true });
-check('…intact again once removed', chain.broken === null, chain.broken);
+check('full check: intact once removed', chain.broken === null && chain.checked === chain.headSeq, chain);
+chain = await verifyChain();
+check('quick check right after: nothing new, intact', chain.broken === null && chain.from === chain.headSeq && chain.checked === 0, chain);
+
+// An edited entry: start the quick check just before the seal record holding it.
+const victim = mine.find((d) => d.get('action') === 'ENTRY_APPROVED')!;
+const original = victim.get('details');
+const seal = (await adminDb.collection('auditSeals').where('ids', 'array-contains', victim.id).limit(1).get()).docs[0].data();
+await adminDb.collection('auditChain').doc('verified').set({ seq: seal.fromSeq - 1, hash: seal.prevHash, at: Timestamp.now(), full: false });
+await victim.ref.update({ details: 'tampered' });
+chain = await verifyChain();
+check('quick check finds an edited entry in its range', chain.broken?.entryId === victim.id && /changed/.test(chain.broken.problem), chain.broken);
+await victim.ref.update({ details: original });
+chain = await verifyChain();
+check('…intact again once put back', chain.broken === null && chain.from === seal.fromSeq - 1, chain);
 
 await post('/api/guard/verify', { code, direction: 'IN' }, guard);
 await post('/api/guard/verify', { code, direction: 'OUT' }, guard);

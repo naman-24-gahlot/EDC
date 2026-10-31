@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { eventByToken, eventOptions, linkState, parseSource } from '@/lib/events';
+import { eventByTokenForPage, eventOptions, linkState, parseSource } from '@/lib/events';
 import { formatDate, formatDateTime } from '@/lib/display';
 import { RegisterForm } from '@/app/register/RegisterForm';
 import { QuickRegister } from './QuickRegister';
@@ -15,7 +15,7 @@ type Params = { utm_source?: string; utm_medium?: string; utm_campaign?: string 
 // /api/register checks again on submit, so a page left open past the deadline can't sneak in.
 export default async function EventRegistrationPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<Params> }) {
   const { token } = await params;
-  const event = await eventByToken(token);
+  const event = await eventByTokenForPage(token);
   const state = event ? linkState(event) : null;
 
   if (!event || state !== 'OPEN') {

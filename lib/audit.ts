@@ -73,7 +73,7 @@ let again = false;
 let lastPass = 0;
 function runSeal(): Promise<void> {
   if (running) { again = true; return running; }
-  running = (async () => { do { again = false; await sealAll(); } while (again); })().finally(() => { running = null; });
+  running = (async () => { do { again = false; await sealAll({ includeOld: false }); } while (again); })().finally(() => { running = null; });
   return running;
 }
 function sealSoon() {

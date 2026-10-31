@@ -40,7 +40,8 @@ await adminDb.collection('emailChecks').doc(addr).update({ requestedAt: Timestam
 r = await call('POST', '/api/register/email-check', { email: addr });
 check('6th is refused', r.status === 429 && /several links/.test(r.data?.error ?? ''), r.data);
 await adminDb.collection('emailChecks').doc(addr).update({ sentDay: '2000-01-01' });
-check('a new day starts over', (await call('POST', '/api/register/email-check', { email: addr })).status === 200);
+r = await call('POST', '/api/register/email-check', { email: addr });
+check('a new day starts over', r.status === 200, r.data);
 
 console.log('— sign-in lock-outs');
 const who = `qa.nobody.${tag}`;

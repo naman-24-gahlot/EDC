@@ -68,6 +68,7 @@ const NEW_COLLECTIONS = [
   'auditLogs',
   'auditChain',
   'auditSeals',
+  'eventsIndex',
   'events',
   'passwordHashes',
   'testOutbox',

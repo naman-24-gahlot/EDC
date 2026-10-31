@@ -13,7 +13,7 @@ import { Chips } from '@/components/Chips';
 import { CardGrid, PersonCard, type PersonCardData } from '@/components/PersonCard';
 import { allPeople, nameMap, requireMasterPage } from '../data';
 import { EventTag } from '@/components/EventTag';
-import { eventTiming, listEvents, type EventRecord, type EventTiming } from '@/lib/events';
+import { eventTiming, listEvents, type EventSummary, type EventTiming } from '@/lib/events';
 import { PAGE_SIZE } from '@/lib/paging';
 import { formatDate } from '@/lib/display';
 
@@ -104,7 +104,7 @@ export default async function AdminPeoplePage({ searchParams }: { searchParams: 
     event: eventOf(p) ? { id: eventOf(p)!.id, name: eventOf(p)!.name } : null,
   });
   const keep = { q: q || undefined, cat: params.cat, sort: params.sort, view: params.view, status: params.status, ev: params.ev };
-  const eventSection = (g: { e: EventRecord; items: PersonRecord[] }, limit: number) => (
+  const eventSection = (g: { e: EventSummary; items: PersonRecord[] }, limit: number) => (
     <section key={g.e.id} className="space-y-2" aria-labelledby={`ev-${g.e.id}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id={`ev-${g.e.id}`} className="flex flex-wrap items-center gap-2 text-sm font-semibold">

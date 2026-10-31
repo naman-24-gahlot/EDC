@@ -84,13 +84,54 @@ export async function eventByToken(token: unknown): Promise<EventRecord | null> 
   return snap.empty ? null : toEvent(snap.docs[0]);
 }
 
+// The public event page is opened by many guests in a short time (and reloaded): each server
+// remembers what a link pointed to for a minute. Display only — registering always looks the link
+// up afresh (eventByToken), so a link closed or replaced in that minute can't take a sign-up.
+const PAGE_MEMORY_MS = 60_000;
+const pageMemory = new Map<string, { at: number; event: EventRecord | null }>();
+export async function eventByTokenForPage(token: unknown): Promise<EventRecord | null> {
+  if (typeof token !== 'string' || !TOKEN_RE.test(token)) return null;
+  const hit = pageMemory.get(token);
+  if (hit && Date.now() - hit.at < PAGE_MEMORY_MS) return hit.event;
+  const event = await eventByToken(token);
+  if (pageMemory.size >= 500) pageMemory.clear();
+  pageMemory.set(token, { at: Date.now(), event });
+  return event;
+}
+
 export async function loadEvent(id: string): Promise<EventRecord | null> {
   return ID_RE.test(id) ? toEvent(await adminDb.collection('events').doc(id).get()) : null;
 }
 
-export async function listEvents(): Promise<EventRecord[]> {
-  const snap = await adminDb.collection('events').orderBy('createdAt', 'desc').get();
-  return snap.docs.map((d) => toEvent(d)!);
+/** What lists of events need — everything but the long description. */
+export type EventSummary = Omit<EventRecord, 'details'>;
+type IndexEntry = Omit<EventSummary, 'id'>;
+
+// eventsIndex/all: { events: { [eventId]: IndexEntry } } — one small record listing every event,
+// written in the same batch as each event change, so the admin pages (people, entries, audit,
+// events) read 1 record instead of every event ever made (that list only grows). A count of the
+// events collection guards it: if they disagree (a script or the test-data tool changed events),
+// it is rebuilt from the events themselves.
+const INDEX = () => adminDb.collection('eventsIndex').doc('all');
+const indexEntry = (e: Omit<EventRecord, 'id'> & { id?: string }): IndexEntry => {
+  const entry: Partial<EventRecord> = { ...e };
+  delete entry.details;
+  delete entry.id;
+  return entry as IndexEntry;
+};
+
+async function rebuildIndex(): Promise<Record<string, IndexEntry>> {
+  const snap = await adminDb.collection('events').get();
+  const events = Object.fromEntries(snap.docs.map((d) => [d.id, indexEntry(d.data() as Omit<EventRecord, 'id'>)]));
+  await INDEX().set({ events, rebuiltAt: Timestamp.now() });
+  return events;
+}
+
+export async function listEvents(): Promise<EventSummary[]> {
+  const [index, count] = await Promise.all([INDEX().get(), adminDb.collection('events').count().get()]);
+  let events = index.data()?.events as Record<string, IndexEntry> | undefined;
+  if (!events || Object.keys(events).length !== count.data().count) events = await rebuildIndex();
+  return Object.entries(events).map(([id, e]) => ({ ...e, id })).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 }
 
 /** The access period an approved registrant gets: the event's days, every weekday, its hours. */
@@ -150,7 +191,10 @@ export async function createEvent(actor: SessionUser, input: EventInput): Promis
   const ref = adminDb.collection('events').doc();
   const now = Timestamp.now();
   const data = { ...input, linkToken: newToken(), closedAt: null, createdBy: actor.personId, createdAt: now, updatedAt: now };
-  await ref.create(data);
+  const batch = adminDb.batch();
+  batch.create(ref, data);
+  batch.set(INDEX(), { events: { [ref.id]: indexEntry(data) } }, { merge: true });
+  await batch.commit();
   await logEvent(actor, 'EVENT_CREATED', ref.id, `${input.name}: ${input.accessFrom} → ${input.accessTo}, link until ${input.linkExpiresAt.toDate().toISOString()}`);
   return { ...data, id: ref.id };
 }
@@ -172,7 +216,10 @@ export async function updateEvent(actor: SessionUser, id: string, patch: Partial
   }
   if (command === 'new-link') { changes.linkToken = newToken(); action = 'EVENT_LINK_REPLACED'; }
   if (Object.keys(changes).length === 1) throw new HttpError(400, 'Nothing changed.');
-  await adminDb.collection('events').doc(id).update(changes);
+  const batch = adminDb.batch();
+  batch.update(adminDb.collection('events').doc(id), changes);
+  batch.set(INDEX(), { events: { [id]: indexEntry({ ...merged, ...changes } as EventRecord) } }, { merge: true });
+  await batch.commit();
   await logEvent(actor, action, id, Object.keys(patch).length ? `changed: ${Object.keys(patch).join(', ')}` : null);
   return { ...merged, ...changes } as EventRecord;
 }

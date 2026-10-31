@@ -83,8 +83,8 @@ Components or Route Handlers).
 
 ## Caching and paging
 
-- **Browser page cache** (`next.config.ts` → `experimental.staleTimes.dynamic = 120`): pages
-  already visited are reused for 2 minutes during in-app navigation — no request. Every action
+- **Browser page cache** (`next.config.ts` → `experimental.staleTimes.dynamic = 300`): pages
+  already visited are reused for 5 minutes during in-app navigation — no request. Every action
   calls `router.refresh()`, which discards the cache. Sign-in and sign-out are full page loads so
   one account's cached pages are never shown to the next.
 - **"Updated … ago · Refresh"** bar (`components/DataStamp.tsx`) on every data page shows how
@@ -103,6 +103,13 @@ Components or Route Handlers).
 - **Composite indexes** for the paged queries live in `firestore.indexes.json`; deploy with
   `firebase deploy --only firestore:indexes` (they take a minute or two to build — queries that
   need one say "still being prepared" on the page — or 503 on the CSV export — until then).
+  The (accessRequests: status, actionableUntil) index turns the admin menu's "requests" badge into
+  one count; until it is deployed the badge reads the pending requests instead (same number).
+- **Lighter pages** (2026-10-31): the hierarchy opens at the top level and loads a branch when
+  opened ("Show everyone" reads the whole tree); a person's page loads the possible parents when
+  "Change…" is pressed; Master's "My account" shows the 25 newest people, anyone awaiting
+  approval and the total (the People page has everyone); the event link page is remembered for a
+  minute per server (registering always re-checks the link).
 
 ## Portability
 

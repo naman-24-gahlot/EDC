@@ -3,6 +3,7 @@ if (typeof window !== 'undefined') {
   throw new Error('app/admin/data.ts must never be imported into client code.');
 }
 
+import { Timestamp } from 'firebase-admin/firestore';
 import { adminDb } from '@/lib/firebase/admin';
 import { requirePageRole, type SessionUser } from '@/lib/session';
 import { LIST_FIELDS, toPerson, type PersonRecord } from '@/lib/hierarchy/authorize';
@@ -20,17 +21,32 @@ export async function allPeople(): Promise<PersonRecord[]> {
   return (await adminDb.collection('people').select(...LIST_FIELDS).get()).docs.map((d) => toPerson(d)!);
 }
 
-/** Nav badges: actionable PENDING requests (past-deadline ones excluded) and PENDING registrations. */
+/**
+ * Actionable PENDING requests (past-deadline ones excluded): one count, using the
+ * (status, actionableUntil) index in firestore.indexes.json. Until that index is deployed the
+ * count fails with FAILED_PRECONDITION, and this falls back to reading the pending requests.
+ */
+async function actionableRequestCount(): Promise<number> {
+  const pending = adminDb.collection('accessRequests').where('status', '==', 'PENDING');
+  try {
+    return (await pending.where('actionableUntil', '>', Timestamp.now()).count().get()).data().count;
+  } catch (err) {
+    if ((err as { code?: number }).code !== 9) throw err;
+    const nowMs = Date.now();
+    return (await pending.select('actionableUntil').get()).docs.filter((d) => (d.data().actionableUntil?.toMillis?.() ?? 0) > nowMs).length;
+  }
+}
+
+/** Nav badges: actionable PENDING requests and PENDING registrations, unseen stay alerts, leave to decide. */
 export async function pendingCounts(): Promise<{ requests: number; registrations: number; stays: number; leave: number }> {
-  const nowMs = Date.now();
-  const [pendingRequests, pendingRegistrations, unseenStays, pendingLeave] = await Promise.all([
-    adminDb.collection('accessRequests').where('status', '==', 'PENDING').select('actionableUntil').get(),
+  const [requests, pendingRegistrations, unseenStays, pendingLeave] = await Promise.all([
+    actionableRequestCount(),
     adminDb.collection('people').where('registrationStatus', '==', 'PENDING').count().get(),
     adminDb.collection('stayFlags').where('seenAt', '==', null).count().get(),
     adminDb.collection('leaveRequests').where('status', '==', 'PENDING').count().get(),
   ]);
   return {
-    requests: pendingRequests.docs.filter((d) => (d.data().actionableUntil?.toMillis?.() ?? 0) > nowMs).length,
+    requests,
     registrations: pendingRegistrations.data().count,
     stays: unseenStays.data().count,
     leave: pendingLeave.data().count,

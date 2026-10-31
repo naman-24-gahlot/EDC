@@ -56,17 +56,20 @@ export function fingerprint(prevHash: string, seq: number, e: DocumentData): str
 
 const sealId = (fromSeq: number) => String(fromSeq).padStart(10, '0');
 
-/** One pass: seals up to BATCH waiting entries, oldest first. Returns how many it sealed. */
-export async function sealPending(): Promise<number> {
+/**
+ * One pass: seals up to BATCH waiting entries, oldest first. Returns how many it sealed.
+ * `includeOld` also looks for old-shape entries (`sealed: false`) — none are written any more, so the
+ * passes after each request skip that read; the audit page and scripts still check.
+ */
+export async function sealPending({ includeOld = false }: { includeOld?: boolean } = {}): Promise<number> {
   return adminDb.runTransaction(async (tx) => {
     const head = await tx.get(HEAD());
     const h = head.data() ?? {};
     let seq = Number(h.seq ?? 0);
     let prev = String(h.hash ?? GENESIS);
 
-    // Entries in the old shape (from before seal records, or written by an older server version
-    // still running during a deploy): sealed on the entry itself, as before.
-    {
+    // Entries in the old shape (from before seal records, or an old script): sealed on the entry itself, as before.
+    if (includeOld) {
       const pending = await tx.get(LOGS().where('sealed', '==', false).orderBy('timestamp').limit(BATCH));
       if (!pending.empty) {
         for (const d of pending.docs) {
@@ -113,9 +116,9 @@ export async function sealPending(): Promise<number> {
 }
 
 /** Seal everything waiting (loops in batches). Never throws — a failed seal is retried next time. */
-export async function sealAll(): Promise<void> {
+export async function sealAll({ includeOld = true }: { includeOld?: boolean } = {}): Promise<void> {
   try {
-    for (let i = 0; i < 50 && (await sealPending()) === BATCH; i++);
+    for (let i = 0; i < 50 && (await sealPending({ includeOld })) === BATCH; i++);
   } catch (err) {
     console.error('Audit sealing failed (will retry on the next write)', err);
   }

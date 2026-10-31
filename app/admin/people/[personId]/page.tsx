@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { adminDb } from '@/lib/firebase/admin';
 import { todayDateString } from '@/lib/date';
-import { loadPerson, toPerson } from '@/lib/hierarchy/authorize';
+import { loadPerson } from '@/lib/hierarchy/authorize';
 import { PROFILE_TYPES, accessCodeFor } from '@/lib/access/codes';
 import { effectiveStatus, listEntitlements, templateWindow } from '@/lib/access/entitlements';
 import { listRequestsFor } from '@/lib/access/requests';
@@ -124,24 +124,18 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
 
   const today = todayDateString();
   // Just what the top of the page needs; history sections stream in below.
-  const [person, entitlements, employeesSnap, descendantsSnap] = await Promise.all([
+  // (The employees they could be moved under load when "Change" is opened: /api/people/[id]/eligible-parents.)
+  const [person, entitlements, under] = await Promise.all([
     loadPerson(personId),
     listEntitlements(personId),
-    adminDb.collection('people').where('profileType', '==', 'employee').get(),
-    adminDb.collection('people').where('ancestorIds', 'array-contains', personId).select().get(),
+    adminDb.collection('people').where('ancestorIds', 'array-contains', personId).count().get(),
   ]);
   if (!person) notFound();
-  const descendantIds = new Set(descendantsSnap.docs.map((d) => d.id));
+  const hasDescendants = under.data().count > 0;
   const names = await namesFor([person.parentId, ...entitlements.map((e) => e.approvedBy)]);
   const current = entitlements.find((e) => e.state === 'ACTIVE') ?? entitlements[0] ?? null;
   const status = person.systemRole === 'guard' ? 'GUARD' : accessStatus(person, current ? effectiveStatus(current, today) : null);
 
-  // Convenience only — the server re-checks every rule in rehome().
-  const eligibleParents = employeesSnap.docs
-    .map((d) => toPerson(d)!)
-    .filter((p) => p.personId !== personId && p.registrationStatus === 'APPROVED' && p.active && !descendantIds.has(p.personId))
-    .map((p) => ({ id: p.personId, name: `${p.firstName} ${p.lastName}${p.systemRole === 'master' ? ' (Master)' : ''}` }))
-    .sort((a, b) => a.name.localeCompare(b.name));
   const activeEnt = entitlements.find((e) => e.state === 'ACTIVE') ?? null;
 
   return (
@@ -167,7 +161,7 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
           <p className="text-sm text-gray-500">
             {typeof person.eventId === 'string' && <><EventTag id={person.eventId} name={String(person.eventName ?? 'Event')} />{(person.registrationSource as { source?: string } | undefined)?.source ? <span className="text-xs"> via {(person.registrationSource as { source: string }).source}</span> : null}{' · '}</>}
             Parent: {person.parentId ? <Link href={`/admin/people/${person.parentId}`} className="underline">{names.get(person.parentId)}</Link> : 'top-level'}
-            {' · '}{descendantIds.size} below · registration <StatusPill status={person.registrationStatus} /> {!person.active && person.registrationStatus === 'APPROVED' && <StatusPill status="DEACTIVATED" />}
+            {' · '}{under.data().count} below · registration <StatusPill status={person.registrationStatus} /> {!person.active && person.registrationStatus === 'APPROVED' && <StatusPill status="DEACTIVATED" />}
           </p>
           <p className="break-words text-xs text-gray-400 [overflow-wrap:anywhere]">{String(person.commEmail ?? '')} {person.emailVerified === true ? <span className="text-emerald-700">✓ confirmed</span> : <span className="text-amber-700">(not confirmed)</span>}
             {(() => { const c = person.idCheck as { type?: string; last4?: string | null; at?: { toDate: () => Date } } | undefined; return c?.type ? <> · photo ID seen: {c.type}{c.last4 ? ` ending ${c.last4}` : ''}{c.at ? ` (${formatDateTime(c.at.toDate())})` : ''}</> : <> · photo ID not checked yet</>; })()} · {String(person.mobile ?? '')} · credential v{person.credentialVersion}</p>
@@ -180,9 +174,9 @@ export default async function AdminPersonPage({ params }: { params: Promise<{ pe
         person={{
           personId, name: `${person.firstName} ${person.lastName}`, isSelf: personId === user.personId,
           systemRole: person.systemRole, profileType: person.profileType, parentId: person.parentId,
-          active: person.active, registrationStatus: person.registrationStatus, hasDescendants: descendantIds.size > 0, hasAccount: person.hasAccount !== false,
+          active: person.active, registrationStatus: person.registrationStatus, hasDescendants, hasAccount: person.hasAccount !== false,
         }}
-        eligibleParents={eligibleParents}
+        currentParent={person.parentId ? { id: person.parentId, name: names.get(person.parentId) ?? 'their parent' } : null}
         templates={Object.fromEntries(PROFILE_TYPES.map((t) => [t, templateWindow(t, today)]))}
         grantBlocked={person.registrationStatus !== 'APPROVED' ? 'Approve their registration first — then you can grant access here.'
           : !person.active ? 'Reactivate them first — then you can grant access here.' : null}

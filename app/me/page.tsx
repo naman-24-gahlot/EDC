@@ -71,14 +71,38 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 const ME_SORTS = [['tree', 'By hierarchy'], ...SORTS] as const;
 type MeParams = { people?: string; requests?: string; pcat?: string; psort?: string; pview?: string };
 
+// A Master's scope is everyone, and the People page (/admin/people) has search, filters and
+// paging for that. Here a Master gets what needs them: registrations waiting, the newest people,
+// and a count — not a read of every person on each visit.
+const MASTER_RECENT = 25;
+async function masterSlice(self: string): Promise<{ people: PersonRecord[]; total: number }> {
+  const people = adminDb.collection('people');
+  const [recent, pending, total] = await Promise.all([
+    people.orderBy('createdAt', 'desc').limit(MASTER_RECENT + 1).select(...LIST_FIELDS).get(),
+    people.where('registrationStatus', '==', 'PENDING').select(...LIST_FIELDS).get(),
+    people.count().get(),
+  ]);
+  const byId = new Map([...pending.docs, ...recent.docs].map((d) => [d.id, toPerson(d)!]));
+  byId.delete(self);
+  return { people: [...byId.values()], total: total.data().count - 1 };
+}
+
+/** Names for ids not in the list on screen (who's asking, who they're under). */
+async function namesOf(ids: (string | null | undefined)[], known: Map<string, string>): Promise<Map<string, string>> {
+  const missing = [...new Set(ids.filter((x): x is string => typeof x === 'string' && /^[A-Za-z0-9]{1,128}$/.test(x) && !known.has(x)))];
+  if (missing.length === 0) return known;
+  const snaps = await adminDb.getAll(...missing.map((id) => adminDb.collection('people').doc(id)), { fieldMask: ['firstName', 'lastName'] });
+  for (const s of snaps) if (s.exists) known.set(s.id, `${s.get('firstName')} ${s.get('lastName')}`);
+  return known;
+}
+
 async function PeopleSection({ user, me, params }: { user: SessionUser; me: PersonRecord; params: MeParams }) {
   const isMaster = user.systemRole === 'master';
-  const people = isMaster
-    ? (await adminDb.collection('people').select(...LIST_FIELDS).get()).docs.map((d) => toPerson(d)!).filter((p) => p.personId !== user.personId)
-    : await listDescendants(user.personId);
+  const slice = isMaster ? await masterSlice(user.personId) : null;
+  const people = slice ? slice.people : await listDescendants(user.personId);
   // Scope above is the server's; category / sort / view below only arrange what's in scope.
   const cat = parseCategory(params.pcat);
-  const sortKey = ME_SORTS.find(([v]) => v === params.psort)?.[0] ?? 'tree';
+  const sortKey = isMaster ? 'newest' : ME_SORTS.find(([v]) => v === params.psort)?.[0] ?? 'tree';
   const display = parseView(params.pview);
   const codeOf = (p: PersonRecord) => accessCodeFor(p.profileType, p.accessNumber) ?? '';
   const counts = countByCategory(people);
@@ -94,7 +118,7 @@ async function PeopleSection({ user, me, params }: { user: SessionUser; me: Pers
     currentEntitlementsFor(view.items.map((p) => p.personId)), // just the people on this page
   ]);
   const today = todayDateString();
-  const nameOf = new Map(people.map((p) => [p.personId, `${p.firstName} ${p.lastName}`]));
+  const nameOf = await namesOf([...queue.map((r) => r.personId), ...view.items.map((p) => p.parentId)], new Map(people.map((p) => [p.personId, `${p.firstName} ${p.lastName}`])));
   const pendingByPerson = new Map(queue.map((r) => [r.personId, r]));
   const pendingRegistrations = people.filter((p) => p.registrationStatus === 'PENDING');
 
@@ -138,9 +162,10 @@ async function PeopleSection({ user, me, params }: { user: SessionUser; me: Pers
 
       {people.length > 0 && (
         <div className="space-y-2 rounded-lg border border-[#D5DDE4] bg-white p-3">
-          {usedCats.length > 2 && <Chips label="Show" param="pcat" path="/me" params={keep} current={cat} options={usedCats} pageParam="people" />}
+          {slice && <p className="text-sm" data-testid="master-recent">The {Math.min(MASTER_RECENT, slice.total)} newest of <b>{slice.total}</b> people{pendingRegistrations.length ? ', plus everyone waiting for approval' : ''}. <Link href="/admin/people" className="font-medium underline">Search and filter everyone on the People page →</Link></p>}
+          {!slice && usedCats.length > 2 && <Chips label="Show" param="pcat" path="/me" params={keep} current={cat} options={usedCats} pageParam="people" />}
           <div className="flex flex-wrap gap-x-6 gap-y-2">
-            <Chips label="Sort" param="psort" path="/me" params={keep} current={sortKey} options={ME_SORTS} pageParam="people" />
+            {!slice && <Chips label="Sort" param="psort" path="/me" params={keep} current={sortKey} options={ME_SORTS} pageParam="people" />}
             <Chips label="View" param="pview" path="/me" params={keep} current={display} options={VIEWS} pageParam="people" />
           </div>
         </div>
