@@ -47,10 +47,10 @@ export function PersonCard({ p, href, footer }: { p: PersonCardData; href?: stri
   );
   const cls = 'block rounded-lg border border-gray-200 bg-white p-3 text-sm shadow-sm';
   return href
-    ? <Link href={href} className={`${cls} transition hover:border-gray-400 hover:shadow`} data-person={p.username}>{body}</Link>
+    ? <Link href={href} className={`${cls} lift`} data-person={p.username}>{body}</Link>
     : <div className={cls} data-person={p.username}>{body}</div>;
 }
 
 export function CardGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
+  return <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
 }

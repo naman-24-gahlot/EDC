@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { HttpError } from '@/lib/hierarchy/authorize';
 import { applyEmailVerification, inspectResetCode } from '@/lib/people/profile';
 import { ResetForm } from './ResetForm';
+import { AuthBackdrop, authCard } from '@/components/AuthBackdrop';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +22,9 @@ async function resolve(mode: string | undefined, oobCode: string | undefined) {
 
 function Box({ title, ok = false, children }: { title: string; ok?: boolean; children: React.ReactNode }) {
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-8">
-      <div className="w-full max-w-sm space-y-3 rounded-lg border border-gray-200 p-6">
+    <main className="relative flex flex-1 items-center justify-center px-4 py-8">
+      <AuthBackdrop />
+      <div className={`${authCard} stagger space-y-3`}>
         <h1 className="text-lg font-semibold">{title}</h1>
         <div className={`text-sm ${ok ? 'text-emerald-800' : 'text-gray-600'}`}>{children}</div>
       </div>

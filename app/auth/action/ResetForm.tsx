@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { PasswordField, type PasswordVerdict } from '@/components/PasswordField';
 import type { StrengthContext } from '@/lib/passwordStrength';
 import { RequestError, sendJson } from '@/lib/clientFetch';
+import { AuthBackdrop, authCard } from '@/components/AuthBackdrop';
 
 export function ResetForm({ oobCode, email, ctx }: { oobCode: string; email: string; ctx: StrengthContext }) {
   const [verdict, setVerdict] = useState<PasswordVerdict>('blocked');
@@ -32,15 +33,16 @@ export function ResetForm({ oobCode, email, ctx }: { oobCode: string; email: str
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-8">
+    <main className="relative flex flex-1 items-center justify-center px-4 py-8">
+      <AuthBackdrop />
       {done ? (
-        <div className="w-full max-w-sm space-y-3 rounded-lg border border-gray-200 p-6" role="status">
+        <div className={`${authCard} stagger space-y-3`} role="status">
           <h1 className="text-lg font-semibold">Password changed</h1>
           <p className="text-sm text-gray-600">You&apos;ve been signed out everywhere. Sign in with your new password.</p>
           <Link href="/login" className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white">Sign in</Link>
         </div>
       ) : (
-        <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 p-6" aria-label="Set a new password">
+        <form onSubmit={submit} className={`${authCard} stagger space-y-4`} aria-label="Set a new password">
           <input type="text" name="username" autoComplete="username" value={ctx.username ?? ctx.email} readOnly hidden />
           <div>
             <h1 className="text-lg font-semibold">Set a new password</h1>

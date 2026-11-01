@@ -10,6 +10,7 @@ import { EmailConfirm } from './EmailConfirm';
 import type { PasswordVerdict } from '@/components/PasswordField';
 import { PassReady, type IssuedPass } from '@/components/PassReady';
 import { useTestMode } from '@/components/useTestMode';
+import { AuthBackdrop, glassCard, plainCard } from '@/components/AuthBackdrop';
 
 type Verdict = { ok: boolean; message: string | null };
 
@@ -158,7 +159,8 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
 
   if (submitted && issued && event) {
     return (
-      <main className="mx-auto w-full max-w-lg space-y-4 px-4 py-10">
+      <main className="relative mx-auto w-full max-w-lg space-y-4 px-4 py-10">
+        <AuthBackdrop />
         <PassReady pass={issued} name={firstName} nextHref={`/e/${event.token}`} />
         <p className="text-sm text-gray-600">You can also sign in any time and open your entry pass from your account.</p>
       </main>
@@ -166,7 +168,9 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   }
   if (submitted) {
     return (
-      <main className="mx-auto w-full max-w-sm space-y-4 px-4 py-12 text-center">
+      <main className="relative mx-auto w-full max-w-sm px-4 py-12 text-center">
+        <AuthBackdrop />
+        <div className={`${glassCard} stagger space-y-4 p-6`}>
         <h1 className="text-lg font-semibold">Registration submitted</h1>
         <p className="text-sm text-gray-500">
           {event ? <>Your registration for <b>{event.name}</b> is waiting for approval. Once approved, you can sign in and show your entry pass at the gate during the event.</> : <>Your registration is pending approval. You&apos;ll be able to sign in once an
@@ -175,13 +179,15 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
         <Link href="/login" className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white">
           Go to sign in
         </Link>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto w-full max-w-md space-y-6 px-4 py-8">
-      <div>
+    <main className="relative mx-auto w-full max-w-md space-y-6 px-4 py-8">
+      <AuthBackdrop />
+      <div className="enter">
         {header ?? (
           <>
             <h1 className="text-lg font-semibold">EDC Registration</h1>
@@ -197,7 +203,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className={`${plainCard} enter space-y-4 p-5 sm:p-6`}>
         {testing && (
           <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900" data-testid="testing-mode-note">
             <b>Testing mode is on:</b> name, mobile and purpose may be left blank, and test addresses (…@….test) work — their emails go to the Master’s test outbox.

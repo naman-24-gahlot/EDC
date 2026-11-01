@@ -33,6 +33,7 @@ Docs (read only what the current phase needs):
 - Credential: HMAC-SHA256 over `personId.credentialVersion` (Node `crypto`, server-only
   secret) — reusable; invalidated only by a version bump
 - `qrcode` to render, `html5-qrcode` to scan; typed access code is a first-class equal path
+- `motion` (motion.dev, pinned exact) only for springs, shared-layout and exit animations; everything else is CSS — see "Motion"
 - Profile photos: client-downscaled data URL on the person doc — **no Firebase Storage**
 - No Cloud Functions, no cron: all time-based state is computed at read/verify time
 - Deploy: Vercel Hobby + Firebase Spark — no billing, no new third-party services
@@ -81,6 +82,16 @@ Running out stops everything until the daily reset, and the gate fails closed. S
 - Audit entries are written with `audit()` only; they're sealed in batches (`lib/auditChain.ts`).
 - The guard screen shows counts; "on campus now" lists load on demand.
 - New public endpoints: think about what a bot hitting them 1,000 times costs.
+
+## Motion (app/globals.css "Motion")
+Polish that people feel, not notice. Tokens: `--ease-out` (enter/exit), `--ease-in-out` (moving on screen), `--ease-drawer`.
+- Animate `transform`/`opacity` only (height only for expanding panels). UI motion < 300 ms; never `ease-in`; never `scale(0)` (start at 0.95+).
+- Decide by frequency: the guard's scan result and anything used hundreds of times a day does **not** animate;
+  admin pages get a quick settle (`.enter` via `template.tsx`); rare screens (sign-in, the pass, a decision) get the delight.
+- Cheapest tool first: CSS classes (`.enter`, `.stagger`, `.lift`, `.pop-in`, `.pass-reveal`, `.skeleton`); `motion` only for
+  springs, `layoutId` and `AnimatePresence` exits, wrapped in `<MotionConfig reducedMotion="user">`.
+- Entrance animations use fill-mode `backwards` (nothing lingers after). Every new animation is listed in the
+  reduced-motion and print blocks. Loading = skeletons shaped like the page (`components/Skeleton.tsx`, `loading.tsx`).
 
 ## Testing mode (`lib/testMode.ts`)
 One Master-only switch (the bar on every /admin page) for everything that exists only to make testing

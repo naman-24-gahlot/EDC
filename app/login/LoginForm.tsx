@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ROLE_HOME_PATH, isSystemRole } from '@/lib/roles';
 import { RequestError, sendJson } from '@/lib/clientFetch';
+import { AuthBackdrop, EdcMark, authCard, primaryButton } from '@/components/AuthBackdrop';
 
 export function LoginForm({ notice }: { notice: string | null }) {
   const [identifier, setIdentifier] = useState('');
@@ -31,14 +32,18 @@ export function LoginForm({ notice }: { notice: string | null }) {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4">
+    <main className="relative flex flex-1 items-center justify-center px-4 py-8">
+      <AuthBackdrop />
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 p-6"
+        className={`${authCard} stagger space-y-4`}
       >
-        <div>
-          <h1 className="text-lg font-semibold">EDC Access Management</h1>
-          <p className="text-sm text-gray-500">Sign in with your EDC account.</p>
+        <div className="flex items-center gap-3">
+          <EdcMark />
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight">EDC Access Management</h1>
+            <p className="text-sm text-gray-500">Sign in with your EDC account.</p>
+          </div>
         </div>
 
         <div className="space-y-1">
@@ -86,7 +91,7 @@ export function LoginForm({ notice }: { notice: string | null }) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className={primaryButton}
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>

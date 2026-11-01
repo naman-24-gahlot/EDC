@@ -47,8 +47,8 @@ export default async function PassPage() {
       </div>
       <div className="mb-3"><DataStamp fetchedAt={fetchedAtNow()} /></div>
 
-      <section className="overflow-hidden rounded-[22px] border border-[#D5DDE4] bg-[#F7F9FB] shadow-[0_4px_16px_rgba(10,40,60,.10),0_1px_3px_rgba(10,40,60,.07)]">
-        <header className="flex items-center gap-3 border-b-[3px] border-[#DB3B51] bg-gradient-to-r from-[#004180] to-[#0D5B7A] px-5 py-3 text-white">
+      <section className="pass-reveal overflow-hidden rounded-[22px] border border-[#D5DDE4] bg-[#F7F9FB] shadow-[0_4px_16px_rgba(10,40,60,.10),0_1px_3px_rgba(10,40,60,.07)]">
+        <header className="pass-sheen flex items-center gap-3 border-b-[3px] border-[#DB3B51] bg-gradient-to-r from-[#004180] to-[#0D5B7A] px-5 py-3 text-white">
           <div>
             <h1 className="text-sm font-bold tracking-[.12em]">EDC ENTRY PASS</h1>
             <p className="text-[11px] uppercase tracking-[.06em] opacity-85">IIM Jammu · EDC</p>

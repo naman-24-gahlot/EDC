@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { HttpError } from '@/lib/hierarchy/authorize';
 import { confirmEmailCheck, CONFIRMED_FOR_MS } from '@/lib/emailCheck';
+import { AuthBackdrop, authCard } from '@/components/AuthBackdrop';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,8 +15,9 @@ async function confirm(params: { email?: string; oobCode?: string; token?: strin
 export default async function ConfirmEmailPage({ searchParams }: { searchParams: Promise<{ email?: string; oobCode?: string; token?: string }> }) {
   const r = await confirm(await searchParams);
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-8">
-      <div className="w-full max-w-sm space-y-3 rounded-lg border border-gray-200 p-6" role="status">
+    <main className="relative flex flex-1 items-center justify-center px-4 py-8">
+      <AuthBackdrop />
+      <div className={`${authCard} stagger space-y-3`} role="status">
         {r.ok ? (
           <>
             <h1 className="text-lg font-semibold text-emerald-800">✓ Email confirmed</h1>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ROLE_HOME_PATH, isSystemRole } from '@/lib/roles';
 import { RequestError, sendJson } from '@/lib/clientFetch';
 import { PasswordField, type PasswordVerdict } from '@/components/PasswordField';
+import { AuthBackdrop, authCard } from '@/components/AuthBackdrop';
 
 export function SetPasswordForm({ username, name, fullName, email }: { username: string; name: string; fullName: string; email: string }) {
   const [verdict, setVerdict] = useState<PasswordVerdict>('blocked');
@@ -41,8 +42,9 @@ export function SetPasswordForm({ username, name, fullName, email }: { username:
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-8">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 p-6" aria-label="Choose a new password">
+    <main className="relative flex flex-1 items-center justify-center px-4 py-8">
+      <AuthBackdrop />
+      <form onSubmit={submit} className={`${authCard} stagger space-y-4`} aria-label="Choose a new password">
         {/* Names the account for the browser's password manager, so it saves the right login. */}
         <input type="text" name="username" autoComplete="username" value={username} readOnly hidden />
         <div>

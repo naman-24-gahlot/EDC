@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { MotionConfig, motion } from 'motion/react';
 
 const LINKS = [
   { href: '/admin', label: 'Access requests', count: 'requests' },
@@ -37,6 +38,8 @@ export function AdminNav({ counts }: { counts: { requests: number; registrations
         ))}
       </select>
     </label>
+    {/* The underline glides to the chosen tab (shared layout animation); off for reduced motion. */}
+    <MotionConfig reducedMotion="user">
     <nav className="hidden gap-1 overflow-x-auto border-b border-gray-200 md:flex">
       {LINKS.map((link) => {
         const active = link.href === '/admin' ? pathname === '/admin' : pathname.startsWith(link.href);
@@ -45,10 +48,11 @@ export function AdminNav({ counts }: { counts: { requests: number; registrations
           <Link
             key={link.href}
             href={link.href}
-            className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-medium ${
-              active ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            className={`relative flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm font-medium transition-colors duration-150 ${
+              active ? 'text-gray-900' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
+            {active && <motion.span layoutId="admin-tab" aria-hidden className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-gray-900" transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }} />}
             {link.label}
             {n > 0 && (
               <span className="rounded-full bg-amber-500 px-1.5 text-[11px] font-bold leading-5 text-white" aria-label={`${n} waiting`}>
@@ -59,6 +63,7 @@ export function AdminNav({ counts }: { counts: { requests: number; registrations
         );
       })}
     </nav>
+    </MotionConfig>
     </>
   );
 }

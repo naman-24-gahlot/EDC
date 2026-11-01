@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { DoneChip } from '@/components/DecisionButtons';
 
 export interface ApproveOption { type: string; label: string; access: string }
 
@@ -21,6 +22,7 @@ export function RegistrationDecision({ personId, name, status, appliedAs, option
   const [error, setError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState('');
+  const [done, setDone] = useState<'approve' | 'reject' | null>(null);
   const chosen = options.find((o) => o.type === type);
   const appliedLabel = options.find((o) => o.type === appliedAs)?.label ?? appliedAs;
   const id = `approve-as-${personId}`;
@@ -32,13 +34,15 @@ export function RegistrationDecision({ personId, name, status, appliedAs, option
       const res = await fetch(`/api/registrations/${personId}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? `Could not ${action}`);
-      router.refresh();
+      setDone(action);
+      setTimeout(() => router.refresh(), 450); // the ✓ shows for a moment first
     } catch (err) {
       setError(err instanceof Error ? err.message : `Could not ${action}`);
       setBusy(null);
     }
   }
 
+  if (done) return <DoneChip action={done} />;
   if (rejecting) {
     return (
       <div className="space-y-2">

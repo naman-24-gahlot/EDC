@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { sendJson } from '@/lib/clientFetch';
 import { HumanCheck, humanCheckOn, useHumanCheck } from '@/components/HumanCheck';
+import { AuthBackdrop, authCard, primaryButton } from '@/components/AuthBackdrop';
 
 // "Forgot password": always the same answer, whether or not the account exists.
 export default function ForgotPasswordPage() {
@@ -29,8 +30,9 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-8">
-      <div className="w-full max-w-sm space-y-4 rounded-lg border border-gray-200 p-6">
+    <main className="relative flex flex-1 items-center justify-center px-4 py-8">
+      <AuthBackdrop />
+      <div className={`${authCard} stagger space-y-4`}>
         <div>
           <h1 className="text-lg font-semibold">Forgot your password?</h1>
           <p className="text-sm text-gray-500">We&apos;ll email a link to set a new one, to the email address you registered with.</p>
@@ -50,7 +52,7 @@ export default function ForgotPasswordPage() {
             </div>
             <HumanCheck key={humanRound} onToken={setHumanToken} />
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
-            <button type="submit" disabled={busy || (humanCheckOn && !humanToken)} className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+            <button type="submit" disabled={busy || (humanCheckOn && !humanToken)} className={primaryButton}>
               {busy ? 'Sending…' : 'Email me a reset link'}
             </button>
             <Link href="/login" className="flex min-h-10 items-center justify-center text-xs text-gray-500 underline">Back to sign in</Link>

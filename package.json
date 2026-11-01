@@ -16,6 +16,7 @@
   "dependencies": {
     "firebase-admin": "^14.4.0",
     "html5-qrcode": "^2.3.8",
+    "motion": "14.3.1",
     "next": "16.4.3",
     "qrcode": "^1.5.4",
     "react": "19.2.8",

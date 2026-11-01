@@ -104,7 +104,7 @@ body {
   animation: skeleton-sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 .skeleton-in {
-  animation: skeleton-in 200ms ease-out 150ms both;
+  animation: skeleton-in 200ms ease-out 150ms backwards;
 }
 @keyframes skeleton-sweep {
   to { transform: translateX(100%); }
@@ -115,4 +115,150 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after { display: none; }
   .skeleton-in { animation: none; }
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────────────────────────
+   One set of curves for the whole app (CLAUDE.md "Motion"). Rules: animate transform and
+   opacity only; enter/exit with --ease-out; UI motion under 300 ms; nothing that people see
+   hundreds of times a day (the guard's scan result) animates; reduced motion turns it all off. */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  interpolate-size: allow-keywords;
+}
+
+/* Press feedback: every button (and .press links) gives a little under the finger. */
+button,
+.press {
+  transition: transform 160ms var(--ease-out), background-color 150ms ease, color 150ms ease,
+    border-color 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+}
+button:not(:disabled):active,
+.press:active {
+  transform: scale(0.97);
+}
+
+/* A page settling in (app/admin/template.tsx, app/me/template.tsx). */
+.enter {
+  animation: enter 280ms var(--ease-out) backwards;
+}
+/* Children arriving one after another (auth cards, card grids) — capped at the 10th. */
+.stagger > * {
+  animation: enter 360ms var(--ease-out) backwards;
+}
+.stagger > :nth-child(2) { animation-delay: 40ms; }
+.stagger > :nth-child(3) { animation-delay: 80ms; }
+.stagger > :nth-child(4) { animation-delay: 120ms; }
+.stagger > :nth-child(5) { animation-delay: 160ms; }
+.stagger > :nth-child(6) { animation-delay: 200ms; }
+.stagger > :nth-child(7) { animation-delay: 240ms; }
+.stagger > :nth-child(8) { animation-delay: 280ms; }
+.stagger > :nth-child(9) { animation-delay: 320ms; }
+.stagger > :nth-child(n + 10) { animation-delay: 360ms; }
+@keyframes enter {
+  from { opacity: 0; transform: translateY(8px); filter: blur(2px); }
+}
+
+/* Expandable sections (<details>) open and close smoothly where the browser supports it. */
+details::details-content {
+  height: 0;
+  overflow: clip;
+  transition: height 260ms var(--ease-out), content-visibility 260ms allow-discrete;
+}
+details[open]::details-content {
+  height: auto;
+}
+
+/* Cards that are links lift a little — only with a real mouse (no sticky hover on phones). */
+@media (hover: hover) and (pointer: fine) {
+  .lift {
+    transition: transform 200ms var(--ease-out), box-shadow 200ms ease, border-color 200ms ease;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -12px rgb(10 40 60 / 0.25);
+    border-color: rgb(13 91 122 / 0.35);
+  }
+}
+
+/* The entry pass rises in once, and a sheen crosses its header (app/me/pass). */
+.pass-reveal {
+  animation: pass-reveal 520ms var(--ease-out) backwards;
+}
+@keyframes pass-reveal {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+}
+.pass-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.pass-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-120%) skewX(-20deg);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.35), transparent);
+  animation: sheen 900ms var(--ease-in-out) 420ms both;
+  pointer-events: none;
+}
+@keyframes sheen {
+  to { transform: translateX(220%) skewX(-20deg); }
+}
+
+/* Sign-in pages: brand colours drifting slowly behind a frosted card (components/AuthBackdrop.tsx). */
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  will-change: transform;
+  animation: drift 22s ease-in-out infinite alternate;
+}
+.aurora-blob:nth-child(2) { animation-duration: 28s; animation-delay: -6s; }
+.aurora-blob:nth-child(3) { animation-duration: 34s; animation-delay: -12s; }
+@keyframes drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(6vw, -4vh, 0) scale(1.12); }
+  100% { transform: translate3d(-5vw, 5vh, 0) scale(0.94); }
+}
+
+/* A check mark drawing itself (DecisionButtons' "done" state). */
+.draw-check path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: draw 320ms var(--ease-out) 60ms forwards;
+}
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+.pop-in {
+  animation: pop-in 220ms var(--ease-out) backwards;
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.94); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter, .stagger > *, .pass-reveal, .pass-sheen::after, .aurora-blob, .pop-in { animation: none; }
+  .draw-check path { animation: none; stroke-dashoffset: 0; }
+  button, .press, .lift, details::details-content { transition: none; }
+  button:not(:disabled):active, .press:active { transform: none; }
+}
+@media print {
+  .enter, .stagger > *, .pass-reveal, .pop-in { animation: none; }
+  .pass-sheen::after, .aurora-blob { display: none; }
+}
+
+/* Fields: a soft brand-coloured ring on focus, instead of the browser's outline. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+select,
+textarea {
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: #0d5b7a;
+  box-shadow: 0 0 0 4px rgb(13 91 122 / 0.14);
 }

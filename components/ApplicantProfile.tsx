@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { SkeletonBlock, SkeletonLines, SkeletonScreen } from '@/components/Skeleton';
 import { sendJson } from '@/lib/clientFetch';
 
@@ -37,9 +38,11 @@ export function ApplicantProfile({ personId, label = 'View profile' }: { personI
     }
   }
 
+  // Opens at once (a skeleton shows while it loads) and slides open/closed.
   async function toggle() {
-    if (!open && !p) await load();
-    setOpen(!open);
+    const next = !open;
+    setOpen(next);
+    if (next && !p) await load();
   }
 
   async function save(e: FormEvent) {
@@ -74,7 +77,10 @@ export function ApplicantProfile({ personId, label = 'View profile' }: { personI
       <button type="button" onClick={toggle} aria-expanded={open} className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-[#0D5B7A] underline underline-offset-2 md:min-h-0">
         {open ? 'Hide profile' : label}
       </button>
+      <MotionConfig reducedMotion="user">
+      <AnimatePresence initial={false}>
       {open && (
+        <motion.div key="panel" className="overflow-hidden" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.26, ease: [0.23, 1, 0.32, 1] }}>
         <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-900" data-testid="applicant-profile">
           {error && <p className="text-red-700" role="alert">{error}</p>}
           {!p ? (!error && (
@@ -130,7 +136,10 @@ export function ApplicantProfile({ personId, label = 'View profile' }: { personI
             </>
           )}
         </div>
+        </motion.div>
       )}
+      </AnimatePresence>
+      </MotionConfig>
     </div>
   );
 }
