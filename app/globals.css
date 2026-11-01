@@ -87,3 +87,32 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Skeletons (components/Skeleton.tsx): grey shapes with a soft light sweep. The screen fades in
+   after 150 ms, so a fast load never flashes one. Reduced motion: still grey, no sweep or fade. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: rgb(226 230 235);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.65), transparent);
+  animation: skeleton-sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.skeleton-in {
+  animation: skeleton-in 200ms ease-out 150ms both;
+}
+@keyframes skeleton-sweep {
+  to { transform: translateX(100%); }
+}
+@keyframes skeleton-in {
+  from { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { display: none; }
+  .skeleton-in { animation: none; }
+}

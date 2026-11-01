@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { SkeletonBlock, SkeletonLines, SkeletonScreen } from '@/components/Skeleton';
 import { sendJson } from '@/lib/clientFetch';
 
 const TYPE: Record<string, string> = { employee: 'Employee', incubee: 'Incubee', event_guest: 'Event Guest', driver: 'Driver', relative: 'Relative', bodyguard: 'Bodyguard' };
@@ -76,7 +77,12 @@ export function ApplicantProfile({ personId, label = 'View profile' }: { personI
       {open && (
         <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-900" data-testid="applicant-profile">
           {error && <p className="text-red-700" role="alert">{error}</p>}
-          {!p ? (!error && <p className="text-gray-500">Loading…</p>) : (
+          {!p ? (!error && (
+            <SkeletonScreen label="Loading the profile…" className="flex items-start gap-3">
+              <SkeletonBlock className="h-24 w-24 shrink-0" />
+              <div className="flex-1 space-y-2 pt-1"><SkeletonBlock className="h-4 w-40" /><SkeletonLines lines={4} /></div>
+            </SkeletonScreen>
+          )) : (
             <>
               <div className="flex items-start gap-3">
                 {p.photoDataUrl ? (

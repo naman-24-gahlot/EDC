@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { OnCampus } from '@/lib/gate';
+import { SkeletonRows, SkeletonScreen } from '@/components/Skeleton';
 
 const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 
@@ -57,7 +58,7 @@ export function OnCampusPanel({ people: initial, summary }: { people?: OnCampus[
           {warnings > 0 && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900" data-testid="stay-warnings">{warnings} overnight / after hours</span>}</span>
         <span className="text-xs text-gray-500">{listReady || count === 0 ? 'last scan was an entry' : 'tap to show the list'}</span>
       </summary>
-      {loading && <p className="mt-2 text-sm text-gray-500">Loading the list…</p>}
+      {loading && <SkeletonScreen label="Loading the list…" className="mt-3"><SkeletonRows rows={Math.min(Math.max(count, 2), 5)} /></SkeletonScreen>}
       {loadError && <p className="mt-2 text-sm text-red-700" role="alert">{loadError} <button type="button" onClick={load} className="underline">Retry</button></p>}
       {!listReady ? (count === 0 && <p className="mt-2 text-sm text-gray-400">Nobody right now.</p>) : people.length === 0 ? <p className="mt-2 text-sm text-gray-400">Nobody right now.</p> : (
         <div className="mt-2 space-y-2">
