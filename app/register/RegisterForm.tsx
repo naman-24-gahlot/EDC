@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { PasswordField } from '@/components/PasswordField';
 import { PhotoInput } from '@/components/PhotoInput';
-import { HumanCheck, humanCheckOn } from '@/components/HumanCheck';
+import { HumanCheck, humanCheckOn, useHumanCheck } from '@/components/HumanCheck';
 import { checkMobile } from '@/lib/phone';
 import { EmailConfirm } from './EmailConfirm';
 import type { PasswordVerdict } from '@/components/PasswordField';
@@ -99,7 +99,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   const [taken, setTaken] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [humanToken, setHumanToken] = useState('');
+  const { token: humanToken, setToken: setHumanToken, round: humanRound, used: humanUsed } = useHumanCheck();
   const [issued, setIssued] = useState<IssuedPass | null>(null);
 
   const needsParent = SUBORDINATE_TYPES.has(profileType);
@@ -152,6 +152,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
       setLoading(false);
+      humanUsed(); // a token works once
     }
   }
 
@@ -215,7 +216,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           autoComplete="username"
           hint={usernameCheck}
         />
-        <EmailConfirm value={commEmail} onChange={setCommEmail} hint={emailCheck} humanToken={humanToken} onConfirmed={setEmailConfirmed} />
+        <EmailConfirm value={commEmail} onChange={setCommEmail} hint={emailCheck} humanToken={humanToken} onHumanUsed={humanUsed} onConfirmed={setEmailConfirmed} />
         <Field label="Mobile number" type="tel" value={mobile} onChange={setMobile} required={!testing} autoComplete="tel" placeholder="98765 43210" hint={mobileCheck} />
         <Field label="Backup email (optional) — a second place for password resets and approval emails" type="email" value={backupEmail} onChange={setBackupEmail} autoComplete="off" />
         <PasswordField id="reg-password" label="Password" value={password} onChange={setPassword} ctx={pwCtx} onVerdict={setPwVerdict} />
@@ -276,7 +277,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           </p>
         )}
 
-        <HumanCheck onToken={setHumanToken} />
+        <HumanCheck key={humanRound} onToken={setHumanToken} />
 
         <button
           type="submit"

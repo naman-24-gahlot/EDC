@@ -4,7 +4,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { checkMobile } from '@/lib/phone';
 import { sendJson } from '@/lib/clientFetch';
 import { PhotoInput } from '@/components/PhotoInput';
-import { HumanCheck, humanCheckOn } from '@/components/HumanCheck';
+import { HumanCheck, humanCheckOn, useHumanCheck } from '@/components/HumanCheck';
 import { PassReady, type IssuedPass } from '@/components/PassReady';
 import { NextPerson, type KioskNext } from '@/components/NextPerson';
 
@@ -18,7 +18,7 @@ export function QuickRegister({ token, source, emailPass, autoApprove, kiosk, ki
 }) {
   const [f, setF] = useState(EMPTY);
   const [photo, setPhoto] = useState<string | null>(null);
-  const [humanToken, setHumanToken] = useState('');
+  const { token: humanToken, setToken: setHumanToken, round: humanRound, used: humanUsed } = useHumanCheck();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ name: string; pass: IssuedPass | null } | null>(null);
@@ -39,6 +39,7 @@ export function QuickRegister({ token, source, emailPass, autoApprove, kiosk, ki
       setError(err instanceof Error ? err.message : 'Could not register — please try again.');
     } finally {
       setBusy(false);
+      humanUsed(); // a token works once
     }
   }
 
@@ -76,7 +77,7 @@ export function QuickRegister({ token, source, emailPass, autoApprove, kiosk, ki
         <label className={label}><span>Employee you’re coming with <span className="font-normal text-gray-500">(optional — username or access code)</span></span>
           <input value={f.parentIdentifier} onChange={set('parentIdentifier')} autoComplete="off" className={input} /></label>
         <PhotoInput value={photo} onChange={setPhoto} hint="optional — printed on your pass and shown to the guard" />
-        <HumanCheck onToken={setHumanToken} />
+        <HumanCheck key={humanRound} onToken={setHumanToken} />
         {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
         <button type="submit" disabled={busy || (mobile !== null && !mobile.ok) || (humanCheckOn && !humanToken)}
           className="flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0D5B7A] text-base font-semibold text-white disabled:opacity-50">

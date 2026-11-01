@@ -11,8 +11,8 @@ const pollDelay = (sinceMs: number) => (sinceMs < 30_000 ? 4000 : sinceMs < 2 * 
 // The email box with "Send confirmation link" beside it. Registration can't be submitted until
 // the link has been opened (here, in another tab, or on a phone) — this asks the server every
 // few seconds and flips to "✓ confirmed" on its own. Changing the email starts over.
-export function EmailConfirm({ value, onChange, hint, humanToken, onConfirmed }: {
-  value: string; onChange: (v: string) => void; hint: Verdict | null; humanToken: string; onConfirmed: (ok: boolean) => void;
+export function EmailConfirm({ value, onChange, hint, humanToken, onHumanUsed, onConfirmed }: {
+  value: string; onChange: (v: string) => void; hint: Verdict | null; humanToken: string; onHumanUsed: () => void; onConfirmed: (ok: boolean) => void;
 }) {
   const [sentTo, setSentTo] = useState<{ email: string; at: number } | null>(null);
   const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
@@ -78,6 +78,7 @@ export function EmailConfirm({ value, onChange, hint, humanToken, onConfirmed }:
       setError(err instanceof RequestError || err instanceof Error ? err.message : 'Could not send the email.');
     } finally {
       setBusy(false);
+      onHumanUsed(); // a token works once: the form gets a fresh one for submitting
     }
   }
 

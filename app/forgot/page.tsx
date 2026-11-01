@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { sendJson } from '@/lib/clientFetch';
-import { HumanCheck, humanCheckOn } from '@/components/HumanCheck';
+import { HumanCheck, humanCheckOn, useHumanCheck } from '@/components/HumanCheck';
 
 // "Forgot password": always the same answer, whether or not the account exists.
 export default function ForgotPasswordPage() {
@@ -11,7 +11,7 @@ export default function ForgotPasswordPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [humanToken, setHumanToken] = useState('');
+  const { token: humanToken, setToken: setHumanToken, round: humanRound, used: humanUsed } = useHumanCheck();
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -24,6 +24,7 @@ export default function ForgotPasswordPage() {
       setError(err instanceof Error ? err.message : 'Could not send the email.');
     } finally {
       setBusy(false);
+      humanUsed(); // a token works once
     }
   }
 
@@ -47,7 +48,7 @@ export default function ForgotPasswordPage() {
               <input id="fp-id" name="username" autoComplete="username" required maxLength={254} value={identifier} onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full rounded border border-gray-300 px-3 py-2 text-sm" />
             </div>
-            <HumanCheck onToken={setHumanToken} />
+            <HumanCheck key={humanRound} onToken={setHumanToken} />
             {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
             <button type="submit" disabled={busy || (humanCheckOn && !humanToken)} className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
               {busy ? 'Sending…' : 'Email me a reset link'}
