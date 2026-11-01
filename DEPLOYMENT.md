@@ -172,11 +172,16 @@ context-discipline rules).
   `edc-neon.vercel.app` (the project's own domain) and `edc-gib-24.vercel.app` (the team alias) —
   the link returns to whichever address the person used. (Both done 2026-10-24.) Until then real addresses get "Email confirmation isn't switched
   on yet"; `.test` addresses work regardless.
+- **One address (since 2026-11-01):** `edc-neon.vercel.app` forwards every request to
+  `edc-gib-24.vercel.app`, path and query kept (`proxy.ts`). So only edc-gib-24 needs listing in
+  Cloudflare Turnstile; edc-neon stays in Firebase's authorized domains (harmless; old links).
 - **Test addresses**: any email ending in `.test` (e.g. `qa1@example.test`) never sends — the link
   appears on /admin/outbox ("Test outbox" under the admin menu). Use them for repeated testing.
 - **Turnstile** (optional, free): create a widget at dash.cloudflare.com → Turnstile, add the site
   key as `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and the secret as `TURNSTILE_SECRET_KEY` in Vercel.
-  With either missing it stays off.
+  With either missing it stays off. The widget's Hostname Management must list every address the
+  forms are opened on (`edc-gib-24.vercel.app`, `localhost`; a custom domain when added) — an
+  unlisted one fails with code 110200, shown under the box.
 - **Gate**: Entry / Exit switch, "photo ID seen" (type + last 4), "on campus now" on the guard page
   and Entries page, today's register link; a USB/Bluetooth QR scanner works in the "Type a code /
   USB scanner" tab. The site is installable (manifest + generated icons): browser menu → "Add to

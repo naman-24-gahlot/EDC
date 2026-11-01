@@ -1,9 +1,13 @@
 import { createHash } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { RateLimiter, bucketsFor, clientIpFrom } from '@/lib/rateLimit';
+import { canonicalOrigin } from '@/lib/origin';
 
-// Runs before every page and API request. Three jobs, none of them authorization (that stays
+// Runs before every page and API request. Four jobs, none of them authorization (that stays
 // in each page and route):
+//  0. One address: the project's other Vercel address (edc-neon) forwards to the main one
+//     (APP_ORIGIN, default edc-gib-24 — lib/origin.ts), path and query kept. One address means one
+//     Cloudflare hostname, one set of saved passwords and one sign-in.
 //  1. CSRF defence in depth — refuse state-changing API calls from other sites. The session
 //     cookie is already SameSite=Lax, but login itself needs no cookie, so a foreign page could
 //     otherwise sign a browser into an attacker's account. Browsers always send Origin /
@@ -13,6 +17,7 @@ import { RateLimiter, bucketsFor, clientIpFrom } from '@/lib/rateLimit';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const MAX_API_BODY_BYTES = 1024 * 1024;
 const limiter = new RateLimiter();
+const FORWARDED_HOSTS = new Set(['edc-neon.vercel.app']);
 
 function sessionKey(request: NextRequest): string | null {
   const value = request.cookies.get('session')?.value;
@@ -20,8 +25,12 @@ function sessionKey(request: NextRequest): string | null {
 }
 
 export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
   const isApi = pathname.startsWith('/api/');
+
+  const host = (request.headers.get('host') ?? '').toLowerCase();
+  const main = canonicalOrigin();
+  if (FORWARDED_HOSTS.has(host) && new URL(main).host !== host) return NextResponse.redirect(`${main}${pathname}${search}`, 308);
 
   if (isApi && !SAFE_METHODS.has(request.method)) {
     const fetchSite = request.headers.get('sec-fetch-site');
