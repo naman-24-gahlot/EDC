@@ -52,7 +52,7 @@ export function AdminNav({ counts }: { counts: { requests: number; registrations
               active ? 'text-gray-900' : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            {active && <motion.span layoutId="admin-tab" aria-hidden className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-gray-900" transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }} />}
+            {active && <motion.span layoutId="admin-tab" aria-hidden className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-iim-navy" transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }} />}
             {link.label}
             {n > 0 && (
               <span className="rounded-full bg-amber-500 px-1.5 text-[11px] font-bold leading-5 text-white" aria-label={`${n} waiting`}>

@@ -127,7 +127,7 @@ export default async function AdminPeoplePage({ searchParams }: { searchParams: 
         {(['cat', 'sort', 'view', 'status'] as const).map((k) => params[k] && <input key={k} type="hidden" name={k} value={params[k]} />)}
         <input name="q" defaultValue={q} placeholder="Search name, username, code or type" aria-label="Search people"
           className="min-w-0 flex-1 basis-48 rounded border border-gray-300 px-3 py-2 text-sm" />
-        <button className="min-h-10 rounded bg-gray-900 px-4 text-sm font-medium text-white">Search</button>
+        <button className="min-h-10 rounded bg-iim-navy px-4 text-sm font-medium text-white">Search</button>
         {q && <Link href="/admin/people" className="self-center text-sm text-gray-500 underline">Clear</Link>}
       </form>
 

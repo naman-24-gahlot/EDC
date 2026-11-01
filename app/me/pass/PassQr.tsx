@@ -26,7 +26,7 @@ export function PassQr({ svg, code, name }: { svg: string; code: string | null; 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-[300px] max-w-full rounded-[14px] border border-[#D5DDE4] bg-white p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0D5B7A] [&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
+        className="w-[300px] max-w-full rounded-[14px] border border-[#D5DDE4] bg-white p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-iim-navy [&_svg]:block [&_svg]:h-auto [&_svg]:w-full"
         data-testid="pass-qr"
         aria-label="Entry pass QR code — tap to show full screen"
         dangerouslySetInnerHTML={{ __html: svg }}

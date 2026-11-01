@@ -65,7 +65,7 @@ export function LinkPanel({ eventId, token, state, expires, origin }: { eventId:
       <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
         <div className="flex flex-wrap items-center gap-2">
           <input readOnly value={url} aria-label="Registration link" onFocus={(e) => e.target.select()} className="min-w-0 flex-1 basis-64 rounded border border-gray-300 bg-gray-50 px-2 py-1.5 font-mono text-xs" />
-          <button type="button" onClick={copy} disabled={!tagsOk} className={`${btn} border-gray-900 bg-gray-900 text-white`}>{copied ? 'Copied ✓' : 'Copy link'}</button>
+          <button type="button" onClick={copy} disabled={!tagsOk} className={`${btn} border-iim-navy bg-iim-navy text-white`}>{copied ? 'Copied ✓' : 'Copy link'}</button>
         </div>
         <details>
           <summary className="inline-flex min-h-10 cursor-pointer items-center text-xs font-semibold text-gray-600 md:min-h-0">Tag where you&apos;re sharing it (UTM) — see sign-ups per channel</summary>
@@ -73,7 +73,7 @@ export function LinkPanel({ eventId, token, state, expires, origin }: { eventId:
             <div className="flex flex-wrap gap-1.5">
               {SOURCES.map((s) => (
                 <button key={s} type="button" onClick={() => setSource(source === s ? '' : s)} aria-pressed={source === s}
-                  className={`min-h-9 rounded-full px-3 text-xs md:min-h-7 ${source === s ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}>{s}</button>
+                  className={`min-h-9 rounded-full px-3 text-xs md:min-h-7 ${source === s ? 'bg-iim-navy text-white' : 'bg-gray-100 text-gray-700'}`}>{s}</button>
               ))}
             </div>
             <div className="grid gap-2 sm:grid-cols-3">

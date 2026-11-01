@@ -49,7 +49,7 @@ export function CreateGuardForm() {
         <input aria-label="Mobile" placeholder="Mobile" value={fields.mobile} onChange={set('mobile')} required className={input} />
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={busy} className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{busy ? 'Creating…' : 'Create guard'}</button>
+      <button type="submit" disabled={busy} className="rounded bg-iim-navy px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{busy ? 'Creating…' : 'Create guard'}</button>
     </form>
   );
 }

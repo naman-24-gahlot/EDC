@@ -8,7 +8,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ siz
   const size = SIZES.has(n) ? n : 192;
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0D5B7A', color: '#fff', fontSize: size * 0.3, fontWeight: 700, letterSpacing: -size * 0.01 }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#273A90', color: '#fff', fontSize: size * 0.3, fontWeight: 700, letterSpacing: -size * 0.01 }}>
         EDC
       </div>
     ),

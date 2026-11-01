@@ -43,7 +43,7 @@ export function StayFlagList({ flags, personHrefBase }: { flags: StayFlagRow[]; 
               </p>
               {f.seen ? <span className="text-xs text-gray-500">seen</span> : (
                 <button type="button" onClick={() => seen(f.id)} disabled={busy === f.id}
-                  className="inline-flex min-h-10 shrink-0 items-center rounded border border-gray-900 px-3 text-xs font-medium disabled:opacity-50 md:min-h-8">
+                  className="inline-flex min-h-10 shrink-0 items-center rounded border border-iim-navy px-3 text-xs font-medium disabled:opacity-50 md:min-h-8">
                   {busy === f.id ? 'Saving…' : 'Mark as seen'}
                 </button>
               )}

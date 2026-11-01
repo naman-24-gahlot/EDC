@@ -48,7 +48,7 @@ export default async function PrintPassPage({ searchParams }: { searchParams: Pr
     <main className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6 print:m-0 print:max-w-none print:p-0">
       <style>{`@page { size: ${size.w}mm ${size.h}mm; margin: 0 } @media print { html, body { margin: 0 !important; padding: 0 !important; height: auto !important; min-height: 0 !important; background: #fff !important; } }`}</style>
       {!next && <div className="space-y-1 print:hidden">
-        {!q.t && <Link href={person.personId === user?.personId ? '/me/pass' : '/me'} className="inline-flex min-h-10 items-center text-sm text-[#0D5B7A] underline md:min-h-0">← Back</Link>}
+        {!q.t && <Link href={person.personId === user?.personId ? '/me/pass' : '/me'} className="inline-flex min-h-10 items-center text-sm text-iim-navy underline md:min-h-0">← Back</Link>}
         <h1 className="text-xl font-bold">Print entry pass — {person.firstName} {person.lastName}</h1>
         <p className="text-sm text-gray-600">Pick a size, then Print (or Download PDF). On the printer: <b>actual size / 100%</b>, no margins, and the matching paper (card printers: CR80).</p>
       </div>}
@@ -57,7 +57,7 @@ export default async function PrintPassPage({ searchParams }: { searchParams: Pr
       {!next && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 print:hidden" role="group" aria-label="Card size">
         {CARD_SIZES.map((s) => (
           <Link key={s.id} href={`/print/pass?${keep({ size: s.id, ...(q.auto ? { auto: q.auto } : {}) })}`} aria-pressed={s.id === sizeId} data-size={s.id}
-            className={`rounded-lg border p-2 text-left text-xs ${s.id === sizeId ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-800'}`}>
+            className={`rounded-lg border p-2 text-left text-xs ${s.id === sizeId ? 'border-iim-navy bg-iim-navy text-white' : 'border-gray-300 bg-white text-gray-800'}`}>
             <b className="block text-sm">{s.label}</b>{s.note}
           </Link>
         ))}

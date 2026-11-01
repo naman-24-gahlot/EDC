@@ -64,7 +64,7 @@ export function SetPasswordForm({ username, name, fullName, email }: { username:
             {error.text}{error.signIn && <> <Link href="/login" className="font-medium underline">Go to sign in</Link></>}
           </p>
         )}
-        <button type="submit" disabled={busy || mismatch || verdict !== 'ok' || next !== confirm} className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+        <button type="submit" disabled={busy || mismatch || verdict !== 'ok' || next !== confirm} className="w-full rounded bg-iim-navy px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
           {busy ? 'Saving…' : 'Save and continue'}
         </button>
         <button type="button" onClick={signOut} className="w-full text-xs text-gray-500 underline">Sign out instead</button>

@@ -35,7 +35,7 @@ export function PassReady({ pass, name, nextHref }: { pass: IssuedPass; name: st
         {pass.emailed && <p className="mt-1 text-sm text-emerald-900">We’ve also emailed it to you.</p>}
       </div>
       <div className="flex flex-wrap gap-2">
-        {pass.print === 'button' && <a href={href} className={`${btn} bg-gray-900 text-white`} data-testid="print-my-pass">Print my pass</a>}
+        {pass.print === 'button' && <a href={href} className={`${btn} bg-iim-navy text-white`} data-testid="print-my-pass">Print my pass</a>}
         {!pass.kiosk && <a href={`/v/${encodeURIComponent(pass.passToken)}`} className={`${btn} border border-gray-300 bg-white`}>Open my pass</a>}
         {pass.kiosk && <NextPerson href={nextHref} mode={pass.kioskNext ?? 'auto'} seconds={pass.kioskSeconds ?? 20} />}
       </div>

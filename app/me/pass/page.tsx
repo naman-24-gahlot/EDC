@@ -14,6 +14,7 @@ import { fetchedAtNow } from '@/lib/paging';
 import { DataStamp } from '@/components/DataStamp';
 import { PROFILE_LABEL, STATUS_STYLE, accessStatus, daysLabel, formatDate } from '@/lib/display';
 import { holidayOn } from '@/lib/holidays';
+import { IimMark } from '@/components/brand/Logos';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,18 +43,18 @@ export default async function PassPage() {
   return (
     <main className="mx-auto w-full max-w-md px-4 py-6 font-sans text-[#1B2A38]">
       <div className="mb-4 flex items-center justify-between">
-        <Link href="/me" className="inline-flex min-h-10 items-center md:min-h-0 text-sm font-semibold text-[#0D5B7A]">← My account</Link>
+        <Link href="/me" className="inline-flex min-h-10 items-center md:min-h-0 text-sm font-semibold text-iim-navy">← My account</Link>
         <LogoutButton />
       </div>
       <div className="mb-3"><DataStamp fetchedAt={fetchedAtNow()} /></div>
 
       <section className="pass-reveal overflow-hidden rounded-[22px] border border-[#D5DDE4] bg-[#F7F9FB] shadow-[0_4px_16px_rgba(10,40,60,.10),0_1px_3px_rgba(10,40,60,.07)]">
-        <header className="pass-sheen flex items-center gap-3 border-b-[3px] border-[#DB3B51] bg-gradient-to-r from-[#004180] to-[#0D5B7A] px-5 py-3 text-white">
+        <header className="pass-sheen flex items-center gap-3 border-b-[3px] border-iim-red bg-gradient-to-r from-iim-navy to-iim-blue px-5 py-3 text-white">
           <div>
             <h1 className="text-sm font-bold tracking-[.12em]">EDC ENTRY PASS</h1>
             <p className="text-[11px] uppercase tracking-[.06em] opacity-85">IIM Jammu · EDC</p>
           </div>
-          <span className="ml-auto h-2.5 w-2.5 rounded-full bg-[#DB3B51]" aria-hidden />
+          <span className="ml-auto rounded-lg bg-white p-1 shadow-sm ring-1 ring-white/50"><IimMark className="h-9" /></span>
         </header>
 
         <div className="flex flex-col items-center gap-4 px-5 py-5 text-center">
@@ -62,13 +63,13 @@ export default async function PassPage() {
               // eslint-disable-next-line @next/next/no-img-element -- data: URL from the person doc, not a static/remote asset
               <img src={photo} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-white" />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#DCEAF1] text-lg font-semibold text-[#0D5B7A]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-iim-sky text-lg font-semibold text-iim-navy">
                 {person.firstName[0]}{person.lastName[0]}
               </div>
             )}
             <p className="text-[19px] font-bold tracking-tight">{name}</p>
             {person.profileType && (
-              <span className="rounded-full bg-[#DCEAF1] px-2.5 py-0.5 text-xs font-semibold text-[#0D5B7A]">
+              <span className="rounded-full bg-iim-sky px-2.5 py-0.5 text-xs font-semibold text-iim-navy">
                 {PROFILE_LABEL[person.profileType]}
               </span>
             )}
@@ -123,7 +124,7 @@ export default async function PassPage() {
           Present this pass at the gate.
         </footer>
       </section>
-      <Link href="/print/pass" className="mt-4 flex min-h-11 items-center justify-center rounded-lg border border-[#0D5B7A] text-sm font-semibold text-[#0D5B7A]" data-testid="print-pass">Print as an ID card / save PDF</Link>
+      <Link href="/print/pass" className="mt-4 flex min-h-11 items-center justify-center rounded-lg border border-iim-navy text-sm font-semibold text-iim-navy" data-testid="print-pass">Print as an ID card / save PDF</Link>
     </main>
   );
 }

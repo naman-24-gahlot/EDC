@@ -47,7 +47,7 @@ export function PersonCard({ p, href, footer }: { p: PersonCardData; href?: stri
   );
   const cls = 'block rounded-lg border border-gray-200 bg-white p-3 text-sm shadow-sm';
   return href
-    ? <Link href={href} className={`${cls} lift`} data-person={p.username}>{body}</Link>
+    ? <Link href={href} className={`${cls} lift spotlight`} data-person={p.username}>{body}</Link>
     : <div className={cls} data-person={p.username}>{body}</div>;
 }
 

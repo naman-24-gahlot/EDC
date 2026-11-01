@@ -81,7 +81,7 @@ export default async function AdminEntriesPage({ searchParams }: { searchParams:
           </label>
         ))}
         <div className="flex flex-wrap gap-2">
-          <button className="min-h-10 rounded bg-gray-900 px-4 text-sm font-medium text-white md:min-h-9">Apply</button>
+          <button className="min-h-10 rounded bg-iim-navy px-4 text-sm font-medium text-white md:min-h-9">Apply</button>
           <button formAction="/api/admin/export/entries" className="min-h-10 rounded border border-gray-400 bg-white px-4 text-sm font-medium md:min-h-9">Download these as CSV</button>
           <Link href={person ? `/admin/entries?person=${person}` : '/admin/entries'} className="inline-flex min-h-10 items-center text-sm text-gray-500 underline md:min-h-9">Reset</Link>
         </div>

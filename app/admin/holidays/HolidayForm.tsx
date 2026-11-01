@@ -50,7 +50,7 @@ export function HolidayForm() {
         <p className="text-xs text-gray-500">Event guests and visitors are left out by default — their passes are for dates someone picked on purpose.</p>
       </fieldset>
       {msg && <p className={`text-sm ${msg.ok ? 'text-emerald-700' : 'text-red-700'}`} role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}
-      <button type="submit" disabled={busy || types.size === 0} className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white disabled:opacity-50 md:min-h-8">{busy ? 'Adding…' : 'Add holiday'}</button>
+      <button type="submit" disabled={busy || types.size === 0} className="inline-flex min-h-10 items-center rounded bg-iim-navy px-4 text-sm font-medium text-white disabled:opacity-50 md:min-h-8">{busy ? 'Adding…' : 'Add holiday'}</button>
     </form>
   );
 }

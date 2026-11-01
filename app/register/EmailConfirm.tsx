@@ -94,7 +94,7 @@ export function EmailConfirm({ value, onChange, hint, humanToken, onHumanUsed, o
           <span className="inline-flex min-h-10 items-center rounded bg-emerald-50 px-3 text-sm font-semibold text-emerald-800">✓ Confirmed</span>
         ) : (
           <button type="button" onClick={send} disabled={!canSend}
-            className="inline-flex min-h-10 shrink-0 items-center rounded border border-gray-900 px-3 text-sm font-medium disabled:opacity-40">
+            className="inline-flex min-h-10 shrink-0 items-center rounded border border-iim-navy px-3 text-sm font-medium disabled:opacity-40">
             {busy ? 'Sending…' : waiting ? 'Send again' : 'Send confirmation link'}
           </button>
         )}

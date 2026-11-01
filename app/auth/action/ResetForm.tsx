@@ -39,7 +39,7 @@ export function ResetForm({ oobCode, email, ctx }: { oobCode: string; email: str
         <div className={`${authCard} stagger space-y-3`} role="status">
           <h1 className="text-lg font-semibold">Password changed</h1>
           <p className="text-sm text-gray-600">You&apos;ve been signed out everywhere. Sign in with your new password.</p>
-          <Link href="/login" className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white">Sign in</Link>
+          <Link href="/login" className="inline-flex min-h-10 items-center rounded bg-iim-navy px-4 text-sm font-medium text-white">Sign in</Link>
         </div>
       ) : (
         <form onSubmit={submit} className={`${authCard} stagger space-y-4`} aria-label="Set a new password">
@@ -55,7 +55,7 @@ export function ResetForm({ oobCode, email, ctx }: { oobCode: string; email: str
             {mismatch && <p className="text-xs text-red-600">The two passwords don&apos;t match.</p>}
           </div>
           {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
-          <button type="submit" disabled={busy || mismatch || verdict !== 'ok' || pw !== again} className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+          <button type="submit" disabled={busy || mismatch || verdict !== 'ok' || pw !== again} className="w-full rounded bg-iim-navy px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
             {busy ? 'Saving…' : 'Save new password'}
           </button>
         </form>

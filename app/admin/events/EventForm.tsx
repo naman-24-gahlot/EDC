@@ -101,7 +101,7 @@ export function EventForm({ eventId, initial }: { eventId?: string; initial: Eve
         {f.options.print === 'auto' && <p className="text-xs text-gray-500">For printing with no dialog, start Chrome on the kiosk with <code className="rounded bg-gray-100 px-1">--kiosk --kiosk-printing</code> and set the card printer as the default printer (DEPLOYMENT.md “Event kiosks”).</p>}
       </fieldset>
       {msg && <p role="status" className={`text-sm ${msg.ok ? 'text-emerald-700' : 'text-red-700'}`}>{msg.text}</p>}
-      <button type="submit" disabled={busy || (!!eventId && !dirty)} className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-semibold text-white disabled:opacity-50 md:min-h-9">
+      <button type="submit" disabled={busy || (!!eventId && !dirty)} className="inline-flex min-h-10 items-center rounded bg-iim-navy px-4 text-sm font-semibold text-white disabled:opacity-50 md:min-h-9">
         {busy ? 'Saving…' : eventId ? 'Save changes' : 'Create event and link'}
       </button>
     </form>

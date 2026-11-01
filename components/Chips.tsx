@@ -30,7 +30,7 @@ export function Chips({ label, param, options, current, path, params, pageParam 
         const on = value === current;
         return (
           <Link key={value} href={href(value)} scroll={false} aria-current={on ? 'true' : undefined}
-            className={`inline-flex min-h-9 items-center gap-1 rounded-full px-3 text-xs font-medium md:min-h-7 ${on ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50'}`}>
+            className={`inline-flex min-h-9 items-center gap-1 rounded-full px-3 text-xs font-medium md:min-h-7 ${on ? 'bg-iim-navy text-white' : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50'}`}>
             {text}{count !== undefined && <span className={on ? 'text-gray-300' : 'text-gray-400'}>{count}</span>}
           </Link>
         );

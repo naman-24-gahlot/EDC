@@ -18,7 +18,7 @@ function Bars({ rows, unit }: { rows: [string, number][]; unit: string }) {
       {rows.map(([k, n]) => (
         <li key={k} className="grid grid-cols-[5.5rem_1fr_2.5rem] items-center gap-2">
           <span className="text-gray-600">{k}</span>
-          <span className="h-3 rounded bg-gray-100"><span className="block h-3 rounded bg-[#0D5B7A]" style={{ width: `${(n / max) * 100}%` }} /></span>
+          <span className="h-3 rounded bg-gray-100"><span className="block h-3 rounded bg-iim-navy" style={{ width: `${(n / max) * 100}%` }} /></span>
           <span className="text-right tabular-nums" aria-label={`${n} ${unit}`}>{n}</span>
         </li>
       ))}

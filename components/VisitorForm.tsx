@@ -42,7 +42,7 @@ export function VisitorForm() {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => { setOpen(true); setCreated(null); }} className="inline-flex min-h-10 items-center rounded border border-gray-900 px-3 text-sm font-medium md:min-h-8">
+      <button type="button" onClick={() => { setOpen(true); setCreated(null); }} className="inline-flex min-h-10 items-center rounded border border-iim-navy px-3 text-sm font-medium md:min-h-8">
         + Visitor pass (1–2 days)
       </button>
     );
@@ -82,7 +82,7 @@ export function VisitorForm() {
         </label>
         {error && <p className="text-sm text-red-700 sm:col-span-2" role="alert">{error}</p>}
         <div className="sm:col-span-2">
-          <button type="submit" disabled={busy} className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white disabled:opacity-50 md:min-h-8">{busy ? 'Creating…' : 'Create pass'}</button>
+          <button type="submit" disabled={busy} className="inline-flex min-h-10 items-center rounded bg-iim-navy px-4 text-sm font-medium text-white disabled:opacity-50 md:min-h-8">{busy ? 'Creating…' : 'Create pass'}</button>
         </div>
       </form>
     </div>

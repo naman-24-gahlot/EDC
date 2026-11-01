@@ -10,7 +10,7 @@ import { EmailConfirm } from './EmailConfirm';
 import type { PasswordVerdict } from '@/components/PasswordField';
 import { PassReady, type IssuedPass } from '@/components/PassReady';
 import { useTestMode } from '@/components/useTestMode';
-import { AuthBackdrop, glassCard, plainCard } from '@/components/AuthBackdrop';
+import { AuthBackdrop, AuthBrand, glassCard, plainCard } from '@/components/AuthBackdrop';
 
 type Verdict = { ok: boolean; message: string | null };
 
@@ -171,12 +171,15 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
       <main className="relative mx-auto w-full max-w-sm px-4 py-12 text-center">
         <AuthBackdrop />
         <div className={`${glassCard} stagger space-y-4 p-6`}>
-        <h1 className="text-lg font-semibold">Registration submitted</h1>
+        <span aria-hidden className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+          <svg viewBox="0 0 24 24" className="draw-check h-7 w-7" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+        </span>
+        <h1 className="text-lg font-semibold text-iim-navy">Registration submitted</h1>
         <p className="text-sm text-gray-500">
           {event ? <>Your registration for <b>{event.name}</b> is waiting for approval. Once approved, you can sign in and show your entry pass at the gate during the event.</> : <>Your registration is pending approval. You&apos;ll be able to sign in once an
           authorized approver approves it.</>}
         </p>
-        <Link href="/login" className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white">
+        <Link href="/login" className="inline-flex min-h-10 items-center rounded bg-iim-navy px-4 text-sm font-medium text-white">
           Go to sign in
         </Link>
         </div>
@@ -190,15 +193,12 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
       <div className="enter">
         {header ?? (
           <>
-            <h1 className="text-lg font-semibold">EDC Registration</h1>
-            <p className="text-sm text-gray-500">
-              Register once — your profile stays even if access later expires.
-            </p>
+            <AuthBrand title="EDC Registration" subtitle="Register once — your profile stays even if access later expires." />
           </>
         )}
-        <p className="mt-2 text-sm">
+        <p className="mt-4 text-center text-sm">
           Already registered?{' '}
-          <Link href="/login" className="inline-flex min-h-10 items-center font-medium text-[#0D5B7A] underline md:min-h-0">Sign in instead</Link>
+          <Link href="/login" className="inline-flex min-h-10 items-center font-medium text-iim-navy underline md:min-h-0">Sign in instead</Link>
           <span className="block text-xs text-gray-500">Lost your pass or access ended? Don&apos;t register again — sign in to replace your QR code or request access from My account.</span>
         </p>
       </div>
@@ -288,7 +288,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
         <button
           type="submit"
           disabled={loading || blocking || (humanCheckOn && !humanToken)}
-          className="w-full rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="w-full rounded bg-iim-navy px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
           {loading ? 'Submitting…' : 'Submit registration'}
         </button>

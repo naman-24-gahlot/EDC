@@ -59,7 +59,7 @@ export function RequestForm({ disabledReason }: { disabledReason: string | null 
       </div>
       <p className="text-xs text-gray-500">Leave dates empty to get your profile&apos;s usual period. Requests not decided within 3 days expire.</p>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={busy || !purpose.trim()} className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+      <button type="submit" disabled={busy || !purpose.trim()} className="rounded bg-iim-navy px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
         {busy ? 'Sending…' : 'Request access'}
       </button>
     </form>

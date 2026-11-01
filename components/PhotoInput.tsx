@@ -96,7 +96,7 @@ export function PhotoInput({ value, onChange, label = 'Profile photo', hint = 'o
           <video ref={video} autoPlay playsInline muted aria-label="Camera preview"
             className="aspect-square w-56 max-w-full -scale-x-100 rounded-lg bg-black object-cover" />
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={snap} disabled={camera !== 'on'} className={`${btn} border-gray-900 bg-gray-900 text-white disabled:opacity-50`}>
+            <button type="button" onClick={snap} disabled={camera !== 'on'} className={`${btn} border-iim-navy bg-iim-navy text-white disabled:opacity-50`}>
               {camera === 'on' ? 'Take photo' : 'Starting camera…'}
             </button>
             <button type="button" onClick={stop} className={btn}>Cancel</button>

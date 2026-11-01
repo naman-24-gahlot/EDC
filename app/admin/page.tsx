@@ -67,7 +67,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {FILTERS.map((s) => (
           <Link key={s} href={s === 'ALL' ? '/admin' : `/admin?status=${s}`}
-            className={`inline-flex min-h-9 items-center rounded-full px-3 font-semibold ${filter === s ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}>
+            className={`inline-flex min-h-9 items-center rounded-full px-3 font-semibold ${filter === s ? 'bg-iim-navy text-white' : 'bg-gray-100 text-gray-700'}`}>
             {s} ({tabCount[s]})
           </Link>
         ))}

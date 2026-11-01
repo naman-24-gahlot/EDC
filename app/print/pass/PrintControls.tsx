@@ -20,7 +20,7 @@ export function PrintControls({ auto, next, nextMode, nextSeconds, pdfHref }: { 
   const btn = 'inline-flex min-h-12 items-center justify-center rounded-lg px-5 text-base font-semibold';
   return (
     <div className="flex flex-wrap items-center gap-2 print:hidden">
-      <button type="button" onClick={() => window.print()} className={`${btn} bg-gray-900 text-white`}>{printed ? 'Print again' : 'Print'}</button>
+      <button type="button" onClick={() => window.print()} className={`${btn} bg-iim-navy text-white`}>{printed ? 'Print again' : 'Print'}</button>
       {!next && <a href={pdfHref} className={`${btn} border border-gray-300 bg-white`}>Download PDF</a>}
       {next && <NextPerson href={next} mode={nextMode} seconds={nextSeconds} start={!auto || printed} />}
     </div>

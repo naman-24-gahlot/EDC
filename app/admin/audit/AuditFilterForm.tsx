@@ -86,7 +86,7 @@ export function AuditFilterForm({ groups, selected, from, to, order, person, eve
         </label>
       </div>
       <div className="flex flex-wrap gap-2">
-        <button type="submit" disabled={ticked.size === 0} className="min-h-10 rounded bg-gray-900 px-4 text-sm font-medium text-white disabled:opacity-50 md:min-h-9">Apply</button>
+        <button type="submit" disabled={ticked.size === 0} className="min-h-10 rounded bg-iim-navy px-4 text-sm font-medium text-white disabled:opacity-50 md:min-h-9">Apply</button>
         <button type="submit" formAction="/api/admin/export/audit" disabled={ticked.size === 0} className="min-h-10 rounded border border-gray-400 bg-white px-4 text-sm font-medium disabled:opacity-50 md:min-h-9">
           Download these as CSV
         </button>

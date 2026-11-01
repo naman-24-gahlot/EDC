@@ -8,6 +8,7 @@ import { getCurrentEntitlement } from '@/lib/access/entitlements';
 import { evaluateAccess } from '@/lib/access/evaluate';
 import { windowSummary } from '@/lib/display';
 import { DeleteMyData } from '@/components/DeleteMyData';
+import { IimMark } from '@/components/brand/Logos';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Visitor pass — EDC', robots: { index: false, follow: false } };
@@ -47,12 +48,13 @@ export default async function VisitorPassPage({ params }: { params: Promise<{ to
   return (
     <main className="mx-auto w-full max-w-md px-4 py-6 text-[#1B2A38]">
       <section className="overflow-hidden rounded-[22px] border border-[#D5DDE4] bg-[#F7F9FB] shadow-sm">
-        <header className="flex items-center gap-3 border-b-[3px] border-[#DB3B51] bg-gradient-to-r from-[#004180] to-[#0D5B7A] px-5 py-3 text-white">
+        <header className="flex items-center gap-3 border-b-[3px] border-iim-red bg-gradient-to-r from-iim-navy to-iim-blue px-5 py-3 text-white">
           <div>
             <h1 className="text-sm font-bold tracking-[.12em]">{person.profileType === 'visitor' ? 'EDC VISITOR PASS' : person.profileType === 'event_guest' ? 'EDC EVENT PASS' : 'EDC ENTRY PASS'}</h1>
             <p className="text-[11px] uppercase tracking-[.06em] opacity-85">IIM Jammu · EDC</p>
           </div>
           {person.vvip === true && <span className="ml-auto rounded bg-purple-200 px-2 py-0.5 text-xs font-extrabold text-purple-950">VVIP</span>}
+          <span className={`${person.vvip === true ? '' : 'ml-auto '}rounded-lg bg-white p-1 shadow-sm ring-1 ring-white/50`}><IimMark className="h-9" /></span>
         </header>
         <div className="flex flex-col items-center gap-3 px-5 py-5 text-center">
           <p className="text-xl font-bold">{person.firstName} {person.lastName}</p>
@@ -66,7 +68,7 @@ export default async function VisitorPassPage({ params }: { params: Promise<{ to
           </p>
         </div>
       </section>
-      <a href={`/print/pass?t=${encodeURIComponent(token)}`} className="mt-4 flex min-h-11 items-center justify-center rounded-lg border border-[#0D5B7A] text-sm font-semibold text-[#0D5B7A]">Print as an ID card / save PDF</a>
+      <a href={`/print/pass?t=${encodeURIComponent(token)}`} className="mt-4 flex min-h-11 items-center justify-center rounded-lg border border-iim-navy text-sm font-semibold text-iim-navy">Print as an ID card / save PDF</a>
       <p className="mt-3 text-center text-xs text-gray-500">Keep this link to yourself — it works as your pass until it ends.</p>
       {canDelete && <DeleteMyData token={token} />}
     </main>

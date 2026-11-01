@@ -77,7 +77,7 @@ function WindowFields({ value, onChange }: { value: Window; onChange: (w: Window
           return (
             <button type="button" key={d} aria-pressed={on}
               onClick={() => onChange({ ...value, weekdays: on ? value.weekdays.filter((x) => x !== i) : [...value.weekdays, i].sort() })}
-              className={`min-h-10 min-w-11 rounded px-2 py-1 text-xs font-semibold md:min-h-0 md:min-w-0 ${on ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 ring-1 ring-gray-300'}`}>
+              className={`min-h-10 min-w-11 rounded px-2 py-1 text-xs font-semibold md:min-h-0 md:min-w-0 ${on ? 'bg-iim-navy text-white' : 'bg-white text-gray-600 ring-1 ring-gray-300'}`}>
               {d}
             </button>
           );
@@ -171,7 +171,7 @@ function ProfileForm({ person, eligibleParents, templates, details, current, set
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        <button type="submit" disabled={!dirty || busy} className={`${btn} border-gray-900 bg-gray-900 text-white`}>{busy ? 'Saving…' : 'Save changes'}</button>
+        <button type="submit" disabled={!dirty || busy} className={`${btn} border-iim-navy bg-iim-navy text-white`}>{busy ? 'Saving…' : 'Save changes'}</button>
         {dirty && !busy && (
           <button type="button" className={`${btn} border-gray-300`} onClick={() => { setInfo(details); setType(person.profileType ?? ''); setParent(person.parentId ?? TOP_LEVEL); }}>Undo</button>
         )}

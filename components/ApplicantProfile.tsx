@@ -74,7 +74,7 @@ export function ApplicantProfile({ personId, label = 'View profile' }: { personI
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={toggle} aria-expanded={open} className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-[#0D5B7A] underline underline-offset-2 md:min-h-0">
+      <button type="button" onClick={toggle} aria-expanded={open} className="inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-iim-navy underline underline-offset-2 md:min-h-0">
         {open ? 'Hide profile' : label}
       </button>
       <MotionConfig reducedMotion="user">
@@ -112,7 +112,7 @@ export function ApplicantProfile({ personId, label = 'View profile' }: { personI
                     </label>
                   ))}
                   <div className="flex gap-2 sm:col-span-2">
-                    <button type="submit" disabled={busy} className="min-h-10 rounded bg-gray-900 px-3 text-sm font-medium text-white disabled:opacity-50 md:min-h-8">{busy ? 'Saving…' : 'Save changes'}</button>
+                    <button type="submit" disabled={busy} className="min-h-10 rounded bg-iim-navy px-3 text-sm font-medium text-white disabled:opacity-50 md:min-h-8">{busy ? 'Saving…' : 'Save changes'}</button>
                     <button type="button" onClick={() => setEditing(false)} className="min-h-10 rounded border border-gray-300 px-3 text-sm md:min-h-8">Cancel</button>
                   </div>
                 </form>

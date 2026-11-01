@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SpotlightTracker } from "@/components/SpotlightTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
   icons: { apple: "/app-icon/180" },
 };
 
-export const viewport: Viewport = { themeColor: "#0D5B7A" };
+export const viewport: Viewport = { themeColor: "#273A90" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -28,7 +29,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <SpotlightTracker />
+      </body>
     </html>
   );
 }

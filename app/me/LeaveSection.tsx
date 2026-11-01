@@ -48,7 +48,7 @@ export function LeaveSection({ leave }: { leave: MyLeave[] }) {
         <label className="space-y-1 text-sm sm:col-span-3"><span className="block font-medium">Reason</span>
           <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required maxLength={200} className={input} /></label>
         <div className="sm:col-span-3">
-          <button type="submit" disabled={busy !== null} className="inline-flex min-h-10 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white disabled:opacity-50 md:min-h-8">{busy === 'new' ? 'Sending…' : 'Ask for leave'}</button>
+          <button type="submit" disabled={busy !== null} className="inline-flex min-h-10 items-center rounded bg-iim-navy px-4 text-sm font-medium text-white disabled:opacity-50 md:min-h-8">{busy === 'new' ? 'Sending…' : 'Ask for leave'}</button>
         </div>
       </form>
       {msg && <p className={`text-sm ${msg.ok ? 'text-emerald-700' : 'text-red-700'}`} role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>}

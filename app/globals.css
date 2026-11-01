@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* IIM Jammu brand (sampled from the logos in public/brand): navy = "IIM" lettering and outlines, blue =
+   the bird, red = the sun and the divider, maroon = the Hindi motto. Used as text-iim-navy, bg-iim-blue/20 … */
+@theme {
+  --color-iim-navy: #273a90;
+  --color-iim-blue: #007ec4;
+  --color-iim-sky: #e6f1fa;
+  --color-iim-red: #d71921;
+  --color-iim-maroon: #ad1b1f;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -178,7 +188,7 @@ details[open]::details-content {
   .lift:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 24px -12px rgb(10 40 60 / 0.25);
-    border-color: rgb(13 91 122 / 0.35);
+    border-color: rgb(0 126 196 / 0.4);
   }
 }
 
@@ -259,6 +269,106 @@ input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="r
 select:focus-visible,
 textarea:focus-visible {
   outline: none;
-  border-color: #0d5b7a;
-  box-shadow: 0 0 0 4px rgb(13 91 122 / 0.14);
+  border-color: #273a90;
+  box-shadow: 0 0 0 4px rgb(0 126 196 / 0.18);
+}
+
+/* ── IIM Jammu brand pieces ───────────────────────────────────────────────────────────── */
+/* The rule under every page header: navy into blue, with the logo's red divider at the start. */
+.brand-rule {
+  height: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--color-iim-red) 0 56px, transparent 56px 62px, var(--color-iim-navy) 62px, var(--color-iim-blue) 70%, rgb(0 126 196 / 0.15));
+}
+
+/* The ASCII logo's plain <img>: appears on its own only if the canvas never takes over
+   (no JavaScript) — otherwise it would flash before the ASCII intro. */
+.ascii-fallback {
+  animation: fallback-in 300ms ease-out 1400ms backwards;
+}
+@keyframes fallback-in {
+  from { opacity: 0; }
+}
+
+/* Border beam (sign-in card): a short brand-coloured light travelling round the edge. */
+@property --beam-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.beam {
+  position: relative;
+}
+.beam::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from var(--beam-angle), transparent 0 70%, rgb(0 126 196 / 0.9) 82%, rgb(215 25 33 / 0.85) 90%, transparent 97%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: beam 7s linear infinite;
+  pointer-events: none;
+}
+@keyframes beam {
+  to { --beam-angle: 360deg; }
+}
+
+/* Background paths (sign-in backdrop): light flowing along curves like the logo's wing stripes. */
+.flow-path {
+  stroke-dasharray: 160 1500;
+  animation: flow 22s linear infinite;
+}
+@keyframes flow {
+  to { stroke-dashoffset: -1660; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* A sheen crosses the main button under the mouse. */
+  .btn-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-120%) skewX(-20deg);
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.28), transparent);
+    transition: transform 650ms var(--ease-out);
+    pointer-events: none;
+  }
+  .btn-sheen:hover::after {
+    transform: translateX(120%) skewX(-20deg);
+  }
+  /* Spotlight cards: a soft light follows the mouse (position set by components/SpotlightTracker.tsx). */
+  .spotlight {
+    position: relative;
+    isolation: isolate;
+  }
+  .spotlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(260px circle at var(--x, 50%) var(--y, 50%), rgb(0 126 196 / 0.09), transparent 65%);
+    opacity: 0;
+    transition: opacity 200ms ease;
+    pointer-events: none;
+  }
+  .spotlight:hover::before {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ascii-fallback, .beam::before, .flow-path { animation: none; }
+  .beam::before { display: none; }
+  .btn-sheen::after { display: none; }
+}
+@media print {
+  .beam::before, .flow-path { display: none; }
 }

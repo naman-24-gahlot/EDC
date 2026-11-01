@@ -72,7 +72,7 @@ export function CreatePersonForm() {
       )}
 
       {!open ? (
-        <button onClick={() => setOpen(true)} className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white">
+        <button onClick={() => setOpen(true)} className="rounded bg-iim-navy px-3 py-2 text-sm font-medium text-white">
           Create person under me
         </button>
       ) : (
@@ -95,7 +95,7 @@ export function CreatePersonForm() {
           <p className="text-xs text-gray-500">They&apos;re approved immediately (you are their approver) and get a one-time password to sign in.</p>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={busy} className="rounded bg-gray-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{busy ? 'Creating…' : 'Create'}</button>
+            <button type="submit" disabled={busy} className="rounded bg-iim-navy px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{busy ? 'Creating…' : 'Create'}</button>
             <button type="button" onClick={() => setOpen(false)} disabled={busy} className="rounded border border-gray-300 px-3 py-2 text-sm">Cancel</button>
           </div>
         </form>

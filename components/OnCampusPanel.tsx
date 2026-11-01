@@ -64,10 +64,10 @@ export function OnCampusPanel({ people: initial, summary }: { people?: OnCampus[
         <div className="mt-2 space-y-2">
           <div className="flex flex-wrap gap-1.5 print:hidden" role="group" aria-label="Headcount by group">
             <button type="button" onClick={() => setGroup(null)} aria-pressed={group === null}
-              className={`min-h-9 rounded-full px-3 text-xs font-semibold ${group === null ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}>All {people.length}</button>
+              className={`min-h-9 rounded-full px-3 text-xs font-semibold ${group === null ? 'bg-iim-navy text-white' : 'bg-gray-100 text-gray-700'}`}>All {people.length}</button>
             {groups.map(([g, n]) => (
               <button type="button" key={g} onClick={() => setGroup(g === group ? null : g)} aria-pressed={group === g}
-                className={`min-h-9 rounded-full px-3 text-xs font-semibold ${group === g ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700'}`}>{g} {n}</button>
+                className={`min-h-9 rounded-full px-3 text-xs font-semibold ${group === g ? 'bg-iim-navy text-white' : 'bg-gray-100 text-gray-700'}`}>{g} {n}</button>
             ))}
           </div>
           <ul className="divide-y divide-gray-100 text-sm">

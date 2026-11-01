@@ -83,6 +83,13 @@ Running out stops everything until the daily reset, and the gate fails closed. S
 - The guard screen shows counts; "on campus now" lists load on demand.
 - New public endpoints: think about what a bot hitting them 1,000 times costs.
 
+## Brand (IIM Jammu)
+Logos in `public/brand` (`components/brand/Logos.tsx`): the wide lockup in page headers (`RoleHeader`), the upright mark on
+phones and pass headers. Colours from the logos as Tailwind tokens: `iim-navy` #273A90 (text, outlines, buttons), `iim-blue`
+#007EC4, `iim-sky` (tints), `iim-red` #D71921 (dividers, accents), `iim-maroon`. No new hex accents — use the tokens.
+Sign-in and registration: `AuthBackdrop` + `AuthBrand` (the ASCII logo, `components/brand/AsciiLogo.tsx`, and a title that
+decodes, `DecodeText`). The printed/PDF pass (`lib/passCard.ts`) keeps its own colours.
+
 ## Motion (app/globals.css "Motion")
 Polish that people feel, not notice. Tokens: `--ease-out` (enter/exit), `--ease-in-out` (moving on screen), `--ease-drawer`.
 - Animate `transform`/`opacity` only (height only for expanding panels). UI motion < 300 ms; never `ease-in`; never `scale(0)` (start at 0.95+).

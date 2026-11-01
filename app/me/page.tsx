@@ -248,13 +248,13 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
           // eslint-disable-next-line @next/next/no-img-element -- data: URL from the person doc
           <img src={photo} alt="" className="h-14 w-14 rounded-full object-cover" />
         ) : (
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#DCEAF1] font-semibold text-[#0D5B7A]">{me.firstName[0]}{me.lastName[0]}</div>
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-iim-sky font-semibold text-iim-navy">{me.firstName[0]}{me.lastName[0]}</div>
         )}
         <div className="min-w-0">
           <h1 className="text-xl font-bold">{name}</h1>
           <p className="text-sm text-[#46596B]">{me.profileType ? PROFILE_LABEL[me.profileType] : '—'}</p>
         </div>
-        {isMaster && <Link href="/admin" className="inline-flex min-h-10 items-center md:min-h-0 ml-auto text-sm font-medium text-[#0D5B7A] underline">Admin dashboard →</Link>}
+        {isMaster && <Link href="/admin" className="inline-flex min-h-10 items-center md:min-h-0 ml-auto text-sm font-medium text-iim-navy underline">Admin dashboard →</Link>}
       </div>
       <DataStamp fetchedAt={fetchedAtNow()} pageParams={['people', 'requests']} />
       {!account.emailVerified && account.email && <VerifyEmailBanner email={account.email} />}
@@ -291,8 +291,8 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
           <Row label="Hours" value={period ? `${period.startTime}–${period.endTime}` : '—'} />
         </dl>
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          <Link href="/me/pass" className="inline-flex min-h-10 items-center rounded bg-[#0D5B7A] px-4 text-sm font-semibold text-white">Open my entry pass</Link>
-          <Link href="/print/pass" className="inline-flex min-h-10 items-center rounded border border-[#0D5B7A] px-4 text-sm font-semibold text-[#0D5B7A]">Print / PDF ID card</Link>
+          <Link href="/me/pass" className="inline-flex min-h-10 items-center rounded bg-iim-navy px-4 text-sm font-semibold text-white">Open my entry pass</Link>
+          <Link href="/print/pass" className="inline-flex min-h-10 items-center rounded border border-iim-navy px-4 text-sm font-semibold text-iim-navy">Print / PDF ID card</Link>
           {me.registrationStatus === 'APPROVED' && <ReissueButton />}
         </div>
       </Section>

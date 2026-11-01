@@ -242,7 +242,7 @@ export function GuardScanner() {
             key={m}
             onClick={() => setMode(m)}
             className={`px-3 py-2 text-sm font-medium ${
-              mode === m ? 'border-b-2 border-gray-900 text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              mode === m ? 'border-b-2 border-iim-navy text-gray-900' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             {m === 'camera' ? 'Camera scan' : 'Type a code / USB scanner'}
@@ -275,7 +275,7 @@ export function GuardScanner() {
           <button
             type="submit"
             disabled={verifying || manualValue.trim().length === 0}
-            className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded bg-iim-navy px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {verifying ? 'Checking…' : 'Verify'}
           </button>

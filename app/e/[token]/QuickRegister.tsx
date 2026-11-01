@@ -80,7 +80,7 @@ export function QuickRegister({ token, source, emailPass, autoApprove, kiosk, ki
         <HumanCheck key={humanRound} onToken={setHumanToken} />
         {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
         <button type="submit" disabled={busy || (mobile !== null && !mobile.ok) || (humanCheckOn && !humanToken)}
-          className="flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0D5B7A] text-base font-semibold text-white disabled:opacity-50">
+          className="flex min-h-12 w-full items-center justify-center rounded-lg bg-iim-navy text-base font-semibold text-white disabled:opacity-50">
           {busy ? 'Registering…' : autoApprove ? 'Register and get my pass' : 'Register'}
         </button>
         <p className="text-xs text-gray-500">No password needed. Your name, mobile{f.email ? ', email' : ''} and photo (if added) are kept by EDC for this event’s entry records.</p>

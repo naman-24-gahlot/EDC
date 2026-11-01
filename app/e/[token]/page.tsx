@@ -37,7 +37,7 @@ export default async function EventRegistrationPage({ params, searchParams }: { 
   const source = parseSource({ source: q.utm_source, medium: q.utm_medium, campaign: q.utm_campaign });
   const header = (
     <div className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[#0D5B7A]">Event registration · EDC</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-iim-navy">Event registration · EDC</p>
       <h1 className="text-2xl font-bold" data-testid="event-name">{event.name}</h1>
       {event.details && <p className="whitespace-pre-line text-sm text-gray-700">{event.details}</p>}
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">

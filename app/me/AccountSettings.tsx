@@ -126,7 +126,7 @@ export function AccountSettings({ initial, username, photo: savedPhoto }: { init
           <div className="space-y-1"><label htmlFor="as-purpose" className="text-sm font-medium">Profile / Purpose</label><input id="as-purpose" value={details.purpose} onChange={(e) => setDetails({ ...details, purpose: e.target.value })} required className={input} /></div>
           <div className="space-y-1"><label htmlFor="as-backup" className="text-sm font-medium">Backup email <span className="font-normal text-gray-500">(optional — also gets password-reset links and approval emails; leave empty to remove)</span></label><input id="as-backup" type="email" value={details.backupEmail} onChange={(e) => setDetails({ ...details, backupEmail: e.target.value })} className={input} /></div>
           <p className="text-xs text-gray-500">Username and email can’t be changed here.</p>
-          <button type="submit" disabled={busy} className={`${btn} bg-gray-900 text-white`}>{busy ? 'Saving…' : 'Save details'}</button>
+          <button type="submit" disabled={busy} className={`${btn} bg-iim-navy text-white`}>{busy ? 'Saving…' : 'Save details'}</button>
         </form>
       )}
 
@@ -134,7 +134,7 @@ export function AccountSettings({ initial, username, photo: savedPhoto }: { init
         <div className="space-y-3 rounded border border-gray-200 bg-white p-4" aria-label="My photo">
           <PhotoInput value={photo} onChange={setPhoto} label="My photo" hint="guards see it at the gate" />
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={savePhoto} disabled={busy || photo === savedPhoto} className={`${btn} bg-gray-900 text-white`}>{busy ? 'Saving…' : 'Save photo'}</button>
+            <button type="button" onClick={savePhoto} disabled={busy || photo === savedPhoto} className={`${btn} bg-iim-navy text-white`}>{busy ? 'Saving…' : 'Save photo'}</button>
             <button type="button" onClick={() => { setPhoto(savedPhoto); setPanel(null); }} className={`${btn} border border-gray-300`}>Cancel</button>
           </div>
         </div>
@@ -149,7 +149,7 @@ export function AccountSettings({ initial, username, photo: savedPhoto }: { init
           <PasswordField id="as-new" label="New password" value={pw.next} onChange={(v) => setPw({ ...pw, next: v })} ctx={{ username, name: `${initial.firstName} ${initial.lastName}` }} onVerdict={setPwVerdict} />
           <div className="space-y-1"><label htmlFor="as-conf" className="text-sm font-medium">Repeat new password</label><input id="as-conf" type="password" autoComplete="new-password" minLength={8} value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} required className={input} /></div>
           <p className="text-xs text-gray-500">At least 8 characters. Changing it signs you out on every other device.</p>
-          <button type="submit" disabled={busy || pwVerdict !== 'ok' || pw.next !== pw.confirm || !pw.current} className={`${btn} bg-gray-900 text-white`}>{busy ? 'Changing…' : 'Change password'}</button>
+          <button type="submit" disabled={busy || pwVerdict !== 'ok' || pw.next !== pw.confirm || !pw.current} className={`${btn} bg-iim-navy text-white`}>{busy ? 'Changing…' : 'Change password'}</button>
         </form>
       )}
     </div>

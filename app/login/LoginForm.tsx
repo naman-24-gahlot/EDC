@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ROLE_HOME_PATH, isSystemRole } from '@/lib/roles';
 import { RequestError, sendJson } from '@/lib/clientFetch';
-import { AuthBackdrop, EdcMark, authCard, primaryButton } from '@/components/AuthBackdrop';
+import { AuthBackdrop, AuthBrand, authCard, primaryButton } from '@/components/AuthBackdrop';
 
 export function LoginForm({ notice }: { notice: string | null }) {
   const [identifier, setIdentifier] = useState('');
@@ -36,15 +36,9 @@ export function LoginForm({ notice }: { notice: string | null }) {
       <AuthBackdrop />
       <form
         onSubmit={handleSubmit}
-        className={`${authCard} stagger space-y-4`}
+        className={`${authCard} beam stagger space-y-4`}
       >
-        <div className="flex items-center gap-3">
-          <EdcMark />
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight">EDC Access Management</h1>
-            <p className="text-sm text-gray-500">Sign in with your EDC account.</p>
-          </div>
-        </div>
+        <AuthBrand title="EDC Access Management" subtitle="Sign in with your EDC account." />
 
         <div className="space-y-1">
           <label htmlFor="identifier" className="text-sm font-medium">
@@ -96,12 +90,12 @@ export function LoginForm({ notice }: { notice: string | null }) {
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
 
-        <p className="-mt-2 text-right text-sm"><Link href="/forgot" className="inline-flex min-h-10 items-center text-[#0D5B7A] underline md:min-h-0">Forgot password?</Link></p>
+        <p className="-mt-2 text-right text-sm"><Link href="/forgot" className="inline-flex min-h-10 items-center text-iim-navy underline md:min-h-0">Forgot password?</Link></p>
 
         <div className="space-y-2 border-t border-gray-100 pt-4 text-sm">
           <p>
             New to EDC?{' '}
-            <Link href="/register" className="inline-flex min-h-10 items-center font-medium text-[#0D5B7A] underline md:min-h-0">Register here</Link>
+            <Link href="/register" className="inline-flex min-h-10 items-center font-medium text-iim-navy underline md:min-h-0">Register here</Link>
           </p>
           <details className="text-xs text-gray-600">
             <summary className="inline-flex min-h-10 cursor-pointer items-center md:min-h-0">Already registered and stuck?</summary>
