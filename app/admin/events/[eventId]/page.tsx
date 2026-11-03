@@ -107,7 +107,7 @@ export default async function AdminEventPage({ params, searchParams }: { params:
       {byChannel.size > 0 && (
         <section className="space-y-2">
           <h3 className="text-sm font-semibold">Sign-ups by channel</h3>
-          <div className="overflow-x-auto rounded border border-gray-200">
+          <div className="table-card overflow-x-auto">
             <table className="rtable w-full text-left text-sm">
               <thead className="bg-gray-50 text-xs uppercase text-gray-500"><tr><th className="px-3 py-2">Shared via</th><th className="px-3 py-2">Registered</th><th className="px-3 py-2">Approved</th></tr></thead>
               <tbody className="divide-y divide-gray-200">

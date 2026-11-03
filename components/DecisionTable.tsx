@@ -118,7 +118,7 @@ export function DecisionTable({ kind, headers, labels, rows, approveTypes, empty
       {rows.length === 0 ? (
         <p className="text-sm text-gray-400">{empty}</p>
       ) : (
-        <div className="overflow-x-auto rounded border border-gray-200">
+        <div className="table-card overflow-x-auto">
           <table className="rtable w-full text-left text-sm">
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>

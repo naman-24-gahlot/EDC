@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { PasswordField, type PasswordVerdict } from '@/components/PasswordField';
 import type { StrengthContext } from '@/lib/passwordStrength';
 import { RequestError, sendJson } from '@/lib/clientFetch';
-import { AuthBackdrop, authCard } from '@/components/AuthBackdrop';
+import { authCard } from '@/components/AuthBackdrop';
+import { AuthScene } from '@/components/brand/AuthScene';
 
 export function ResetForm({ oobCode, email, ctx }: { oobCode: string; email: string; ctx: StrengthContext }) {
   const [verdict, setVerdict] = useState<PasswordVerdict>('blocked');
@@ -34,7 +35,7 @@ export function ResetForm({ oobCode, email, ctx }: { oobCode: string; email: str
 
   return (
     <main className="relative flex flex-1 items-center justify-center px-4 py-8">
-      <AuthBackdrop />
+      <AuthScene />
       {done ? (
         <div className={`${authCard} stagger space-y-3`} role="status">
           <h1 className="text-lg font-semibold">Password changed</h1>

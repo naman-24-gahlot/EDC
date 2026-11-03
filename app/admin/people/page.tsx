@@ -193,7 +193,7 @@ export default async function AdminPeoplePage({ searchParams }: { searchParams: 
 
 function PeopleTable({ rows }: { rows: PersonCardData[] }) {
   return (
-    <div className="overflow-x-auto rounded border border-gray-200">
+    <div className="table-card overflow-x-auto">
       <table className="rtable w-full text-left text-sm">
         <thead className="bg-gray-50 text-xs uppercase text-gray-500">
           <tr>

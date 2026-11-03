@@ -93,6 +93,11 @@ Behind them, `AuthScene`: on wide screens `CampusHero` (`components/brand/Campus
 entrepreneurship programmes, campus), 800×450 WebP in `public/landing`, streaming round a curve (`components/ui/TiltedGridHero.tsx`,
 the user's component; `cn` from `lib/utils.ts`); on phones a soft cross-fade of the photos instead (no band). Add a photo: crop to 16:9, ≤ 70 KB, add it to `CAMPUS_PHOTOS`.
 
+Signed-in frame: `components/shell/AppShell.tsx` (adapted from 21st.dev "Dashboard Shell") for /admin and /me — grouped sidebar
+with icons (lucide-react) and streamed waiting-count badges, icon-rail collapse, drawer on phones, breadcrumb header.
+Lists use `.table-card` + `table.rtable`, filters `.chip`/`.chip-on` (globals.css). Design new UI from 21st.dev components
+(MCP connected; free plan = 2 code downloads a day), not invented layouts. The guard screen keeps its own simple header.
+
 ## Motion (app/globals.css "Motion")
 Polish that people feel, not notice. Tokens: `--ease-out` (enter/exit), `--ease-in-out` (moving on screen), `--ease-drawer`.
 - Animate `transform`/`opacity` only (height only for expanding panels). UI motion < 300 ms; never `ease-in`; never `scale(0)` (start at 0.95+).

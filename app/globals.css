@@ -393,3 +393,67 @@ textarea:focus-visible {
 @media print {
   .ambient-slide { display: none; }
 }
+
+/* ── App shell surfaces (components/shell/AppShell.tsx; adapted from 21st.dev "Dashboard Shell") ── */
+/* Table cards: white, rounded, brand hairline. */
+.table-card {
+  border-radius: 16px;
+  border: 1px solid rgb(39 58 144 / 0.10);
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(39 58 144 / 0.06);
+}
+/* Wide screens: a soft header row, roomier rows, a quiet hover (phones keep the card view above). */
+@media (min-width: 768px) {
+  table.rtable thead {
+    background: #f1f4f9;
+    color: #8a97a6;
+  }
+  table.rtable thead th {
+    height: 2.25rem;
+    padding-top: 0;
+    padding-bottom: 0;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid rgb(39 58 144 / 0.10);
+  }
+  table.rtable tbody td {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+  table.rtable tbody tr {
+    border-color: rgb(39 58 144 / 0.08);
+    transition: background-color 100ms ease;
+  }
+  table.rtable tbody tr:hover {
+    background: #f7f9fc;
+  }
+}
+/* Filter chips: quiet until chosen; the chosen one is raised. */
+.chip {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  padding: 0 0.75rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: #5b6b7b;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.chip:hover {
+  background: #fff;
+  color: var(--color-iim-navy);
+}
+.chip-on,
+.chip-on:hover {
+  border-color: rgb(39 58 144 / 0.25);
+  background: #fff;
+  color: var(--color-iim-navy);
+  box-shadow: 0 1px 2px rgb(39 58 144 / 0.08);
+}
+@media (min-width: 768px) {
+  .chip { min-height: 1.75rem; }
+}

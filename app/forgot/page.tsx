@@ -4,7 +4,8 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { sendJson } from '@/lib/clientFetch';
 import { HumanCheck, humanCheckOn, useHumanCheck } from '@/components/HumanCheck';
-import { AuthBackdrop, authCard, primaryButton } from '@/components/AuthBackdrop';
+import { AuthBrand, authCard, primaryButton } from '@/components/AuthBackdrop';
+import { AuthScene } from '@/components/brand/AuthScene';
 
 // "Forgot password": always the same answer, whether or not the account exists.
 export default function ForgotPasswordPage() {
@@ -31,12 +32,9 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="relative flex flex-1 items-center justify-center px-4 py-8">
-      <AuthBackdrop />
-      <div className={`${authCard} stagger space-y-4`}>
-        <div>
-          <h1 className="text-lg font-semibold">Forgot your password?</h1>
-          <p className="text-sm text-gray-500">We&apos;ll email a link to set a new one, to the email address you registered with.</p>
-        </div>
+      <AuthScene />
+      <div className={`${authCard} beam stagger space-y-4`}>
+        <AuthBrand title="Forgot your password?" subtitle="We’ll email a link to set a new one, to the email address you registered with." />
         {done ? (
           <div className="space-y-3" role="status">
             <p className="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">{done}</p>

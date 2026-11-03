@@ -25,13 +25,13 @@ export function Chips({ label, param, options, current, path, params, pageParam 
   };
   return (
     <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={label}>
-      <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
+      <span className="mr-1 font-mono text-[10.5px] uppercase tracking-[0.1em] text-[#8A97A6]">{label}</span>
       {options.map(([value, text, count]) => {
         const on = value === current;
         return (
           <Link key={value} href={href(value)} scroll={false} aria-current={on ? 'true' : undefined}
-            className={`inline-flex min-h-9 items-center gap-1 rounded-full px-3 text-xs font-medium md:min-h-7 ${on ? 'bg-iim-navy text-white' : 'bg-white text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50'}`}>
-            {text}{count !== undefined && <span className={on ? 'text-gray-300' : 'text-gray-400'}>{count}</span>}
+            className={`chip ${on ? 'chip-on' : ''}`}>
+            {text}{count !== undefined && <span className="font-mono text-[11px] tabular-nums opacity-60">{count}</span>}
           </Link>
         );
       })}

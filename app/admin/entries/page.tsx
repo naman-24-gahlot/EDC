@@ -91,7 +91,7 @@ export default async function AdminEntriesPage({ searchParams }: { searchParams:
         <DataStamp fetchedAt={fetchedAtNow()} pageParams={['page']} />
       </div>
       {building ? <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">This combination of filters is still being prepared by the database (a few minutes after an update). Try again shortly, or change a filter.</p> : rows.length === 0 ? <p className="text-sm text-gray-400">Nothing matches{person ? ' for this person' : ''}.</p> : (
-        <div className="overflow-x-auto rounded border border-gray-200">
+        <div className="table-card overflow-x-auto">
           <table className="rtable w-full text-left text-sm">
             <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>

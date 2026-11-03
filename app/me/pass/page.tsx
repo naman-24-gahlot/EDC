@@ -8,7 +8,6 @@ import { accessCodeFor } from '@/lib/access/codes';
 import { effectiveStatus, getCurrentEntitlement } from '@/lib/access/entitlements';
 import { decideAccess } from '@/lib/access/evaluate';
 import { passTokenFor } from '@/lib/access/credential';
-import { LogoutButton } from '@/components/LogoutButton';
 import { PassQr } from './PassQr';
 import { fetchedAtNow } from '@/lib/paging';
 import { DataStamp } from '@/components/DataStamp';
@@ -41,11 +40,7 @@ export default async function PassPage() {
   const photo = typeof person.photoDataUrl === 'string' ? person.photoDataUrl : null;
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 py-6 font-sans text-[#1B2A38]">
-      <div className="mb-4 flex items-center justify-between">
-        <Link href="/me" className="inline-flex min-h-10 items-center md:min-h-0 text-sm font-semibold text-iim-navy">← My account</Link>
-        <LogoutButton />
-      </div>
+    <div className="mx-auto w-full max-w-md font-sans text-[#1B2A38]">
       <div className="mb-3"><DataStamp fetchedAt={fetchedAtNow()} /></div>
 
       <section className="pass-reveal overflow-hidden rounded-[22px] border border-[#D5DDE4] bg-[#F7F9FB] shadow-[0_4px_16px_rgba(10,40,60,.10),0_1px_3px_rgba(10,40,60,.07)]">
@@ -125,6 +120,6 @@ export default async function PassPage() {
         </footer>
       </section>
       <Link href="/print/pass" className="mt-4 flex min-h-11 items-center justify-center rounded-lg border border-iim-navy text-sm font-semibold text-iim-navy" data-testid="print-pass">Print as an ID card / save PDF</Link>
-    </main>
+    </div>
   );
 }

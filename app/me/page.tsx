@@ -8,7 +8,6 @@ import { accessCodeFor, isProfileType } from '@/lib/access/codes';
 import { currentEntitlementsFor, effectiveStatus, getCurrentEntitlement, templateWindow } from '@/lib/access/entitlements';
 import { listApprovalQueue, listRequestsFor } from '@/lib/access/requests';
 import { fetchedAtNow, paginate, parsePage } from '@/lib/paging';
-import { RoleHeader } from '@/components/RoleHeader';
 import { SkeletonBlock } from '@/components/Skeleton';
 import { Pager } from '@/components/Pager';
 import { DataStamp } from '@/components/DataStamp';
@@ -48,8 +47,8 @@ function Pill({ status }: { status: string }) {
 
 function Section({ title, id, children }: { title: string; id: string; children: React.ReactNode }) {
   return (
-    <section aria-labelledby={id} className="space-y-3 rounded-xl border border-[#D5DDE4] bg-[#F7F9FB] p-4">
-      <h2 id={id} className="text-sm font-semibold uppercase tracking-wide text-[#46596B]">{title}</h2>
+    <section aria-labelledby={id} className="table-card space-y-3 p-4 sm:p-5">
+      <h2 id={id} className="text-[13.5px] font-semibold text-iim-navy">{title}</h2>
       {children}
     </section>
   );
@@ -57,7 +56,7 @@ function Section({ title, id, children }: { title: string; id: string; children:
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap justify-between gap-x-4 gap-y-0.5 border-b border-dashed border-[#D5DDE4] py-1.5 text-sm last:border-0">
+    <div className="flex flex-wrap justify-between gap-x-4 gap-y-0.5 border-b border-iim-navy/[0.07] py-2 text-sm last:border-0">
       <dt className="text-[#7C8C9B]">{label}</dt>
       <dd className="min-w-0 break-words text-right font-medium">{value}</dd>
     </div>
@@ -240,8 +239,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
     ? { appliedAs: rawNotice.appliedAs, approvedAs: rawNotice.approvedAs } : null;
 
   return (
-    <main className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6 text-[#1B2A38]">
-      <RoleHeader role={user.systemRole} subtitle={me.username} />
+    <div className="mx-auto w-full max-w-2xl space-y-4">
 
       <div className="flex flex-wrap items-center gap-3">
         {photo ? (
@@ -361,7 +359,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<M
           <PeopleSection user={user} me={me} params={params} />
         </Suspense>
       )}
-    </main>
+    </div>
   );
 }
 
