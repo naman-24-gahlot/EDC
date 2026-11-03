@@ -372,3 +372,24 @@ textarea:focus-visible {
 @media print {
   .beam::before, .flow-path { display: none; }
 }
+
+/* Phones, sign-in/registration (components/brand/AuthScene.tsx): six photos, 7 s each, cross-fading
+   with a slow zoom (transform/opacity only). Reduced motion: the first photo, still. */
+.ambient-slide {
+  opacity: 0;
+  animation: ambient 42s linear infinite;
+}
+@keyframes ambient {
+  0% { opacity: 0; transform: scale(1.02); }
+  4% { opacity: 1; }
+  16.7% { opacity: 1; }
+  21% { opacity: 0; transform: scale(1.12); }
+  100% { opacity: 0; transform: scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ambient-slide { animation: none; }
+  .ambient-slide:first-child { opacity: 1; }
+}
+@media print {
+  .ambient-slide { display: none; }
+}

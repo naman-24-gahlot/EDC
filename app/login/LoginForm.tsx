@@ -4,8 +4,8 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { ROLE_HOME_PATH, isSystemRole } from '@/lib/roles';
 import { RequestError, sendJson } from '@/lib/clientFetch';
-import { AuthBackdrop, AuthBrand, authCard, primaryButton } from '@/components/AuthBackdrop';
-import { CampusHero } from '@/components/brand/CampusHero';
+import { AuthBrand, authCard, primaryButton } from '@/components/AuthBackdrop';
+import { AuthScene } from '@/components/brand/AuthScene';
 
 export function LoginForm({ notice }: { notice: string | null }) {
   const [identifier, setIdentifier] = useState('');
@@ -33,15 +33,11 @@ export function LoginForm({ notice }: { notice: string | null }) {
   }
 
   return (
-    <main className="relative flex flex-1 flex-col items-center px-4 pb-8 pt-[28vh] md:justify-center md:py-8">
-      <AuthBackdrop />
-      {/* Campus photos: a band across the top on phones, curving round the card on wider screens. */}
-      <div className="absolute inset-x-0 top-0 h-[36vh] md:inset-0 md:h-auto">
-        <CampusHero className="h-full w-full" />
-      </div>
+    <main className="relative flex flex-1 items-center justify-center px-4 py-8">
+      <AuthScene />
       <form
         onSubmit={handleSubmit}
-        className={`${authCard} beam stagger relative z-10 space-y-4`}
+        className={`${authCard} beam stagger space-y-4`}
       >
         <AuthBrand title="EDC Access Management" subtitle="Sign in with your EDC account." />
 

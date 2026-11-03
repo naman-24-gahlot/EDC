@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { TiltedGridHero, type TiltedGridImage } from '@/components/ui/TiltedGridHero';
 
 // IIM Jammu photos (official site, iimj.ac.in — CEISD / business incubator, entrepreneurship
@@ -17,20 +16,9 @@ export const CAMPUS_PHOTOS: TiltedGridImage[] = [
   { src: '/landing/cultural.webp', alt: 'Cultural programme' },
 ];
 
-// The curved, streaming row of campus photos behind the sign-in and registration pages
-// (components/ui/TiltedGridHero.tsx: transform-only, paused as a still for reduced motion).
-// Tiles are larger on phones, where the row is a band above the card rather than around it.
-export function CampusHero({ className = '', wideTile = 30, narrowTile = 62 }: { className?: string; wideTile?: number; narrowTile?: number }) {
-  const [wide, setWide] = useState(true);
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)');
-    const update = () => setWide(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-  return (
-    <TiltedGridHero images={CAMPUS_PHOTOS} className={className} tileHeight={wide ? wideTile : narrowTile}
-      axis={50} curve={wide ? 72 : 60} fade={wide ? 10 : 6} speed={4.5} gap={5} />
-  );
+// The curved, streaming row of campus photos behind the sign-in and registration cards on wide
+// screens (components/brand/AuthScene.tsx; phones get a soft background instead).
+// components/ui/TiltedGridHero.tsx: transform-only, paused as a still for reduced motion.
+export function CampusHero({ className = '' }: { className?: string }) {
+  return <TiltedGridHero images={CAMPUS_PHOTOS} className={className} tileHeight={30} axis={50} curve={72} fade={10} speed={4.5} gap={5} />;
 }

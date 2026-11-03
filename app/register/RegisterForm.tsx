@@ -11,7 +11,7 @@ import type { PasswordVerdict } from '@/components/PasswordField';
 import { PassReady, type IssuedPass } from '@/components/PassReady';
 import { useTestMode } from '@/components/useTestMode';
 import { AuthBackdrop, AuthBrand, glassCard, plainCard } from '@/components/AuthBackdrop';
-import { CampusHero } from '@/components/brand/CampusHero';
+import { AuthScene } from '@/components/brand/AuthScene';
 
 type Verdict = { ok: boolean; message: string | null };
 
@@ -188,15 +188,12 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
     );
   }
 
+  // One centred card, like sign-in: the brand and the "already registered?" line, then the form.
   return (
-    <>
-    {/* Campus photos streaming along a curve above the form. */}
-    <div className="relative h-[30vh] min-h-48 w-full md:h-[38vh]">
-      <CampusHero className="h-full w-full" wideTile={58} narrowTile={62} />
-    </div>
-    <main className="relative mx-auto -mt-[8vh] w-full max-w-md space-y-6 px-4 pb-8">
-      <AuthBackdrop />
-      <div className={`${glassCard} enter relative z-10 p-5`}>
+    <main className="relative mx-auto w-full max-w-md px-4 py-8 md:py-12">
+      <AuthScene />
+      <div className={`${plainCard} beam enter space-y-6 p-5 sm:p-6`}>
+      <div>
         {header ?? (
           <>
             <AuthBrand title="EDC Registration" subtitle="Register once — your profile stays even if access later expires." />
@@ -209,7 +206,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className={`${plainCard} enter space-y-4 p-5 sm:p-6`}>
+      <form onSubmit={handleSubmit} className="space-y-4 border-t border-gray-100 pt-6">
         {testing && (
           <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900" data-testid="testing-mode-note">
             <b>Testing mode is on:</b> name, mobile and purpose may be left blank, and test addresses (…@….test) work — their emails go to the Master’s test outbox.
@@ -304,7 +301,7 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
           </p>
         )}
       </form>
+      </div>
     </main>
-    </>
   );
 }
