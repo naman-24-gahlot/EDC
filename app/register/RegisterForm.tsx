@@ -11,6 +11,7 @@ import type { PasswordVerdict } from '@/components/PasswordField';
 import { PassReady, type IssuedPass } from '@/components/PassReady';
 import { useTestMode } from '@/components/useTestMode';
 import { AuthBackdrop, AuthBrand, glassCard, plainCard } from '@/components/AuthBackdrop';
+import { CampusHero } from '@/components/brand/CampusHero';
 
 type Verdict = { ok: boolean; message: string | null };
 
@@ -188,9 +189,14 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
   }
 
   return (
-    <main className="relative mx-auto w-full max-w-md space-y-6 px-4 py-8">
+    <>
+    {/* Campus photos streaming along a curve above the form. */}
+    <div className="relative h-[30vh] min-h-48 w-full md:h-[38vh]">
+      <CampusHero className="h-full w-full" wideTile={58} narrowTile={62} />
+    </div>
+    <main className="relative mx-auto -mt-[8vh] w-full max-w-md space-y-6 px-4 pb-8">
       <AuthBackdrop />
-      <div className="enter">
+      <div className={`${glassCard} enter relative z-10 p-5`}>
         {header ?? (
           <>
             <AuthBrand title="EDC Registration" subtitle="Register once — your profile stays even if access later expires." />
@@ -299,5 +305,6 @@ export function RegisterForm({ event, header }: { event?: EventLink; header?: Re
         )}
       </form>
     </main>
+    </>
   );
 }

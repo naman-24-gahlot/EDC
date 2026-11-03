@@ -89,6 +89,9 @@ phones and pass headers. Colours from the logos as Tailwind tokens: `iim-navy` #
 #007EC4, `iim-sky` (tints), `iim-red` #D71921 (dividers, accents), `iim-maroon`. No new hex accents — use the tokens.
 Sign-in and registration: `AuthBackdrop` + `AuthBrand` (the ASCII logo, `components/brand/AsciiLogo.tsx`, and a title that
 decodes, `DecodeText`). The printed/PDF pass (`lib/passCard.ts`) keeps its own colours.
+Behind them, `CampusHero` (`components/brand/CampusHero.tsx`): official IIM Jammu photos (iimj.ac.in — incubator/CEISD,
+entrepreneurship programmes, campus), 800×450 WebP in `public/landing`, streaming round a curve (`components/ui/TiltedGridHero.tsx`,
+the user's component; `cn` from `lib/utils.ts`). Add a photo: crop to 16:9, ≤ 70 KB, add it to `CAMPUS_PHOTOS`.
 
 ## Motion (app/globals.css "Motion")
 Polish that people feel, not notice. Tokens: `--ease-out` (enter/exit), `--ease-in-out` (moving on screen), `--ease-drawer`.
